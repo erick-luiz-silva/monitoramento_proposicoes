@@ -32,6 +32,8 @@ A extração usa duas camadas de filtro: um filtro amplo por tema legislativo (r
 
 O filtro fino roda contra a ementa **e** contra o campo de indexação temática que a própria Câmara mantém por proposição — a ementa sozinha se mostrou insuficiente (ex.: uma proposição sobre bem-estar de suínos pode ter ementa genérica como "Institui o Código Federal de Bem-Estar Animal", sem citar o termo, mas a Câmara já indexa isso). O matching usa regex ancorada por início de palavra em vez de busca por substring simples, para cobrir variações de gênero/número (suíno/suína/suínos) sem gerar falso positivo por coincidência textual (ex.: um radical mal ancorado para "aves" bateria em "grave"; para "ração" bateria em "tração").
 
+Termos genéricos podem ter um **termo requerido** (`dim_keyword.termo_requerido`): um 2º regex que também precisa bater para a keyword contar. É o que separa, por exemplo, "bem-estar animal" no contexto de produção (abate, granja, cadeia produtiva) de "bem-estar animal" de pet — vocabulário quase idêntico que keyword simples não distingue. Com esse ajuste, o conjunto automático (~147 proposições) ficou próximo do que a consultora valida manualmente (~139).
+
 Os dados passam por três camadas, seguindo o padrão medallion:
 
 ```
@@ -73,21 +75,26 @@ A infraestrutura é local (sem dependência de nuvem): o volume de dados é pequ
 - [x] Enriquecimento do autor principal com partido/UF **atuais** (dimensão de deputados)
 - [x] Carga incremental (bronze → silver → dim_deputado em um único script)
 - [x] Pautas de comissões e plenário (`gold.vw_pautas_monitoradas`) — alerta de proposições monitoradas agendadas para votação
+- [x] Audiências públicas (`gold.vw_audiencias_de_interesse`) — debates públicos cujo tema bate nas keywords
 - [ ] Dashboard Power BI (em desenvolvimento)
 - [ ] Agendamento automático da carga incremental (Task Scheduler / cron)
+- [ ] **Filtro de arquivamento para indicadores** — excluir dos KPIs proposições arquivadas ou correlatas a arquivamento (situações 914/920/923/930/931/940, possivelmente também 950/1120/1222/1292). A definição do bucket será fechada com a área de negócio. Requer também tratar o `cod_situacao` nulo em ~55 proposições (a API vem devolvendo `statusProposicao` com `descricaoSituacao` vazio em extrações recentes, e a silver, ao pegar a última extração, às vezes descarta um valor bom anterior).
 
 O partido/UF exibidos são os atuais do deputado (dimensão separada, atualizável), não os da data em que a proposição foi apresentada — decisão deliberada, já que o uso real é o time político saber com quem falar hoje.
 
 A carga incremental (`extract_incremental.py`) busca proposições com tramitação nos últimos 3 dias (pega tanto proposições novas quanto movimentação em proposições antigas) e registra cada execução em `bronze.controle_execucao`. A janela do próximo run nunca começa depois de "3 dias antes da última execução bem-sucedida" — se a máquina ficar dias sem rodar o job, a janela seguinte se alarga sozinha para cobrir o período perdido, sem depender de alguém notar a falha.
 
-A mesma execução também atualiza as pautas de comissões (CAPADR, CCJC, CMADS e PLEN — as únicas confirmadas com eventos deliberativos ativos; não existe hoje uma comissão específica de bem-estar animal em atividade) numa janela rolante de D-7 a D+14. O cruzamento com as proposições monitoradas geralmente ocorre de forma indireta: um item de pauta (ex. um requerimento) referencia o PL de fato como "proposição relacionada", caminho bem mais comum que o item citar o PL diretamente.
+A mesma execução também atualiza os eventos das comissões (CAPADR, CCJC, CMADS e PLEN — as únicas confirmadas com eventos deliberativos ativos; não existe hoje uma comissão específica de bem-estar animal em atividade) numa janela rolante de D-7 a D+14:
+
+- **Eventos deliberativos** (sessões e reuniões de votação): o cruzamento com as proposições monitoradas geralmente ocorre de forma indireta — um item de pauta (ex. um requerimento) referencia o PL de fato como "proposição relacionada", caminho bem mais comum que o item citar o PL diretamente.
+- **Audiências públicas**: não têm pauta estruturada nem link confiável com proposição. O cruzamento é feito por keyword no texto do tema da audiência (`evento.descricao`) — o sinal é "há debate público sobre um assunto de interesse, em tal data, com tais expositores".
 
 **Próximas fases:** alertas automáticos e dados do Senado Federal.
 
 ## Rodando localmente
 
 ```bash
-git clone [https://github.com/erickluizsilva/monitoramento_proposicoes](https://github.com/erickluizsilva/monitoramento_proposicoes)
+git clone https://github.com/erickluizsilva/monitoramento_proposicoes
 cd monitoramento_proposicoes
 
 python -m venv venv

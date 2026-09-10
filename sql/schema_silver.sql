@@ -145,10 +145,14 @@ CREATE INDEX IF NOT EXISTS ix_evento_pauta_id_proposicao_relacionada ON silver.e
 
 -- Tabela de configuração: palavras-chave usadas no matching da gold.
 -- 'termo' é o fragmento de regex usado no match (ver src/keywords.py);
--- 'rotulo' é o texto legível exibido nos resultados (ex.: "suínos").
+-- 'rotulo' é o texto legível exibido nos resultados (ex.: "suínos");
+-- 'termo_requerido' (opcional) é um 2º regex que TAMBÉM precisa bater para o
+-- termo contar — usado para desambiguar termos genéricos (ex.: "integração" só
+-- conta em contexto agro; "bem-estar animal" só em contexto de produção).
 CREATE TABLE IF NOT EXISTS silver.dim_keyword (
-    id_keyword SERIAL PRIMARY KEY,
-    termo      VARCHAR(100) UNIQUE NOT NULL,
-    rotulo     VARCHAR(100) NOT NULL,
-    ativo      BOOLEAN NOT NULL DEFAULT true
+    id_keyword     SERIAL PRIMARY KEY,
+    termo          VARCHAR(100) UNIQUE NOT NULL,
+    rotulo         VARCHAR(100) NOT NULL,
+    termo_requerido VARCHAR(400),
+    ativo          BOOLEAN NOT NULL DEFAULT true
 );

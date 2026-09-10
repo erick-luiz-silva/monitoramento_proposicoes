@@ -27,13 +27,13 @@ def popular_dim_tema(conn):
 def popular_dim_keyword(conn):
     with conn.cursor() as cur:
         cur.execute("TRUNCATE silver.dim_keyword RESTART IDENTITY;")
-        for rotulo, termo in KEYWORDS:
+        for rotulo, termo, termo_requerido in KEYWORDS:
             cur.execute(
                 """
-                INSERT INTO silver.dim_keyword (termo, rotulo)
-                VALUES (%s, %s);
+                INSERT INTO silver.dim_keyword (termo, rotulo, termo_requerido)
+                VALUES (%s, %s, %s);
                 """,
-                (termo, rotulo),
+                (termo, rotulo, termo_requerido),
             )
     conn.commit()
     print(f"dim_keyword: {len(KEYWORDS)} termos carregados (config)")

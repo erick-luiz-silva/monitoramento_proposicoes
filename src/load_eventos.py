@@ -5,12 +5,16 @@ import api_client as api
 from db import get_connection
 
 COMISSOES = {"CAPADR": 2001, "CCJC": 2003, "CMADS": 6174, "PLEN": 180}
-TIPOS_DELIBERATIVOS = [110, 112, 125, 204, 210]
+# 110/112/125/204/210 = eventos deliberativos (têm pauta, cruzam por proposição).
+# 120 = Audiência Pública (não tem pauta; cruza por keyword no assunto — ver
+# gold.vw_audiencias_de_interesse).
+TIPOS_EVENTO = [110, 112, 120, 125, 204, 210]
 
 
 def carregar_evento_bronze(conn, evento_payload):
     """Grava o item de listagem do evento (já tem tudo que silver.evento precisa —
-    não é necessário chamar /eventos/{id} separadamente) e a pauta associada."""
+    não é necessário chamar /eventos/{id} separadamente) e a pauta associada.
+    Audiências públicas retornam pauta vazia — gravada mesmo assim, sem efeito."""
     id_evento = evento_payload["id"]
     resultado = {}
 
@@ -41,7 +45,7 @@ def carregar_evento_bronze(conn, evento_payload):
 
 
 def executar_carga_eventos(data_inicio, data_fim, limit=None):
-    eventos = api.listar_eventos(COMISSOES.values(), TIPOS_DELIBERATIVOS, data_inicio, data_fim)
+    eventos = api.listar_eventos(COMISSOES.values(), TIPOS_EVENTO, data_inicio, data_fim)
     print(f"{len(eventos)} eventos encontrados entre {data_inicio} e {data_fim}")
 
     if limit is not None:

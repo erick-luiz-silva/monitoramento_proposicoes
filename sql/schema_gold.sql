@@ -14,6 +14,9 @@ FROM silver.proposicao p
 JOIN silver.dim_keyword k
     ON k.ativo
     AND (p.ementa ~* k.termo OR p.keywords_camara ~* k.termo)
+    AND (k.termo_requerido IS NULL
+         OR p.ementa ~* k.termo_requerido
+         OR p.keywords_camara ~* k.termo_requerido)
 GROUP BY p.id_proposicao;
 
 -- View principal: uma linha por proposição relevante (com pelo menos 1 keyword).
@@ -94,6 +97,31 @@ JOIN silver.evento e ON e.id_evento = ep.id_evento
 JOIN gold.vw_monitoramento m
     ON m.id_proposicao = ep.id_proposicao OR m.id_proposicao = ep.id_proposicao_relacionada
 LEFT JOIN silver.dim_deputado dep ON dep.id_deputado = ep.id_deputado_relator
+ORDER BY e.data_hora_inicio DESC;
+
+-- Audiências públicas cujo ASSUNTO bate nas keywords. Audiências não têm pauta
+-- estruturada nem link confiável com proposição — o cruzamento é feito pelo texto
+-- do tema (evento.descricao) contra dim_keyword, mesma regra da gold (termo +
+-- termo_requerido). Sinal: "há debate público sobre um tema de interesse".
+CREATE OR REPLACE VIEW gold.vw_audiencias_de_interesse AS
+SELECT
+    e.id_evento,
+    e.data_hora_inicio,
+    e.sigla_orgao,
+    e.nome_orgao,
+    e.situacao AS situacao_evento,
+    e.descricao AS assunto,
+    string_agg(DISTINCT k.rotulo, ', ' ORDER BY k.rotulo) AS keywords_encontradas,
+    e.url_registro,
+    CASE WHEN e.data_hora_inicio > now() THEN 'Agendada' ELSE 'Realizada' END AS status_alerta
+FROM silver.evento e
+JOIN silver.dim_keyword k
+    ON k.ativo
+    AND e.descricao ~* k.termo
+    AND (k.termo_requerido IS NULL OR e.descricao ~* k.termo_requerido)
+WHERE e.descricao_tipo = 'Audiência Pública'
+GROUP BY e.id_evento, e.data_hora_inicio, e.sigla_orgao, e.nome_orgao,
+         e.situacao, e.descricao, e.url_registro
 ORDER BY e.data_hora_inicio DESC;
 
 -- Auditoria: proposições do tema 64 (Agricultura, Pecuária, Pesca e Extrativismo)
