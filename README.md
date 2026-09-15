@@ -52,15 +52,15 @@ API Câmara dos Deputados
   Power BI / planilha exportada
 ```
 
-A infraestrutura é local (sem dependência de nuvem): o volume de dados é pequeno, o consumidor é um time interno, e a decisão prioriza iteração rápida sobre complexidade operacional. Uma eventual migração para infraestrutura compartilhada não exige alterar a lógica de negócio, apenas o destino da conexão.
+O projeto nasceu com infraestrutura local (volume pequeno, consumidor interno, iteração rápida) e migrou para um Postgres gerenciado na nuvem (Supabase) sem alterar nenhuma lógica de negócio — só o destino da conexão (`DATABASE_URL`), exatamente como esse desenho já previa desde o início.
 
 ## Stack
 
 | Camada | Tecnologia |
 |---|---|
 | Extração e transformação | Python (`requests`, `pandas`) |
-| Armazenamento | PostgreSQL |
-| Orquestração local | Task Scheduler / cron |
+| Armazenamento | PostgreSQL (Supabase) |
+| Orquestração | Task Scheduler / cron |
 | Visualização | Power BI Desktop ou export CSV |
 
 ## Fonte de dados
@@ -105,6 +105,7 @@ pip install -r requirements.txt
 cp src/.env.example src/.env
 
 cd src
+# no .env, use DATABASE_URL (Supabase/Neon/etc.) ou as variáveis DB_* discretas — ver .env.example
 python setup_db.py             # cria os schemas e tabelas
 python extract_bronze.py       # roda a carga histórica (bronze)
 python load_dimensoes.py       # popula tabelas de referência (temas e keywords)
