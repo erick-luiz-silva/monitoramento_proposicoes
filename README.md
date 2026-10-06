@@ -77,7 +77,7 @@ O projeto nasceu com infraestrutura local (volume pequeno, consumidor interno, i
 - [x] Pautas de comissões e plenário (`gold.vw_pautas_monitoradas`) — alerta de proposições monitoradas agendadas para votação
 - [x] Audiências públicas (`gold.vw_audiencias_de_interesse`) — debates públicos cujo tema bate nas keywords
 - [ ] Dashboard Power BI (em desenvolvimento)
-- [ ] Ativar o agendamento no GitHub Actions (workflow preparado; configurar `DATABASE_URL` e publicar na branch padrão)
+- [x] Agendamento no GitHub Actions: carga completa às 07h17 e pautas às 10h e 14h (São Paulo), usando o environment `DATABASE_URL`
 - [ ] **Filtro de arquivamento para indicadores** — excluir dos KPIs proposições arquivadas ou correlatas a arquivamento (situações 914/920/923/930/931/940, possivelmente também 950/1120/1222/1292). A definição do bucket será fechada com a área de negócio. Requer também tratar o `cod_situacao` nulo em ~55 proposições (a API vem devolvendo `statusProposicao` com `descricaoSituacao` vazio em extrações recentes, e a silver, ao pegar a última extração, às vezes descarta um valor bom anterior).
 
 O partido/UF exibidos são os atuais do deputado (dimensão separada, atualizável), não os da data em que a proposição foi apresentada — decisão deliberada, já que o uso real é o time político saber com quem falar hoje.
