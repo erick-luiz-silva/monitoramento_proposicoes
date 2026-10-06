@@ -203,6 +203,28 @@ metadados de conexão. O PBIX anteriormente versionado foi retirado do índice;
 a cópia local é preservada. Isso não remove o arquivo dos commits históricos.
 Não inclua esses artefatos ao publicar alterações do pipeline.
 
+### Notificação ao n8n
+
+Após cada carga bem-sucedida (completa ou pautas), o Actions executa
+`src/notify_n8n.py`: envia um POST ao webhook de produção com o header
+`X-Webhook-Token`. Cadastre `N8N_WEBHOOK_URL` e `N8N_WEBHOOK_TOKEN` como secrets
+no mesmo environment `DATABASE_URL`. O webhook do agendador local estava no
+arquivo `.bat`, que não é executado pelo runner Linux; a chamada agora é uma
+etapa explícita do Actions.
+
+O payload inclui `origem=github_actions`, `modo`, `run_id`, `run_url` e a data
+da notificação para identificar a execução no n8n. A etapa só aceita HTTP 2xx;
+erros HTTP ou de conexão fazem o job falhar. O POST não é repetido automaticamente,
+pois o n8n pode ter recebido a chamada mesmo se a resposta sofrer timeout.
+O aceite HTTP confirma a entrega ao webhook; confirme também o resultado do
+workflow e da atualização da planilha nas **Executions** do n8n.
+
+Para testar a integração ou repetir apenas a notificação depois de uma falha,
+abra **Run workflow**, escolha o modo desejado e marque
+**somente_notificar_n8n**. Essa opção usa os dados já existentes no banco.
+Se precisar repetir uma chamada, confira antes se houve execução correspondente
+no n8n pelo `run_id`.
+
 ### Ambiente reproduzível e testes
 
 O Python do runner é definido em `.python-version` (3.14). `requirements.txt`

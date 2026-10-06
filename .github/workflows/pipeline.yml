@@ -10,6 +10,10 @@ on:
           - completo
           - pautas
         default: completo
+      somente_notificar_n8n:
+        description: Reenviar ao n8n usando os dados já carregados, sem executar nova carga
+        type: boolean
+        default: false
   schedule:
     # 10h17 UTC = 07h17 em São Paulo (UTC-3).
     - cron: "17 10 * * *"
@@ -50,8 +54,11 @@ jobs:
         run: python -m pip install -r requirements.lock
 
       - name: Verificar ambiente e executar atualização
+        if: ${{ inputs.somente_notificar_n8n != true }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
+          N8N_WEBHOOK_TOKEN: ${{ secrets.N8N_WEBHOOK_TOKEN }}
           SCHEDULE: ${{ github.event.schedule }}
           MODO_MANUAL: ${{ inputs.modo }}
         run: |
@@ -59,9 +66,23 @@ jobs:
             echo "::error::Configure o secret DATABASE_URL no environment usado por este job."
             exit 1
           fi
+          python src/notify_n8n.py --check
           python src/check_environment.py
           if [ "$SCHEDULE" = "0 13,17 * * *" ] || [ "$MODO_MANUAL" = "pautas" ]; then
             python src/pipeline_pautas.py
           else
             python src/pipeline.py
+          fi
+
+      - name: Notificar atualização ao n8n
+        env:
+          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
+          N8N_WEBHOOK_TOKEN: ${{ secrets.N8N_WEBHOOK_TOKEN }}
+          SCHEDULE: ${{ github.event.schedule }}
+          MODO_MANUAL: ${{ inputs.modo }}
+        run: |
+          if [ "$SCHEDULE" = "0 13,17 * * *" ] || [ "$MODO_MANUAL" = "pautas" ]; then
+            python src/notify_n8n.py --modo pautas
+          else
+            python src/notify_n8n.py --modo completo
           fi
