@@ -87,18 +87,15 @@ def executar_carga_incremental():
                     erro_count += 1
                     tqdm.write(f"  ! proposição {id_prop} / {tabela}: {status}")
 
-        registrar_execucao(conn, "incremental", data_inicio, data_fim, len(ids))
-
     print(f"\nCarga incremental (bronze) concluída. Endpoints ok: {ok_count} | com erro: {erro_count}")
+    if erro_count:
+        raise RuntimeError(f"Carga incremental incompleta: {erro_count} endpoints com erro.")
 
     print("\nCarregando eventos/pautas...")
     hoje = date.today()
     data_inicio_eventos = hoje - timedelta(days=EVENTOS_DIAS_PASSADO)
     data_fim_eventos = hoje + timedelta(days=EVENTOS_DIAS_FUTURO)
     qtd_eventos = executar_carga_eventos(data_inicio_eventos, data_fim_eventos)
-    with get_connection() as conn:
-        registrar_execucao(conn, "eventos", data_inicio_eventos, data_fim_eventos, qtd_eventos)
-
     print("\nAtualizando silver...")
     executar_transformacao_silver()
 
@@ -107,6 +104,12 @@ def executar_carga_incremental():
 
     print("\nAtualizando dim_orgao...")
     carregar_dim_orgao()
+
+    # Só avança a janela após a conclusão de todas as etapas. Os snapshots
+    # já gravados na bronze permanecem disponíveis para a próxima tentativa.
+    with get_connection() as conn:
+        registrar_execucao(conn, "incremental", data_inicio, data_fim, len(ids))
+        registrar_execucao(conn, "eventos", data_inicio_eventos, data_fim_eventos, qtd_eventos)
 
 
 if __name__ == "__main__":

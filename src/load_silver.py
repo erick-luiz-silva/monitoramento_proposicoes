@@ -16,6 +16,7 @@ CONTAGENS = [
 
 def executar_transformacao_silver():
     sql = (SQL_DIR / "transform_bronze_to_silver.sql").read_text(encoding="utf-8")
+    sql += "\n" + (SQL_DIR / "transform_eventos_to_silver.sql").read_text(encoding="utf-8")
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -26,6 +27,15 @@ def executar_transformacao_silver():
             for nome, query in CONTAGENS:
                 cur.execute(query)
                 print(f"{nome}: {cur.fetchone()[0]} linhas")
+
+
+def executar_transformacao_eventos():
+    """Atualiza somente eventos e pautas, sem reprocessar proposições."""
+    sql = (SQL_DIR / "transform_eventos_to_silver.sql").read_text(encoding="utf-8")
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+        conn.commit()
 
 
 if __name__ == "__main__":

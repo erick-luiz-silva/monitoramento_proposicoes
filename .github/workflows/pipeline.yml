@@ -1,0 +1,67 @@
+name: Pipeline diário e pautas
+
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: Tipo de atualização
+        type: choice
+        options:
+          - completo
+          - pautas
+        default: completo
+  schedule:
+    # 10h17 UTC = 07h17 em São Paulo (UTC-3).
+    - cron: "17 10 * * *"
+    # 13h e 17h UTC = 10h e 14h em São Paulo.
+    - cron: "0 13,17 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monitoramento-proposicoes-pipeline
+  cancel-in-progress: false
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    environment: DATABASE_URL
+    timeout-minutes: 120
+    env:
+      TZ: America/Sao_Paulo
+      PYTHONUNBUFFERED: "1"
+      PGCONNECT_TIMEOUT: "15"
+      PGSSLMODE: require
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Preparar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements.lock
+
+      - name: Instalar dependências
+        run: python -m pip install -r requirements.lock
+
+      - name: Verificar ambiente e executar atualização
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SCHEDULE: ${{ github.event.schedule }}
+          MODO_MANUAL: ${{ inputs.modo }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Configure o secret DATABASE_URL no environment usado por este job."
+            exit 1
+          fi
+          python src/check_environment.py
+          if [ "$SCHEDULE" = "0 13,17 * * *" ] || [ "$MODO_MANUAL" = "pautas" ]; then
+            python src/pipeline_pautas.py
+          else
+            python src/pipeline.py
+          fi

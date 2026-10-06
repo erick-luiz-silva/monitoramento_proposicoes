@@ -49,11 +49,12 @@ def carregar_proposicao_bronze(conn, id_proposicao):
             try:
                 payload = fetch_fn(id_proposicao)
                 _insert_payload(cur, tabela, id_proposicao, payload)
+                conn.commit()
                 resultados[tabela] = "ok"
             except Exception as exc:
+                conn.rollback()
                 resultados[tabela] = f"erro: {exc}"
             time.sleep(api.SLEEP_BETWEEN_CALLS)
-    conn.commit()
     return resultados
 
 

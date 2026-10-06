@@ -8,4 +8,11 @@ __pycache__/
 .vscode/
 *.log
 *.bat
-BI/*.pbix
+# Power BI: artefatos locais, dados embutidos e configurações da máquina.
+/BI/
+*.pbix
+*.pbit
+*.abf
+**/.pbi/localSettings.json
+**/.pbi/editorSettings.json
+**/.pbi/cache.abf

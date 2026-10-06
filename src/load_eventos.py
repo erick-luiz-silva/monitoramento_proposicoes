@@ -24,8 +24,10 @@ def carregar_evento_bronze(conn, evento_payload):
                 "INSERT INTO bronze.eventos_json (id_evento, payload) VALUES (%s, %s);",
                 (id_evento, json.dumps(evento_payload, ensure_ascii=False)),
             )
+            conn.commit()
             resultado["evento"] = "ok"
         except Exception as exc:
+            conn.rollback()
             resultado["evento"] = f"erro: {exc}"
 
         time.sleep(api.SLEEP_BETWEEN_CALLS)
@@ -36,11 +38,12 @@ def carregar_evento_bronze(conn, evento_payload):
                 "INSERT INTO bronze.eventos_pauta_json (id_evento, payload) VALUES (%s, %s);",
                 (id_evento, json.dumps(pauta, ensure_ascii=False)),
             )
+            conn.commit()
             resultado["pauta"] = "ok"
         except Exception as exc:
+            conn.rollback()
             resultado["pauta"] = f"erro: {exc}"
 
-    conn.commit()
     return resultado
 
 
@@ -63,6 +66,8 @@ def executar_carga_eventos(data_inicio, data_fim, limit=None):
                     print(f"  ! evento {evento['id']} / {parte}: {status}")
 
     print(f"Carga de eventos concluída. ok: {ok} | erro: {erro}")
+    if erro:
+        raise RuntimeError(f"Carga de eventos incompleta: {erro} endpoints com erro.")
     return len(eventos)
 
 

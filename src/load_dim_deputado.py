@@ -28,10 +28,16 @@ _SQL_UPSERT = """
 """
 
 
-def carregar_dim_deputado(limit=None):
+def carregar_dim_deputado(limit=None, somente_relatores=False):
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(_SQL_IDS_DEPUTADOS)
+            if somente_relatores:
+                cur.execute(
+                    "SELECT DISTINCT id_deputado_relator FROM silver.evento_pauta "
+                    "WHERE id_deputado_relator IS NOT NULL ORDER BY 1;"
+                )
+            else:
+                cur.execute(_SQL_IDS_DEPUTADOS)
             ids = [row[0] for row in cur.fetchall()]
 
         if limit is not None:
@@ -58,11 +64,14 @@ def carregar_dim_deputado(limit=None):
                     conn.commit()
                     ok += 1
                 except Exception as exc:
+                    conn.rollback()
                     erro += 1
                     tqdm.write(f"  ! deputado {id_deputado}: {exc}")
                 time.sleep(api.SLEEP_BETWEEN_CALLS)
 
         print(f"dim_deputado: {ok} ok, {erro} com erro")
+        if erro:
+            raise RuntimeError(f"Carga de deputados incompleta: {erro} deputados com erro.")
 
 
 if __name__ == "__main__":

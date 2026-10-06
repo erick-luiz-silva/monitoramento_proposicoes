@@ -60,7 +60,7 @@ O projeto nasceu com infraestrutura local (volume pequeno, consumidor interno, i
 |---|---|
 | Extração e transformação | Python (`requests`, `pandas`) |
 | Armazenamento | PostgreSQL (Supabase) |
-| Orquestração | Task Scheduler / cron |
+| Orquestração | GitHub Actions (agendamento diário e execução manual) |
 | Visualização | Power BI Desktop ou export CSV |
 
 ## Fonte de dados
@@ -77,7 +77,7 @@ O projeto nasceu com infraestrutura local (volume pequeno, consumidor interno, i
 - [x] Pautas de comissões e plenário (`gold.vw_pautas_monitoradas`) — alerta de proposições monitoradas agendadas para votação
 - [x] Audiências públicas (`gold.vw_audiencias_de_interesse`) — debates públicos cujo tema bate nas keywords
 - [ ] Dashboard Power BI (em desenvolvimento)
-- [ ] Agendamento automático da carga incremental (Task Scheduler / cron)
+- [ ] Ativar o agendamento no GitHub Actions (workflow preparado; configurar `DATABASE_URL` e publicar na branch padrão)
 - [ ] **Filtro de arquivamento para indicadores** — excluir dos KPIs proposições arquivadas ou correlatas a arquivamento (situações 914/920/923/930/931/940, possivelmente também 950/1120/1222/1292). A definição do bucket será fechada com a área de negócio. Requer também tratar o `cod_situacao` nulo em ~55 proposições (a API vem devolvendo `statusProposicao` com `descricaoSituacao` vazio em extrações recentes, e a silver, ao pegar a última extração, às vezes descarta um valor bom anterior).
 
 O partido/UF exibidos são os atuais do deputado (dimensão separada, atualizável), não os da data em que a proposição foi apresentada — decisão deliberada, já que o uso real é o time político saber com quem falar hoje.
@@ -97,9 +97,10 @@ A mesma execução também atualiza os eventos das comissões (CAPADR, CCJC, CMA
 git clone https://github.com/erickluizsilva/monitoramento_proposicoes
 cd monitoramento_proposicoes
 
-python -m venv venv
-venv\Scripts\activate          # Windows
-pip install -r requirements.txt
+python -m venv .venv
+# Linux/macOS: source .venv/bin/activate
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+pip install -r requirements.lock
 
 # copie src/.env.example para src/.env e preencha as credenciais do seu Postgres
 cp src/.env.example src/.env
@@ -118,6 +119,106 @@ python -c "from datetime import date; from load_eventos import executar_carga_ev
 
 # no dia a dia, roda só isso (bronze incremental + eventos + silver + dimensões, tudo em um):
 python pipeline.py
+```
+
+## Execução no GitHub Actions
+
+O workflow `.github/workflows/pipeline.yml` executa a carga incremental em um
+runner Ubuntu hospedado pelo GitHub. A máquina local pode ficar desligada: os
+dados e o controle de execução ficam no PostgreSQL na nuvem, e cada execução
+instala seu próprio ambiente Python. Não é necessário instalar um MCP ou plugin
+no runner.
+
+### Configuração inicial
+
+1. No Supabase, abra **Connect** e copie a conexão **Session pooler**, na porta
+   `5432`. Essa opção permite conexão por IPv4. Preencha a senha do banco e
+   codifique os caracteres especiais da senha para uso em uma URL. Não use a
+   chave da API do Supabase como senha.
+2. No repositório do GitHub, abra **Settings → Environments → DATABASE_URL**.
+   Em **Environment secrets**, crie o secret **`DATABASE_URL`** com a URL completa.
+   O job usa `environment: DATABASE_URL`; se mudar o nome do environment,
+   atualize esse campo em `.github/workflows/pipeline.yml`:
+
+   ```text
+   postgresql://postgres.PROJECT_REF:SENHA_CODIFICADA@POOLER_HOST:5432/postgres?sslmode=require
+   ```
+
+   Substitua os campos pelo que aparece em **Connect**. Não adicione aspas ao
+   valor e não versione o arquivo `src/.env`. O workflow exige SSL e define um
+   timeout de conexão de 15 segundos.
+3. Confirme que esse banco já contém os schemas Bronze, Silver e Gold e keywords
+   ativas. Para um banco novo, execute a preparação e a carga histórica descritas
+   acima separadamente. O workflow diário não cria tabelas, não reinicializa
+   keywords e não executa a carga histórica.
+4. Publique o código e os workflows na **branch padrão** do repositório. Em
+   **Actions**, habilite os workflows se o GitHub solicitar. A configuração do
+   repositório deve permitir `actions/checkout` e `actions/setup-python`.
+5. Em **Actions → Pipeline diário e pautas → Run workflow**, escolha a branch padrão
+   e o modo `completo` ou `pautas`. Execute a primeira carga manualmente.
+   A etapa de verificação confere a conexão,
+   a existência das tabelas/views necessárias e a presença de keywords ativas.
+   Confirme a conclusão e as contagens Gold no log da execução.
+
+Referência da conexão: [documentação do Supabase](https://supabase.com/docs/guides/database/connecting-to-postgres).
+Se o projeto tiver restrições de rede, o runner também precisa conseguir acessar
+o endpoint escolhido.
+
+### Agendamento e acompanhamento
+
+- A **carga completa incremental** executa todos os dias às **07h17 de São Paulo**
+  (cron `17 10 * * *` em UTC). Inclui proposições, eventos/pautas, Silver e dimensões.
+- As **pautas e audiências** recebem atualizações adicionais todos os dias às
+  **10h e 14h de São Paulo** (cron `0 13,17 * * *` em UTC), por
+  `src/pipeline_pautas.py`. Esse modo atualiza Bronze de eventos/pautas, Silver de
+  eventos/pautas, relatores e órgãos; não extrai proposições nem avança sua janela.
+- O processo Python usa `TZ=America/Sao_Paulo` para calcular as janelas de datas.
+  Altere os crons em `pipeline.yml` para ajustar os horários.
+- O workflow permite execução manual e serializa as execuções desse pipeline,
+  sem cancelar uma carga em andamento. O limite de duração é de 120 minutos.
+- O environment precisa permitir a branch padrão. Se tiver revisão obrigatória,
+  os jobs aguardarão aprovação antes de acessar o secret; para execução autônoma,
+  configure regras compatíveis com esse uso.
+  [Referência de environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).
+- Os logs ficam em **Actions → execução → job pipeline**. Ative as notificações
+  de falha do GitHub Actions nas configurações da sua conta.
+- Falhas parciais em proposições, eventos ou deputados fazem o job falhar. A
+  janela incremental só avança após Bronze, eventos, Silver e dimensões
+  concluírem. Os endpoints já gravados permanecem na Bronze; a próxima execução
+  tenta novamente a janela, podendo acrescentar novos snapshots.
+- O controle de concorrência do Actions não impede execução simultânea pela sua
+  máquina. Ao ativar o agendamento remoto, desative o agendamento local existente.
+- O GitHub pode atrasar ou descartar disparos agendados sob alta carga. Em
+  repositórios públicos, o agendamento é desativado após 60 dias sem atividade.
+  Verifique periodicamente a última execução e reative o workflow se necessário.
+  [Referência de agendamento](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+- Esse job atualiza o banco; a atualização do Power BI deve ser configurada
+  separadamente no Power BI Service ou executada no Desktop.
+
+### Arquivos locais do Power BI
+
+O diretório `BI/`, arquivos `.pbix`, `.pbit`, `.abf` e configurações locais de
+projetos PBIP ficam no `.gitignore`. Eles podem conter dados embutidos, caches e
+metadados de conexão. O PBIX anteriormente versionado foi retirado do índice;
+a cópia local é preservada. Isso não remove o arquivo dos commits históricos.
+Não inclua esses artefatos ao publicar alterações do pipeline.
+
+### Ambiente reproduzível e testes
+
+O Python do runner é definido em `.python-version` (3.14). `requirements.txt`
+mantém a lista de dependências diretas; `requirements.lock` fixa as versões
+diretas e transitivas validadas. Instale o lock para reproduzir esse ambiente.
+Ao atualizar dependências, use um ambiente virtual novo com essa versão de Python,
+instale `requirements.txt`, gere novamente o lock com `python -m pip freeze >
+requirements.lock` e rode os testes antes de publicar.
+
+O workflow `.github/workflows/tests.yml` roda em pull requests e pushes na
+`main`, sem secrets e sem acessar banco/API reais. Para executar localmente,
+na raiz do projeto e com o ambiente virtual ativo:
+
+```bash
+python -m compileall -q src tests
+python -m unittest discover -s tests -v
 ```
 
 ## Autor
