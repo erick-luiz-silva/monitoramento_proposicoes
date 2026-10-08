@@ -1,5 +1,8 @@
 name: Pipeline diário e pautas
 
+# Agendamento feito pelo n8n (workflow "Agendador – Monitoramento de Proposições"),
+# que chama workflow_dispatch às 07h17 (completo) e 10h/14h (pautas) de São Paulo.
+# O cron nativo do GitHub foi removido porque atrasava ou descartava disparos.
 on:
   workflow_dispatch:
     inputs:
@@ -14,11 +17,6 @@ on:
         description: Reenviar ao n8n usando os dados já carregados, sem executar nova carga
         type: boolean
         default: false
-  schedule:
-    # 10h17 UTC = 07h17 em São Paulo (UTC-3).
-    - cron: "17 10 * * *"
-    # 13h e 17h UTC = 10h e 14h em São Paulo.
-    - cron: "0 13,17 * * *"
 
 permissions:
   contents: read
@@ -59,8 +57,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
           N8N_WEBHOOK_TOKEN: ${{ secrets.N8N_WEBHOOK_TOKEN }}
-          SCHEDULE: ${{ github.event.schedule }}
-          MODO_MANUAL: ${{ inputs.modo }}
+          MODO: ${{ inputs.modo }}
         run: |
           if [ -z "$DATABASE_URL" ]; then
             echo "::error::Configure o secret DATABASE_URL no environment usado por este job."
@@ -68,7 +65,7 @@ jobs:
           fi
           python src/notify_n8n.py --check
           python src/check_environment.py
-          if [ "$SCHEDULE" = "0 13,17 * * *" ] || [ "$MODO_MANUAL" = "pautas" ]; then
+          if [ "$MODO" = "pautas" ]; then
             python src/pipeline_pautas.py
           else
             python src/pipeline.py
@@ -78,10 +75,9 @@ jobs:
         env:
           N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
           N8N_WEBHOOK_TOKEN: ${{ secrets.N8N_WEBHOOK_TOKEN }}
-          SCHEDULE: ${{ github.event.schedule }}
-          MODO_MANUAL: ${{ inputs.modo }}
+          MODO: ${{ inputs.modo }}
         run: |
-          if [ "$SCHEDULE" = "0 13,17 * * *" ] || [ "$MODO_MANUAL" = "pautas" ]; then
+          if [ "$MODO" = "pautas" ]; then
             python src/notify_n8n.py --modo pautas
           else
             python src/notify_n8n.py --modo completo

@@ -60,7 +60,7 @@ O projeto nasceu com infraestrutura local (volume pequeno, consumidor interno, i
 |---|---|
 | Extração e transformação | Python (`requests`, `pandas`) |
 | Armazenamento | PostgreSQL (Supabase) |
-| Orquestração | GitHub Actions (agendamento diário e execução manual) |
+| Orquestração | n8n (agendamento) disparando o GitHub Actions via `workflow_dispatch` |
 | Visualização | Power BI Desktop ou export CSV |
 
 ## Fonte de dados
@@ -77,7 +77,7 @@ O projeto nasceu com infraestrutura local (volume pequeno, consumidor interno, i
 - [x] Pautas de comissões e plenário (`gold.vw_pautas_monitoradas`) — alerta de proposições monitoradas agendadas para votação
 - [x] Audiências públicas (`gold.vw_audiencias_de_interesse`) — debates públicos cujo tema bate nas keywords
 - [ ] Dashboard Power BI (em desenvolvimento)
-- [x] Agendamento no GitHub Actions: carga completa às 07h17 e pautas às 10h e 14h (São Paulo), usando o environment `DATABASE_URL`
+- [x] Agendamento pelo n8n disparando o GitHub Actions: carga completa às 07h17 e pautas às 10h e 14h (São Paulo), usando o environment `DATABASE_URL`
 - [ ] **Filtro de arquivamento para indicadores** — excluir dos KPIs proposições arquivadas ou correlatas a arquivamento (situações 914/920/923/930/931/940, possivelmente também 950/1120/1222/1292). A definição do bucket será fechada com a área de negócio. Requer também tratar o `cod_situacao` nulo em ~55 proposições (a API vem devolvendo `statusProposicao` com `descricaoSituacao` vazio em extrações recentes, e a silver, ao pegar a última extração, às vezes descarta um valor bom anterior).
 
 O partido/UF exibidos são os atuais do deputado (dimensão separada, atualizável), não os da data em que a proposição foi apresentada — decisão deliberada, já que o uso real é o time político saber com quem falar hoje.
@@ -166,14 +166,19 @@ o endpoint escolhido.
 
 ### Agendamento e acompanhamento
 
+- O agendamento fica no **n8n**, no workflow "Agendador – Monitoramento de
+  Proposições", que chama a API `workflow_dispatch` do GitHub com o input `modo`
+  (credencial com token fine-grained do repositório, permissão *Actions: write*).
+  O `pipeline.yml` não tem mais `schedule`: o cron nativo do GitHub atrasava
+  horas ou descartava disparos.
 - A **carga completa incremental** executa todos os dias às **07h17 de São Paulo**
-  (cron `17 10 * * *` em UTC). Inclui proposições, eventos/pautas, Silver e dimensões.
+  (`modo=completo`). Inclui proposições, eventos/pautas, Silver e dimensões.
 - As **pautas e audiências** recebem atualizações adicionais todos os dias às
-  **10h e 14h de São Paulo** (cron `0 13,17 * * *` em UTC), por
+  **10h e 14h de São Paulo** (`modo=pautas`), por
   `src/pipeline_pautas.py`. Esse modo atualiza Bronze de eventos/pautas, Silver de
   eventos/pautas, relatores e órgãos; não extrai proposições nem avança sua janela.
 - O processo Python usa `TZ=America/Sao_Paulo` para calcular as janelas de datas.
-  Altere os crons em `pipeline.yml` para ajustar os horários.
+  Para ajustar os horários, altere os Schedule Triggers do agendador no n8n.
 - O workflow permite execução manual e serializa as execuções desse pipeline,
   sem cancelar uma carga em andamento. O limite de duração é de 120 minutos.
 - O environment precisa permitir a branch padrão. Se tiver revisão obrigatória,
@@ -188,10 +193,8 @@ o endpoint escolhido.
   tenta novamente a janela, podendo acrescentar novos snapshots.
 - O controle de concorrência do Actions não impede execução simultânea pela sua
   máquina. Ao ativar o agendamento remoto, desative o agendamento local existente.
-- O GitHub pode atrasar ou descartar disparos agendados sob alta carga. Em
-  repositórios públicos, o agendamento é desativado após 60 dias sem atividade.
-  Verifique periodicamente a última execução e reative o workflow se necessário.
-  [Referência de agendamento](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+- Se o token do GitHub expirar, o agendador do n8n falha ao disparar (HTTP 401)
+  e nenhuma carga roda: renove o token na credencial do n8n.
 - Esse job atualiza o banco; a atualização do Power BI deve ser configurada
   separadamente no Power BI Service ou executada no Desktop.
 
