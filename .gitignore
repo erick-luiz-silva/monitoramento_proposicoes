@@ -19,3 +19,6 @@ __pycache__/
 
 # Token OAuth do Google (contém refresh token).
 src/token_google.json
+
+# Saídas locais de análise (comparação com a planilha do time).
+data/
