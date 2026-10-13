@@ -27,7 +27,7 @@ python pipeline.py          # daily full incremental run
 python pipeline_pautas.py   # intraday events/agendas-only refresh
 
 # One-time bootstrap of an empty database (after setup_db.py + load_dimensoes.py):
-python extract_bronze.py    # historical bronze load for all TEMAS, desde 2023-02-01 em janelas de 90 dias (--desde, --pular-existentes, --reconciliar N)
+python extract_bronze.py    # historical bronze load for all TEMAS, desde 2023-02-01 em janelas de 90 dias (--desde, --pular-existentes, --reconciliar N); reconecta automaticamente se o banco derrubar a conexão
 python load_silver.py && python load_dim_deputado.py && python load_dim_orgao.py
 python -c "from datetime import date; from load_eventos import executar_carga_eventos; executar_carga_eventos(date(2023,1,1), date.today())"
 ```
