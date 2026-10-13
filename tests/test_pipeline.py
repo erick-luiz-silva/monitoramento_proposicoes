@@ -1,7 +1,7 @@
 """Regressões de falhas e reexecução, sem acessar a API ou o banco real."""
 
 from contextlib import ExitStack, contextmanager
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 import sys
 import unittest
@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import check_environment
+import extract_bronze
 import extract_incremental
 import load_bronze
 import load_dim_deputado
@@ -193,6 +194,65 @@ class EnvironmentTests(unittest.TestCase):
         with patch.object(check_environment, "get_connection", return_value=self.conn):
             check_environment.check_environment()
         self.conn.__enter__.return_value.commit.assert_not_called()
+
+
+class BackfillTests(unittest.TestCase):
+    def test_janelas_sao_contiguas_limitadas_e_ate_hoje(self):
+        janelas = extract_bronze.gerar_janelas(date(2023, 2, 1), date(2026, 10, 13))
+        self.assertEqual(janelas[0][0], date(2023, 2, 1))
+        self.assertEqual(janelas[-1][1], date(2026, 10, 13))
+        for (ini, fim), (prox_ini, _) in zip(janelas, janelas[1:]):
+            self.assertLessEqual((fim - ini).days, 89)
+            self.assertEqual(prox_ini, fim + timedelta(days=1))
+        self.assertLessEqual((janelas[-1][1] - janelas[-1][0]).days, 89)
+
+    def test_janela_unica_quando_periodo_cabe_no_limite(self):
+        self.assertEqual(
+            extract_bronze.gerar_janelas(date(2026, 10, 1), date(2026, 10, 13)),
+            [(date(2026, 10, 1), date(2026, 10, 13))],
+        )
+        self.assertEqual(extract_bronze.gerar_janelas(date(2026, 10, 2), date(2026, 10, 1)), [])
+
+    def test_ids_deduplicados_entre_janelas_e_temas(self):
+        def listar(cod_tema, data_inicio, data_fim):
+            return [{"id": 1}, {"id": 2}] if data_inicio.month == 1 else [{"id": 2}, {"id": 3}]
+
+        janelas = [(date(2026, 1, 1), date(2026, 1, 31)), (date(2026, 2, 1), date(2026, 2, 28))]
+        with patch.object(extract_bronze.api, "listar_proposicoes_por_tema", side_effect=listar):
+            ids = extract_bronze.coletar_ids_janelas(janelas)
+        self.assertEqual(ids, [1, 2, 3])
+
+    def test_pular_existentes_nao_recarrega_ids_completos(self):
+        conn = MagicMock()
+        cur = conn.__enter__.return_value.cursor.return_value.__enter__.return_value
+        cur.fetchall.return_value = [(1,)]
+        with patch.object(extract_bronze, "get_connection", return_value=conn), patch.object(
+            extract_bronze, "carregar_proposicao_bronze", return_value={"proposicoes_json": "ok"}
+        ) as carregar:
+            extract_bronze.carregar_ids([1, 2], pular_existentes=True)
+        carregar.assert_called_once()
+        self.assertEqual(carregar.call_args.args[1], 2)
+
+    def test_falha_parcial_levanta_erro_sem_registrar_janela(self):
+        conn = MagicMock()
+        with patch.object(extract_bronze, "get_connection", return_value=conn), patch.object(
+            extract_bronze, "carregar_proposicao_bronze", return_value={"autores_json": "erro: timeout"}
+        ):
+            with self.assertRaisesRegex(RuntimeError, "incompleta"):
+                extract_bronze.carregar_ids([123])
+        executed = [c.args[0] for c in conn.__enter__.return_value.cursor.return_value.__enter__.return_value.execute.call_args_list]
+        self.assertFalse(any("controle_execucao" in sql for sql in executed))
+
+    def test_reconciliacao_carrega_so_novos_na_janela_recente(self):
+        with patch.object(extract_bronze, "date") as mock_date, patch.object(
+            extract_bronze, "coletar_ids_janelas", return_value=[7]
+        ) as coletar, patch.object(extract_bronze, "carregar_ids") as carregar:
+            mock_date.today.return_value = date(2026, 10, 13)
+            extract_bronze.executar_reconciliacao(60)
+        janelas = coletar.call_args.args[0]
+        self.assertEqual(janelas[0][0], date(2026, 10, 13) - timedelta(days=60))
+        self.assertEqual(janelas[-1][1], date(2026, 10, 13))
+        carregar.assert_called_once_with([7], pular_existentes=True)
 
 
 class PautaTests(unittest.TestCase):

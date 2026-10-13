@@ -33,10 +33,12 @@ def _get(url, params=None):
 def listar_proposicoes_por_tema(cod_tema, itens=100, data_inicio=None, data_fim=None):
     """Retorna todas as proposições de um tema, seguindo a paginação via links.
 
-    Se data_inicio/data_fim forem informadas, filtra por proposições com
-    tramitação no período (não a data de apresentação) — usado na carga
-    incremental para pegar tanto proposições novas quanto movimentações em
-    proposições antigas.
+    Sem data_inicio/data_fim, a API devolve só as proposições com tramitação
+    nos últimos ~30 dias. Com datas, filtra por proposições com tramitação no
+    período (não a data de apresentação), com intervalo máximo de 3 meses
+    (HTTP 400 acima disso). Usado na carga incremental para pegar tanto
+    proposições novas quanto movimentações em proposições antigas, e no backfill
+    por janelas de extract_bronze.py.
 
     Faz uma pausa entre páginas para não sobrecarregar a API.
     """

@@ -108,7 +108,8 @@ cp src/.env.example src/.env
 cd src
 # no .env, use DATABASE_URL (Supabase/Neon/etc.) ou as variáveis DB_* discretas — ver .env.example
 python setup_db.py             # cria os schemas e tabelas
-python extract_bronze.py       # roda a carga histórica (bronze)
+python extract_bronze.py       # carga histórica (bronze) desde 2023-02-01, por janelas de 90 dias
+                               # reexecução após falha: --pular-existentes
 python load_dimensoes.py       # popula tabelas de referência (temas e keywords)
 python load_silver.py          # transforma bronze em tabelas relacionais (silver)
 python load_dim_deputado.py    # enriquece autores deputados com partido/UF atuais
