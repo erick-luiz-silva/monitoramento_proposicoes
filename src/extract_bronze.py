@@ -171,12 +171,21 @@ if __name__ == "__main__":
         help="Modo reconciliação: carrega só proposições novas dos últimos DIAS dias",
     )
     parser.add_argument(
+        "--pausa",
+        type=float,
+        default=None,
+        metavar="SEG",
+        help=f"Pausa entre chamadas à API, em segundos (padrão: {api.SLEEP_BETWEEN_CALLS})",
+    )
+    parser.add_argument(
         "--limit",
         type=int,
         default=None,
         help="Limita a quantidade de proposições processadas (uso para teste)",
     )
     args = parser.parse_args()
+    if args.pausa is not None:
+        api.SLEEP_BETWEEN_CALLS = args.pausa  # lido a cada chamada por api_client e load_bronze
     if args.reconciliar is not None:
         executar_reconciliacao(args.reconciliar)
     else:
