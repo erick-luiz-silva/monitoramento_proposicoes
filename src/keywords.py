@@ -30,26 +30,35 @@ _CTX_PRODUCAO = (
     r"animais de produção|animal de produção)"
 )
 
+def _ctx(*extras):
+    """Estende o contexto de produção com alternativas extras (ex.: setor avícola)."""
+    return "(" + "|".join([_CTX_PRODUCAO[1:-1], *extras]) + ")"
+
+
+_CTX_AVES = _ctx(r"\mavicultur", r"\mavícol", r"\mfrang", r"\mpoedeir", r"\movos")
+_CTX_TRABALHO_RURAL = _ctx(r"\msafr", r"\magropecuár", r"\magrícol")
+_CTX_ORIGEM_ANIMAL = r"(origem animal|\mcarne|\mproteín|\mlátic|\membutid)"
+
 KEYWORDS = [
     ("suinocultura", r"\msuinocultura", None),
     ("suínos", r"\msuín", None),
     ("proteína animal", r"\mproteín.*\manima", None),
-    ("rações animais", r"\mraç.*\manima", None),
+    ("rações animais", r"\mraç.*\manima", _CTX_PRODUCAO),
     ("sanidade", r"\msanidade", None),
-    ("animais de produção", r"\manima.*\mprodu", None),
+    ("animais de produção", r"\manima(is|l) de (produção|criação)|\mprodução animal", None),
     ("genética suína", r"\mgenétic.*\msuín", None),
     ("granjas", r"\mgranj", None),
     ("integração", r"\mintegraç", _CTX_AGRO),
     ("agroindústria", r"\magroindústr", None),
     ("animais de interesse econômico", r"\manima.*\minteresse.*\meconômic", None),
     ("avicultura", r"\mavicultura", None),
-    ("aves", r"\mave", None),
+    ("aves", r"\mave", _CTX_AVES),
     ("frango", r"\mfrang", None),
-    ("milho", r"\mmilho", None),
+    ("milho", r"\mmilho", _CTX_PRODUCAO),
     ("produtor rural", r"\mprodutor.*\mrura", None),
-    ("trabalhador rural", r"\mtrabalhador.*\mrura", None),
+    ("trabalhador rural", r"\mtrabalhador.*\mrura", _CTX_TRABALHO_RURAL),
     ("dejeto de animais", r"\mdejeto.*\manima", None),
-    ("rótulo", r"\mrótul", None),
+    ("rótulo", r"\mrótul|\mrotulag", _CTX_ORIGEM_ANIMAL),
     ("gaiolas", r"\mgaiol", None),
     ("animais domésticos", r"\manima.*\mdoméstic", _CTX_PRODUCAO),
     ("bem-estar animal", r"\mbem.estar.*\manima", _CTX_PRODUCAO),
