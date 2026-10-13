@@ -6,6 +6,10 @@ from db import get_connection
 
 SLEEP_BETWEEN_PROPOSICOES = 0.5
 
+
+class ConexaoPerdida(Exception):
+    """A conexão com o banco caiu no meio da carga; quem chamou decide se reconecta."""
+
 _INSERT_SQL = {
     "proposicoes_json": """
         INSERT INTO bronze.proposicoes_json (id_proposicao, payload)
@@ -35,6 +39,8 @@ def carregar_proposicao_bronze(conn, id_proposicao):
 
     Cada chamada é isolada: se um endpoint falhar, os demais ainda são
     tentados e gravados (bronze é append-only, sem meia-entrada bloqueando o resto).
+    Se a própria conexão cair, levanta ConexaoPerdida — não adianta tentar os
+    demais endpoints nem dar rollback numa conexão fechada.
     """
     endpoints = {
         "proposicoes_json": api.buscar_detalhes,
@@ -52,6 +58,8 @@ def carregar_proposicao_bronze(conn, id_proposicao):
                 conn.commit()
                 resultados[tabela] = "ok"
             except Exception as exc:
+                if conn.closed:
+                    raise ConexaoPerdida(f"conexão encerrada na proposição {id_proposicao}: {exc}") from exc
                 conn.rollback()
                 resultados[tabela] = f"erro: {exc}"
             time.sleep(api.SLEEP_BETWEEN_CALLS)

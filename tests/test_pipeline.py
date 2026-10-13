@@ -28,6 +28,7 @@ class FakeConnection:
         self.pending = []
         self.persisted = []
         self.rollbacks = 0
+        self.closed = 0
 
     @contextmanager
     def cursor(self):
@@ -69,6 +70,17 @@ class LoaderTests(unittest.TestCase):
         self.assertTrue(result["autores_json"].startswith("erro:"))
         self.assertEqual(result["temas_json"], "ok")
         self.assertEqual(result["tramitacoes_json"], "ok")
+
+    def test_bronze_conexao_fechada_levanta_sem_rollback(self):
+        conn = FakeConnection("bronze.proposicoes_json")
+        conn.closed = 1
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(load_bronze.time, "sleep"))
+            for method in ["buscar_detalhes", "buscar_autores", "buscar_temas", "buscar_tramitacoes"]:
+                stack.enter_context(patch.object(load_bronze.api, method, return_value=[]))
+            with self.assertRaises(load_bronze.ConexaoPerdida):
+                load_bronze.carregar_proposicao_bronze(conn, 123)
+        self.assertEqual(conn.rollbacks, 0)
 
     def test_events_recovers_transaction_after_pauta_failure(self):
         conn = FakeConnection("bronze.eventos_pauta_json")
@@ -240,6 +252,38 @@ class BackfillTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(RuntimeError, "incompleta"):
                 extract_bronze.carregar_ids([123])
+        executed = [c.args[0] for c in conn.__enter__.return_value.cursor.return_value.__enter__.return_value.execute.call_args_list]
+        self.assertFalse(any("controle_execucao" in sql for sql in executed))
+
+    def test_reconecta_apos_queda_e_tenta_de_novo_a_mesma_proposicao(self):
+        conn1, conn2 = MagicMock(), MagicMock()
+        chamadas = []
+
+        def carregar(conn, id_prop):
+            chamadas.append((conn, id_prop))
+            if id_prop == 2 and len(chamadas) == 2:
+                raise extract_bronze.ConexaoPerdida("server closed the connection unexpectedly")
+            return {"proposicoes_json": "ok"}
+
+        with patch.object(extract_bronze, "get_connection", side_effect=[conn1, conn2]) as get_conn, patch.object(
+            extract_bronze, "carregar_proposicao_bronze", side_effect=carregar
+        ), patch.object(extract_bronze.time, "sleep"):
+            extract_bronze.carregar_ids([1, 2, 3])
+        self.assertEqual(get_conn.call_count, 2)
+        self.assertEqual([id_prop for _, id_prop in chamadas], [1, 2, 2, 3])
+        self.assertIs(chamadas[2][0], conn2.__enter__.return_value)
+        conn1.__exit__.assert_called_once()
+
+    def test_reconexao_esgotada_levanta_erro_para_retomar(self):
+        conn = MagicMock()
+        falha = extract_bronze.psycopg2.OperationalError("connection refused")
+        with patch.object(
+            extract_bronze, "get_connection", side_effect=[conn] + [falha] * len(extract_bronze.RECONEXAO_ESPERAS)
+        ), patch.object(
+            extract_bronze, "carregar_proposicao_bronze", side_effect=extract_bronze.ConexaoPerdida("caiu")
+        ), patch.object(extract_bronze.time, "sleep"):
+            with self.assertRaisesRegex(RuntimeError, "--pular-existentes"):
+                extract_bronze.carregar_ids([1])
         executed = [c.args[0] for c in conn.__enter__.return_value.cursor.return_value.__enter__.return_value.execute.call_args_list]
         self.assertFalse(any("controle_execucao" in sql for sql in executed))
 

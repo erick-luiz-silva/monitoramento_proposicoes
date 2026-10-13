@@ -1,15 +1,19 @@
 import argparse
+from contextlib import ExitStack
 from datetime import date, timedelta
+import time
 
+import psycopg2
 from tqdm import tqdm
 
 import api_client as api
 from db import get_connection
-from load_bronze import carregar_proposicao_bronze
+from load_bronze import ConexaoPerdida, carregar_proposicao_bronze
 
 TEMAS = [64, 48]  # Agricultura, Pecuária, Pesca e Extrativismo / Meio Ambiente e Desenvolvimento Sustentável
 DESDE_PADRAO = date(2023, 2, 1)
 MAX_DIAS_JANELA = 90  # a API só aceita dataInicio/dataFim com até 3 meses de intervalo
+RECONEXAO_ESPERAS = (5, 15, 30, 60, 120)  # segundos antes de cada tentativa de reconectar ao banco
 
 
 def gerar_janelas(desde, ate, max_dias=MAX_DIAS_JANELA):
@@ -56,6 +60,24 @@ def carregar_ids_existentes(conn):
         return {linha[0] for linha in cur.fetchall()}
 
 
+def _reconectar(conexao):
+    """Abre uma conexão nova em `conexao` (ExitStack), com espera crescente entre tentativas."""
+    ultimo_erro = None
+    for espera in RECONEXAO_ESPERAS:
+        time.sleep(espera)
+        try:
+            conn = conexao.enter_context(get_connection())
+            tqdm.write(f"  reconectado ao banco após {espera}s")
+            return conn
+        except psycopg2.Error as exc:
+            ultimo_erro = exc
+            tqdm.write(f"  ! falha ao reconectar ({exc}); nova tentativa")
+    raise RuntimeError(
+        f"Conexão com o banco perdida e não recuperada após {len(RECONEXAO_ESPERAS)} tentativas "
+        f"({ultimo_erro}). Rode de novo com --pular-existentes para continuar de onde parou."
+    )
+
+
 def carregar_ids(ids, pular_existentes=False, limit=None):
     """Grava a bronze das proposições dadas. Levanta erro ao final se algum endpoint falhar.
 
@@ -75,9 +97,22 @@ def carregar_ids(ids, pular_existentes=False, limit=None):
     ok_count = 0
     erro_count = 0
 
-    with get_connection() as conn:
+    with ExitStack() as conexao:
+        conn = conexao.enter_context(get_connection())
         for id_prop in tqdm(ids, desc="Carga bronze", unit="proposição"):
-            resultado = carregar_proposicao_bronze(conn, id_prop)
+            try:
+                resultado = carregar_proposicao_bronze(conn, id_prop)
+            except (ConexaoPerdida, psycopg2.OperationalError, psycopg2.InterfaceError) as exc:
+                tqdm.write(f"  ! conexão perdida na proposição {id_prop}: {exc}")
+                conexao.close()
+                conn = _reconectar(conexao)
+                try:
+                    resultado = carregar_proposicao_bronze(conn, id_prop)
+                except (ConexaoPerdida, psycopg2.OperationalError, psycopg2.InterfaceError) as exc_retry:
+                    # Conta como erro e segue; a próxima proposição já usa uma conexão nova.
+                    resultado = {"conexao": f"erro: {exc_retry}"}
+                    conexao.close()
+                    conn = _reconectar(conexao)
             for tabela, status in resultado.items():
                 if status == "ok":
                     ok_count += 1
