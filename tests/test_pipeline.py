@@ -11,6 +11,8 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import check_environment
+import comparar_acompanhamento
+import config
 import extract_bronze
 import extract_incremental
 import load_bronze
@@ -127,14 +129,19 @@ class IncrementalTests(unittest.TestCase):
         self.stack.enter_context(patch.object(extract_incremental, "calcular_janela", return_value=(
             date(2026, 10, 3), date(2026, 10, 6)
         )))
+        self.stack.enter_context(patch.object(extract_incremental, "reconciliacao_longa_pendente", return_value=False))
         self.stack.enter_context(patch.object(extract_incremental, "coletar_ids_unicos", return_value=[123]))
+        self.reconciliacao = self.stack.enter_context(patch.object(
+            extract_incremental, "executar_reconciliacao",
+            return_value=(date(2026, 7, 8), date(2026, 10, 6), [456], 0),
+        ))
         self.bronze = self.stack.enter_context(patch.object(
             extract_incremental, "carregar_proposicao_bronze", return_value={"proposicoes_json": "ok"}
         ))
         self.events = []
         self.stages = {}
         for name in ["executar_carga_eventos", "executar_transformacao_silver", "carregar_dim_deputado", "carregar_dim_orgao"]:
-            def execute(*args, stage=name):
+            def execute(*args, stage=name, **kwargs):
                 self.events.append(stage)
                 return 1
             self.stages[name] = self.stack.enter_context(patch.object(
@@ -144,11 +151,15 @@ class IncrementalTests(unittest.TestCase):
             extract_incremental, "registrar_execucao", side_effect=lambda *args: self.events.append("checkpoint")
         ))
 
+    def tipos_registrados(self):
+        return [call.args[1] for call in self.register.call_args_list]
+
     def test_partial_bronze_failure_does_not_advance_window(self):
         self.bronze.return_value = {"proposicoes_json": "erro: timeout"}
         with self.assertRaisesRegex(RuntimeError, "incompleta"):
             extract_incremental.executar_carga_incremental()
         self.register.assert_not_called()
+        self.reconciliacao.assert_not_called()
         self.stages["executar_carga_eventos"].assert_not_called()
 
     def test_failure_in_any_downstream_stage_does_not_advance_window(self):
@@ -161,21 +172,50 @@ class IncrementalTests(unittest.TestCase):
                 self.register.assert_not_called()
                 mock.side_effect = previous_effect
 
-    def test_success_registers_both_windows_only_after_all_stages(self):
+    def test_success_registers_windows_only_after_all_stages(self):
         extract_incremental.executar_carga_incremental()
         self.assertEqual(self.events, [
             "executar_carga_eventos", "executar_transformacao_silver", "carregar_dim_deputado",
-            "carregar_dim_orgao", "checkpoint", "checkpoint"
+            "carregar_dim_orgao", "checkpoint", "checkpoint", "checkpoint"
         ])
-        self.assertEqual([call.args[1] for call in self.register.call_args_list], ["incremental", "eventos"])
+        self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
+        self.assertEqual(self.register.call_args_list[2].args[2:], (date(2026, 7, 8), date(2026, 10, 6), 1))
+
+    def test_reconciliacao_roda_apos_d14_sem_repetir_seus_ids(self):
+        extract_incremental.executar_carga_incremental()
+        self.reconciliacao.assert_called_once_with(90, levantar_erro=False, ignorar=[123])
+
+    def test_dim_deputado_recebe_ids_da_janela_e_da_reconciliacao(self):
+        extract_incremental.executar_carga_incremental()
+        self.stages["carregar_dim_deputado"].assert_called_once_with(seletivo=True, ids_proposicao=[123, 456])
+
+    def test_erro_na_reconciliacao_registra_incremental_e_falha_no_fim(self):
+        for efeito in [
+            {"return_value": (date(2026, 7, 8), date(2026, 10, 6), [456], 2)},
+            {"side_effect": RuntimeError("API fora do ar")},
+        ]:
+            with self.subTest(efeito=efeito):
+                self.register.reset_mock()
+                self.reconciliacao.side_effect = None
+                self.reconciliacao.configure_mock(**efeito)
+                with self.assertRaisesRegex(RuntimeError, "conciliação"):
+                    extract_incremental.executar_carga_incremental()
+                self.assertEqual(self.tipos_registrados(), ["incremental", "eventos"])
+                self.stages["carregar_dim_orgao"].assert_called()
+
+    def test_reconciliacao_longa_registra_as_duas(self):
+        with patch.object(extract_incremental, "reconciliacao_longa_pendente", return_value=True):
+            extract_incremental.executar_carga_incremental()
+        self.assertEqual(self.reconciliacao.call_args.args[0], 365)
+        self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao", "reconciliacao_365"])
 
 
 class WindowTests(unittest.TestCase):
     def test_windows_cover_initial_recent_and_missed_runs(self):
         for last, expected in [
-            (None, date(2026, 10, 3)),
-            (date(2026, 10, 5), date(2026, 10, 2)),
-            (date(2026, 9, 20), date(2026, 9, 17)),
+            (None, date(2026, 9, 22)),
+            (date(2026, 10, 5), date(2026, 9, 21)),
+            (date(2026, 9, 20), date(2026, 9, 6)),
         ]:
             with self.subTest(last=last):
                 conn = MagicMock()
@@ -183,6 +223,22 @@ class WindowTests(unittest.TestCase):
                 with patch.object(extract_incremental, "date") as mock_date:
                     mock_date.today.return_value = date(2026, 10, 6)
                     self.assertEqual(extract_incremental.calcular_janela(conn), (expected, date(2026, 10, 6)))
+
+    def test_reconciliacao_longa_por_idade_da_ultima(self):
+        for ultima, esperado in [
+            (None, True),
+            (date(2026, 9, 29), True),
+            (date(2026, 9, 30), False),
+            (date(2026, 10, 5), False),
+        ]:
+            with self.subTest(ultima=ultima):
+                conn = MagicMock()
+                cur = conn.cursor.return_value.__enter__.return_value
+                cur.fetchone.return_value = (ultima,)
+                with patch.object(extract_incremental, "date") as mock_date:
+                    mock_date.today.return_value = date(2026, 10, 6)
+                    self.assertEqual(extract_incremental.reconciliacao_longa_pendente(conn), esperado)
+                self.assertIn("'reconciliacao_365'", cur.execute.call_args.args[0])
 
 
 class EnvironmentTests(unittest.TestCase):
@@ -288,16 +344,119 @@ class BackfillTests(unittest.TestCase):
         executed = [c.args[0] for c in conn.__enter__.return_value.cursor.return_value.__enter__.return_value.execute.call_args_list]
         self.assertFalse(any("controle_execucao" in sql for sql in executed))
 
-    def test_reconciliacao_carrega_so_novos_na_janela_recente(self):
+    def test_reconciliacao_carrega_ausentes_e_sem_keywords(self):
+        # 1: completo com keywords; 2: completo sem keywords; 3: ausente; 4: já carregado no run
         with patch.object(extract_bronze, "date") as mock_date, patch.object(
-            extract_bronze, "coletar_ids_janelas", return_value=[7]
-        ) as coletar, patch.object(extract_bronze, "carregar_ids") as carregar:
+            extract_bronze, "coletar_ids_janelas", return_value=[1, 2, 3, 4]
+        ) as coletar, patch.object(extract_bronze, "get_connection"), patch.object(
+            extract_bronze, "carregar_ids_existentes", return_value={1, 2, 4}
+        ), patch.object(extract_bronze, "carregar_ids_sem_keywords", return_value={2}) as sem_kw, patch.object(
+            extract_bronze, "carregar_ids", return_value=([2, 3], 0)
+        ) as carregar:
             mock_date.today.return_value = date(2026, 10, 13)
-            extract_bronze.executar_reconciliacao(60)
+            resultado = extract_bronze.executar_reconciliacao(60, levantar_erro=False, ignorar=[4])
         janelas = coletar.call_args.args[0]
         self.assertEqual(janelas[0][0], date(2026, 10, 13) - timedelta(days=60))
         self.assertEqual(janelas[-1][1], date(2026, 10, 13))
-        carregar.assert_called_once_with([7], pular_existentes=True)
+        self.assertEqual(sem_kw.call_args.args[1], [1, 2])
+        carregar.assert_called_once_with([2, 3], levantar_erro=False)
+        self.assertEqual(resultado, (date(2026, 10, 13) - timedelta(days=60), date(2026, 10, 13), [2, 3], 0))
+
+    def test_sem_keywords_olha_so_o_ultimo_snapshot(self):
+        conn = MagicMock()
+        cur = conn.cursor.return_value.__enter__.return_value
+        cur.fetchall.return_value = [(2,)]
+        self.assertEqual(extract_bronze.carregar_ids_sem_keywords(conn, [1, 2]), {2})
+        sql, params = cur.execute.call_args.args
+        self.assertIn("DISTINCT ON (id_proposicao)", sql)
+        self.assertIn("id_bronze DESC", sql)
+        self.assertIn("payload->>'keywords'", sql)
+        self.assertEqual(params, ([1, 2],))
+
+    def test_carregar_ids_sem_levantar_devolve_erros(self):
+        with patch.object(extract_bronze, "get_connection"), patch.object(
+            extract_bronze, "carregar_proposicao_bronze", return_value={"autores_json": "erro: 500"}
+        ):
+            self.assertEqual(extract_bronze.carregar_ids([5], levantar_erro=False), ([5], 1))
+
+
+class CliBackfillTests(unittest.TestCase):
+    def executar_cli(self, *argv):
+        with patch.object(extract_bronze, "executar_carga_bronze") as carga, patch.object(
+            extract_bronze, "carregar_ids"
+        ) as carregar, patch.object(extract_bronze, "listar_ids_novos") as listar, patch.object(
+            extract_bronze, "executar_reconciliacao"
+        ):
+            extract_bronze.main(list(argv))
+        return carga, carregar, listar
+
+    def test_ate_e_so_listar_vao_para_a_carga_por_janelas(self):
+        carga, carregar, _ = self.executar_cli("--desde", "2023-02-01", "--ate", "2025-10-12", "--so-listar")
+        carga.assert_called_once_with(
+            desde=date(2023, 2, 1), ate=date(2025, 10, 12), pular_existentes=False, limit=None, so_listar=True
+        )
+        carregar.assert_not_called()
+
+    def test_ids_carrega_so_os_ids_dados(self):
+        carga, carregar, listar = self.executar_cli("--ids", "10,20, 30", "--pular-existentes")
+        carregar.assert_called_once_with([10, 20, 30], pular_existentes=True, limit=None)
+        carga.assert_not_called()
+        listar.assert_not_called()
+
+    def test_ids_com_so_listar_nao_carrega(self):
+        _, carregar, listar = self.executar_cli("--ids", "10", "--so-listar")
+        listar.assert_called_once_with([10])
+        carregar.assert_not_called()
+
+    def test_so_listar_nao_carrega_nada(self):
+        with patch.object(extract_bronze, "coletar_ids_janelas", return_value=[1, 2]), patch.object(
+            extract_bronze, "listar_ids_novos"
+        ) as listar, patch.object(extract_bronze, "carregar_ids") as carregar:
+            extract_bronze.executar_carga_bronze(date(2026, 1, 1), date(2026, 2, 1), so_listar=True)
+        listar.assert_called_once_with([1, 2])
+        carregar.assert_not_called()
+
+
+class TemasTests(unittest.TestCase):
+    def test_temas_definidos_so_em_config(self):
+        self.assertEqual(config.TEMAS, [64, 48, 66])
+        for modulo in (extract_bronze, extract_incremental, comparar_acompanhamento):
+            self.assertIs(modulo.TEMAS, config.TEMAS, modulo.__name__)
+        src = Path(__file__).resolve().parents[1] / "src"
+        definicoes = [f.name for f in src.glob("*.py") if re.search(r"^TEMAS\s*=", f.read_text(encoding="utf-8"), re.M)]
+        self.assertEqual(definicoes, ["config.py"])
+
+
+class DimDeputadoSelecaoTests(unittest.TestCase):
+    def consulta(self, **kwargs):
+        conn = MagicMock()
+        cur = conn.__enter__.return_value.cursor.return_value.__enter__.return_value
+        cur.fetchall.return_value = []
+        with patch.object(load_dim_deputado, "get_connection", return_value=conn):
+            load_dim_deputado.carregar_dim_deputado(**kwargs)
+        return cur.execute.call_args.args
+
+    def test_sem_argumentos_carrega_todos(self):
+        sql, params = self.consulta()
+        self.assertIn("proposicoes_proponentes", sql)
+        self.assertNotIn("dim_deputado", sql)
+        self.assertIsNone(params)
+
+    def test_seletivo_ausentes_autores_do_run_e_defasados(self):
+        sql, params = self.consulta(seletivo=True, ids_proposicao=[1, 2])
+        self.assertIn("NOT EXISTS (SELECT 1 FROM silver.dim_deputado", sql)
+        self.assertIn("id_proposicao = ANY(%(ids)s)", sql)
+        self.assertIn("d.data_extracao < now() - make_interval(days => %(refresh_dias)s)", sql)
+        self.assertIn("LIMIT", sql)
+        self.assertEqual(params, {"refresh_dias": 7, "ids": [1, 2]})
+
+    def test_seletivo_relatores_nao_consulta_autores(self):
+        sql, params = self.consulta(seletivo=True, somente_relatores=True)
+        self.assertIn("silver.evento_pauta", sql)
+        self.assertIn("NOT EXISTS (SELECT 1 FROM silver.dim_deputado", sql)
+        self.assertIn("make_interval", sql)
+        self.assertNotIn("proposicoes_proponentes", sql)
+        self.assertEqual(params["ids"], [])
 
 
 class PautaTests(unittest.TestCase):
@@ -319,7 +478,7 @@ class PautaTests(unittest.TestCase):
     def test_refreshes_events_and_relatores_without_advancing_propositions(self):
         pipeline_pautas.executar_pipeline_pautas()
         self.stages["executar_carga_eventos"].assert_called_once_with(date(2026, 9, 29), date(2026, 10, 20))
-        self.stages["carregar_dim_deputado"].assert_called_once_with(somente_relatores=True)
+        self.stages["carregar_dim_deputado"].assert_called_once_with(somente_relatores=True, seletivo=True)
         register = self.stages["registrar_execucao"]
         register.assert_called_once()
         self.assertEqual(register.call_args.args[1:], ("eventos", date(2026, 9, 29), date(2026, 10, 20), 12))

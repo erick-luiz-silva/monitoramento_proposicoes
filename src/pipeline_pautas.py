@@ -20,7 +20,7 @@ def executar_pipeline_pautas():
     fim = hoje + timedelta(days=EVENTOS_DIAS_FUTURO)
     qtd = executar_carga_eventos(inicio, fim)
     executar_transformacao_eventos()
-    carregar_dim_deputado(somente_relatores=True)
+    carregar_dim_deputado(somente_relatores=True, seletivo=True)
     carregar_dim_orgao()
     # O controle das proposições fica reservado à carga completa diária.
     with get_connection() as conn:

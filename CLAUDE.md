@@ -27,7 +27,7 @@ python pipeline.py          # daily full incremental run
 python pipeline_pautas.py   # intraday events/agendas-only refresh
 
 # One-time bootstrap of an empty database (after setup_db.py + load_dimensoes.py):
-python extract_bronze.py    # historical bronze load for all TEMAS, desde 2023-02-01 em janelas de 90 dias (--desde, --pular-existentes, --reconciliar N); reconecta automaticamente se o banco derrubar a conexão
+python extract_bronze.py    # historical bronze load for all TEMAS, desde 2023-02-01 em janelas de 90 dias (--desde, --ate, --ids 1,2,3, --so-listar, --pular-existentes, --reconciliar N, --pausa SEG); reconecta automaticamente se o banco derrubar a conexão
 python load_silver.py && python load_dim_deputado.py && python load_dim_orgao.py
 python -c "from datetime import date; from load_eventos import executar_carga_eventos; executar_carga_eventos(date(2023,1,1), date.today())"
 ```
@@ -45,16 +45,17 @@ When updating dependencies: fresh venv with the pinned Python, install `requirem
 
 **Keyword matching is a gold-only concern.** `src/keywords.py` defines `(rotulo, termo, termo_requerido)` tuples of POSIX regex fragments; `load_dimensoes.py` truncates and reloads them into `silver.dim_keyword`; `gold.vw_proposicao_keywords` matches with `~*` against both `ementa` and `keywords_camara` (the Câmara's own indexing field). Terms use `\m` word-start anchors to avoid substring false positives (e.g. "ave" in "grave"), and `termo_requerido` is a second regex that must also match to disambiguate generic terms (e.g. production vs. pet "bem-estar animal"). Adding a keyword = edit `keywords.py` + run `load_dimensoes.py`; no re-extraction needed.
 
-**Extraction filter**: coarse filter by API theme codes (`TEMAS = [64, 48]` in `extract_incremental.py`), fine filter by keywords in gold.
+**Extraction filter**: coarse filter by API theme codes (`TEMAS = [64, 48, 66]`, defined only in `src/config.py`), fine filter by keywords in gold.
 
 **Daily flow** (`pipeline.py` → `extract_incremental.executar_carga_incremental`):
-1. Compute window: `min(today-3, last successful data_fim - 3)` → today, so missed runs widen the next window automatically.
+1. Compute window: `min(today-14, last successful data_fim - 14)` → today, so missed runs widen the next window automatically.
 2. List ids per theme, load each into bronze (`load_bronze.carregar_proposicao_bronze` — details, authors, themes, tramitações per endpoint).
-3. Load events/agendas for committees in a D-7..D+14 window (`load_eventos.py`).
-4. Silver transform, then `dim_deputado` and `dim_orgao`.
-5. Only then register both windows in `bronze.controle_execucao`.
+3. Reconciliation (`extract_bronze.executar_reconciliacao`): list the last 90 days (365 when the last `reconciliacao_365` row is ≥7 days old) and load ids missing from bronze plus ids whose latest `proposicoes_json` has empty `keywords`. This is the main path for *new* propositions: the Câmara assigns the theme 1–2 weeks after presentation, and keywords after that.
+4. Load events/agendas for committees in a D-7..D+14 window (`load_eventos.py`).
+5. Silver transform, then `dim_deputado` (selective: missing from the dim, authors of ids loaded in this run, plus a rolling refresh of rows >7 days old capped at 1/7 of the dim) and `dim_orgao`.
+6. Only then register `incremental` and `eventos` in `bronze.controle_execucao`, plus `reconciliacao` (and `reconciliacao_365`) if the reconciliation was complete.
 
-**Failure semantics are deliberate and covered by tests**: any partial failure (a bronze endpoint, an event pauta, a deputado) must raise so the job fails, must roll back the aborted transaction so other rows still persist, and must *not* advance the incremental window. `pipeline_pautas.py` refreshes only events/pautas/relatores/órgãos and registers only an `eventos` window — it must never advance the `incremental` window. Preserve these invariants when touching loaders.
+**Failure semantics are deliberate and covered by tests**: any partial failure (a bronze endpoint, an event pauta, a deputado) must raise so the job fails, must roll back the aborted transaction so other rows still persist, and must *not* advance the incremental window. **Deliberate exception:** a reconciliation failure does not block the `incremental`/`eventos` windows (a chronically failing id would otherwise stay "missing" for 90 days and freeze the window) — it skips the `reconciliacao` row and raises at the end so the job still fails. `pipeline_pautas.py` refreshes only events/pautas/relatores/órgãos and registers only an `eventos` window — it must never advance the `incremental` window. Preserve these invariants when touching loaders.
 
 **Automation**: `.github/workflows/pipeline.yml` has no `schedule` (GitHub's cron delayed runs by hours or dropped them). Scheduling lives in n8n: workflow "Agendador – Monitoramento de Proposições" calls the GitHub `workflow_dispatch` API at 07:17 São Paulo with `modo=completo` and at 10h/14h with `modo=pautas`; the job picks the pipeline from `inputs.modo`. Change times in n8n, not in the YAML. Runs with `TZ=America/Sao_Paulo` (window dates depend on it). Before the load it runs `notify_n8n.py --check` and `check_environment.py` (verifies schemas and non-empty keywords). After success, `notify_n8n.py` POSTs to the n8n production webhook with `X-Webhook-Token` — it rejects test webhooks/plain HTTP and intentionally does not retry. The n8n webhook (workflow "Monitoramento de Proposições → Google Sheets") responds immediately, so HTTP 200 only means "received" — failures inside n8n (e.g. its own Postgres credential) show up only in n8n executions, not in Actions. Secrets (`DATABASE_URL`, `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_TOKEN`) live in the GitHub environment named `DATABASE_URL`.
 

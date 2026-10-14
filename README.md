@@ -28,7 +28,7 @@ Não há histórico consolidado, alertas ou visão comparativa — só o portal,
 
 ## Como funciona
 
-A extração usa duas camadas de filtro: um filtro amplo por tema legislativo (reduz o universo de ~27.000 proposições para as classificadas em Agricultura/Pecuária e Meio Ambiente), e um filtro fino por palavra-chave mantido como configuração — novos termos podem ser adicionados sem reprocessar a extração.
+A extração usa duas camadas de filtro: um filtro amplo por tema legislativo (reduz o universo de ~27.000 proposições para as classificadas em Agricultura/Pecuária, Meio Ambiente e Indústria/Comércio — temas 64, 48 e 66, definidos em `src/config.py`), e um filtro fino por palavra-chave mantido como configuração — novos termos podem ser adicionados sem reprocessar a extração.
 
 O filtro fino roda contra a ementa **e** contra o campo de indexação temática que a própria Câmara mantém por proposição — a ementa sozinha se mostrou insuficiente (ex.: uma proposição sobre bem-estar de suínos pode ter ementa genérica como "Institui o Código Federal de Bem-Estar Animal", sem citar o termo, mas a Câmara já indexa isso). O matching usa regex ancorada por início de palavra em vez de busca por substring simples, para cobrir variações de gênero/número (suíno/suína/suínos) sem gerar falso positivo por coincidência textual (ex.: um radical mal ancorado para "aves" bateria em "grave"; para "ração" bateria em "tração").
 
@@ -82,7 +82,11 @@ O projeto nasceu com infraestrutura local (volume pequeno, consumidor interno, i
 
 O partido/UF exibidos são os atuais do deputado (dimensão separada, atualizável), não os da data em que a proposição foi apresentada — decisão deliberada, já que o uso real é o time político saber com quem falar hoje.
 
-A carga incremental (`extract_incremental.py`) busca proposições com tramitação nos últimos 3 dias (pega tanto proposições novas quanto movimentação em proposições antigas) e registra cada execução em `bronze.controle_execucao`. A janela do próximo run nunca começa depois de "3 dias antes da última execução bem-sucedida" — se a máquina ficar dias sem rodar o job, a janela seguinte se alarga sozinha para cobrir o período perdido, sem depender de alguém notar a falha.
+A carga incremental (`extract_incremental.py`) busca proposições com tramitação nos últimos 14 dias (pega movimentação em proposições já conhecidas, inclusive tramitações que a Câmara indexa com atraso) e registra cada execução em `bronze.controle_execucao`. A janela do próximo run nunca começa depois de "14 dias antes da última execução bem-sucedida" — se a máquina ficar dias sem rodar o job, a janela seguinte se alarga sozinha para cobrir o período perdido, sem depender de alguém notar a falha.
+
+Proposições **novas** chegam sobretudo pela **reconciliação**, que roda no mesmo job: a Câmara atribui o tema de 1 a 2 semanas depois da apresentação (e as keywords dela, depois do tema), quando a proposição já saiu da janela de tramitação. A reconciliação lista os últimos 90 dias por tema e carrega os ids ausentes da bronze e os que ainda estão sem keywords no último snapshot. Uma vez por semana (quando a última `reconciliacao_365` tem 7 dias ou mais) a varredura cobre 365 dias. Um erro na reconciliação não trava a janela incremental: o job registra `incremental` e `eventos`, não registra `reconciliacao` e falha no fim para aparecer no Actions. Em `controle_execucao`, `qtd_proposicoes` das linhas `reconciliacao` é o número de proposições recuperadas.
+
+A `dim_deputado` no run diário é seletiva: busca só os deputados ausentes da dimensão, os autores das proposições carregadas no run e um refresh rolante dos registros com mais de 7 dias (até 1/7 da dimensão por dia, o que cobre troca de partido). `python load_dim_deputado.py` sem argumentos atualiza todos.
 
 A mesma execução também atualiza os eventos das comissões (CAPADR, CCJC, CMADS e PLEN — as únicas confirmadas com eventos deliberativos ativos; não existe hoje uma comissão específica de bem-estar animal em atividade) numa janela rolante de D-7 a D+14:
 
@@ -110,6 +114,8 @@ cd src
 python setup_db.py             # cria os schemas e tabelas
 python extract_bronze.py       # carga histórica (bronze) desde 2023-02-01, por janelas de 90 dias
                                # reexecução após falha: --pular-existentes
+                               # --ate AAAA-MM-DD limita o fim; --ids 1,2,3 carrega ids avulsos;
+                               # --so-listar só conta os ids novos (estimativa antes de carregar)
 python load_dimensoes.py       # popula tabelas de referência (temas e keywords)
 python load_silver.py          # transforma bronze em tabelas relacionais (silver)
 python load_dim_deputado.py    # enriquece autores deputados com partido/UF atuais
@@ -191,7 +197,9 @@ o endpoint escolhido.
 - Falhas parciais em proposições, eventos ou deputados fazem o job falhar. A
   janela incremental só avança após Bronze, eventos, Silver e dimensões
   concluírem. Os endpoints já gravados permanecem na Bronze; a próxima execução
-  tenta novamente a janela, podendo acrescentar novos snapshots.
+  tenta novamente a janela, podendo acrescentar novos snapshots. A exceção é a
+  reconciliação: um erro nela faz o job falhar, mas não impede o registro da
+  janela incremental (só a linha `reconciliacao` deixa de ser gravada).
 - O controle de concorrência do Actions não impede execução simultânea pela sua
   máquina. Ao ativar o agendamento remoto, desative o agendamento local existente.
 - Se o token do GitHub expirar, o agendador do n8n falha ao disparar (HTTP 401)
