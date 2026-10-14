@@ -3,6 +3,7 @@
 from contextlib import ExitStack, contextmanager
 from datetime import date, timedelta
 from pathlib import Path
+import re
 import sys
 import unittest
 from unittest.mock import MagicMock, patch
@@ -355,6 +356,16 @@ class PautaTests(unittest.TestCase):
         sql = cur.execute.call_args.args[0]
         self.assertIn("silver.evento_pauta", sql)
         self.assertNotIn("proposicoes_proponentes", sql)
+
+
+class SilverSqlTests(unittest.TestCase):
+    def test_filhos_ignoram_proposicao_ausente_na_silver(self):
+        sql_path = Path(__file__).resolve().parents[1] / "sql" / "transform_bronze_to_silver.sql"
+        sql = re.sub(r"--[^\n]*", "", sql_path.read_text(encoding="utf-8"))
+        comandos = {re.search(r"INSERT INTO (\S+)", c).group(1): c for c in sql.split(";") if "INSERT INTO" in c}
+        guarda = "WHERE EXISTS (SELECT 1 FROM silver.proposicao p WHERE p.id_proposicao = b.id_proposicao)"
+        for tabela in ("silver.proposicoes_proponentes", "silver.proposicao_tema", "silver.tramitacao"):
+            self.assertIn(guarda, comandos[tabela], tabela)
 
 
 if __name__ == "__main__":
