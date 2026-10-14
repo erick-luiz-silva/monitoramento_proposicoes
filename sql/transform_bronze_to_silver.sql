@@ -3,6 +3,9 @@
 -- recente (última linha de bronze por id_proposicao) e usam upsert.
 -- tramitacao é histórica: acumula de todas as linhas de bronze, nunca sobrescreve
 -- uma sequência já vista (idempotente entre execuções).
+-- Filhos (proponentes, temas, tramitações) só entram se a proposição já existe na
+-- silver: um id com carga parcial na bronze (detalhes falhou) fica de fora até ser
+-- recarregado, em vez de quebrar a FK e derrubar a transformação inteira.
 
 -- 1) silver.proposicao (depende de nada; demais tabelas têm FK para ela)
 WITH ultimo_bronze AS (
@@ -55,7 +58,8 @@ ON CONFLICT (id_proposicao) DO UPDATE SET
 -- 2) silver.proposicoes_proponentes
 WITH ultimo_bronze AS (
     SELECT DISTINCT ON (id_proposicao) id_proposicao, payload, data_extracao
-    FROM bronze.autores_json
+    FROM bronze.autores_json b
+    WHERE EXISTS (SELECT 1 FROM silver.proposicao p WHERE p.id_proposicao = b.id_proposicao)
     ORDER BY id_proposicao, data_extracao DESC
 )
 INSERT INTO silver.proposicoes_proponentes (
@@ -82,7 +86,8 @@ ON CONFLICT (id_proposicao, ordem_assinatura) DO UPDATE SET
 -- 3) silver.proposicao_tema
 WITH ultimo_bronze AS (
     SELECT DISTINCT ON (id_proposicao) id_proposicao, payload, data_extracao
-    FROM bronze.temas_json
+    FROM bronze.temas_json b
+    WHERE EXISTS (SELECT 1 FROM silver.proposicao p WHERE p.id_proposicao = b.id_proposicao)
     ORDER BY id_proposicao, data_extracao DESC
 )
 INSERT INTO silver.proposicao_tema (id_proposicao, cod_tema, tema, relevancia, data_extracao)
@@ -118,4 +123,5 @@ SELECT
     elem->>'codTipoTramitacao',
     b.data_extracao
 FROM bronze.tramitacoes_json b, jsonb_array_elements(b.payload) elem
+WHERE EXISTS (SELECT 1 FROM silver.proposicao p WHERE p.id_proposicao = b.id_proposicao)
 ON CONFLICT (id_proposicao, sequencia) DO NOTHING;
