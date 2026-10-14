@@ -3,7 +3,7 @@
 Lê a planilha pela Sheets API, resolve cada proposição na Câmara e classifica:
   A  no gold (gold.vw_monitoramento)
   B  no silver, sem keyword
-  C1 fora do banco, dentro dos temas da carga (extract_bronze.TEMAS)
+  C1 fora do banco, dentro dos temas da carga (config.TEMAS)
   C2 fora dos temas da carga
   NC não encontrada na Câmara (ex.: Senado)
 
@@ -28,9 +28,8 @@ from urllib.parse import quote
 from google.auth.transport.requests import AuthorizedSession
 
 import api_client as api
-from config import API_BASE_URL  # também carrega o .env
+from config import API_BASE_URL, TEMAS  # também carrega o .env
 from db import get_connection
-from extract_bronze import TEMAS
 from google_auth import get_credentials
 from keywords import KEYWORDS
 

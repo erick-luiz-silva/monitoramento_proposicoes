@@ -21,3 +21,8 @@ else:
     }
 
 API_BASE_URL = "https://dadosabertos.camara.leg.br/api/v2"
+
+# Filtro grosso da extração por tema da Câmara (o fino é por keyword, na gold):
+# 64 Agricultura, Pecuária, Pesca e Extrativismo; 48 Meio Ambiente e
+# Desenvolvimento Sustentável; 66 Indústria, Comércio e Serviços.
+TEMAS = [64, 48, 66]

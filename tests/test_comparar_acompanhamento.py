@@ -45,7 +45,7 @@ class ClassificacaoTests(unittest.TestCase):
         self.assertEqual(comp.classificar(1, [64], {1}, {1}), "A_NO_GOLD")
         self.assertEqual(comp.classificar(2, [64], set(), {2}), "B_SILVER_SEM_KEYWORD")
         self.assertEqual(comp.classificar(3, [48], set(), set()), "C1_FORA_BANCO_DENTRO_TEMAS")
-        self.assertEqual(comp.classificar(4, [66], set(), set()), "C2_FORA_TEMAS")
+        self.assertEqual(comp.classificar(4, [40], set(), set()), "C2_FORA_TEMAS")
 
 
 class LeituraDaPlanilhaTests(unittest.TestCase):
