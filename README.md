@@ -4,7 +4,7 @@ Pipeline de dados que automatiza o acompanhamento de proposições legislativas 
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-4169E1?logo=postgresql&logoColor=white)
-![Status](https://img.shields.io/badge/status-em%20desenvolvimento-yellow)
+![Status](https://img.shields.io/badge/status-em%20produ%C3%A7%C3%A3o-brightgreen)
 
 ---
 
@@ -69,16 +69,36 @@ O projeto nasceu com infraestrutura local (volume pequeno, consumidor interno, i
 
 ## Status do projeto
 
-- [x] Extração e carga da camada **bronze** (proposições, autores, temas e tramitações) — ~1.530 proposições únicas
-- [x] Modelagem da camada **silver** (normalização relacional + tabelas de referência)
-- [x] Views analíticas da camada **gold** com matching de palavras-chave — ~280 proposições relevantes identificadas
-- [x] Enriquecimento do autor principal com partido/UF **atuais** (dimensão de deputados)
-- [x] Carga incremental (bronze → silver → dim_deputado em um único script)
-- [x] Pautas de comissões e plenário (`gold.vw_pautas_monitoradas`) — alerta de proposições monitoradas agendadas para votação
-- [x] Audiências públicas (`gold.vw_audiencias_de_interesse`) — debates públicos cujo tema bate nas keywords
-- [ ] Dashboard Power BI (em desenvolvimento)
-- [x] Agendamento pelo n8n disparando o GitHub Actions: carga completa às 07h17 e pautas às 10h e 14h (São Paulo), usando o environment `DATABASE_URL`
-- [ ] **Filtro de arquivamento para indicadores** — excluir dos KPIs proposições arquivadas ou correlatas a arquivamento (situações 914/920/923/930/931/940, possivelmente também 950/1120/1222/1292). A definição do bucket será fechada com a área de negócio. Requer também tratar o `cod_situacao` nulo em ~55 proposições (a API vem devolvendo `statusProposicao` com `descricaoSituacao` vazio em extrações recentes, e a silver, ao pegar a última extração, às vezes descarta um valor bom anterior).
+**Em produção desde setembro/2026.** Desde 15/10/2026 é a fonte única do time político da ABCS: a planilha antiga de acompanhamento foi substituída e fica guardada só para auditoria.
+
+**Números em 15/10/2026**
+- Bronze com **15.503 proposições** dos temas 64, 48 e 66, carregadas desde 01/02/2023 sem nenhum endpoint com erro. Banco com ~240 MB no Supabase (plano Pro).
+- **54 proposições acompanhadas** de forma permanente (planilha antiga), além das marcadas como relevantes e das incluídas manualmente.
+- Todas as 52 proposições da Câmara da planilha antiga estão no sistema.
+- Run diário completo em **~22 min**; a reconciliação de 90 dias já não encontra proposições ausentes.
+- E-mail diário com **1 a poucas proposições novas para avaliação**, contra ~300 se o histórico entrasse na fila.
+- Inclusão manual pela planilha confirmada por e-mail em poucos minutos.
+
+**Entregue**
+- [x] Camadas **bronze**, **silver** e **gold** (medallion), com matching de palavras-chave na gold
+- [x] Partido/UF **atuais** do autor (dimensão de deputados, atualizada de forma seletiva)
+- [x] Carga incremental com janela de 14 dias e **reconciliação diária** de 90 dias para proposições que recebem o tema com atraso
+- [x] **Carga histórica** desde 2023 e inclusão do tema 66 (Indústria, Comércio e Serviços)
+- [x] Pautas de comissões e plenário (`gold.vw_pautas_monitoradas`) e audiências públicas (`gold.vw_audiencias_de_interesse`)
+- [x] **Radar daqui para frente**: só proposições com keyword apresentadas a partir de 01/09/2026 entram para avaliação
+- [x] **Proposições acompanhadas** (planilha antiga, relevantes e inclusões), com aviso diário de tramitação, novo relator e pauta
+- [x] **Inclusão manual** pela aba "Proposições" (workflow n8n "Inclusão manual de proposições" + modo `inclusao` do pipeline)
+- [x] **Aviso de falha** por e-mail quando a carga não termina
+- [x] Agendamento pelo n8n disparando o GitHub Actions: carga completa às 07h17 e pautas às 10h e 14h (São Paulo)
+- [x] Painel Power BI com 6 telas (visão geral, monitoramento, detalhamento, autores e partidos, pautas, audiências)
+
+**Pendente**
+- [ ] **Refinar keywords de baixa precisão**: "produtor rural" (7 relevantes em 71), "aves" (0 em 12), "rações animais" (0 em 8). Com o radar enxuto, a precisão delas decide o que chega para avaliação.
+- [ ] Confirmar com a responsável o número da **PL 347/2003** da planilha antiga, que não foi localizada na Câmara.
+- [ ] Avaliação da posição institucional da ABCS (a favor/contra, prioridade) nas proposições relevantes.
+- [ ] **Filtro de arquivamento para indicadores**: excluir dos KPIs proposições arquivadas ou correlatas (situações 914/920/923/930/931/940, possivelmente 950/1120/1222/1292), a definir com a área de negócio. Requer tratar o `cod_situacao` nulo em parte das proposições.
+- [ ] Alerta automático de audiências públicas agendadas sobre temas do setor.
+- [ ] **Senado Federal** (inclui 9 proposições da planilha antiga).
 
 O partido/UF exibidos são os atuais do deputado (dimensão separada, atualizável), não os da data em que a proposição foi apresentada — decisão deliberada, já que o uso real é o time político saber com quem falar hoje.
 
@@ -97,8 +117,6 @@ A mesma execução também atualiza os eventos das comissões (CAPADR, CCJC, CMA
 
 - **Eventos deliberativos** (sessões e reuniões de votação): o cruzamento com as proposições monitoradas geralmente ocorre de forma indireta — um item de pauta (ex. um requerimento) referencia o PL de fato como "proposição relacionada", caminho bem mais comum que o item citar o PL diretamente.
 - **Audiências públicas**: não têm pauta estruturada nem link confiável com proposição. O cruzamento é feito por keyword no texto do tema da audiência (`evento.descricao`) — o sinal é "há debate público sobre um assunto de interesse, em tal data, com tais expositores".
-
-**Próximas fases:** alertas automáticos e dados do Senado Federal.
 
 ## Rodando localmente
 
