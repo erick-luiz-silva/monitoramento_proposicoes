@@ -5,7 +5,7 @@ from tqdm import tqdm
 import api_client as api
 from config import TEMAS
 from db import get_connection
-from extract_bronze import executar_reconciliacao
+from extract_bronze import carregar_ids, executar_reconciliacao
 from load_bronze import carregar_proposicao_bronze
 from load_dim_deputado import carregar_dim_deputado
 from load_dim_orgao import carregar_dim_orgao
@@ -14,8 +14,6 @@ from load_silver import executar_transformacao_silver
 
 JANELA_SEGURANCA_DIAS = 14
 RECONCILIACAO_DIAS = 90
-RECONCILIACAO_LONGA_DIAS = 365
-RECONCILIACAO_LONGA_INTERVALO_DIAS = 7
 EVENTOS_DIAS_PASSADO = 7
 EVENTOS_DIAS_FUTURO = 14
 
@@ -60,38 +58,33 @@ def coletar_ids_unicos(data_inicio, data_fim):
     return ids_ordenados
 
 
-def reconciliacao_longa_pendente(conn):
-    """A de 365 dias roda quando a última bem-sucedida tem 7 dias ou mais (ou nunca rodou).
+def carregar_ids_acompanhadas(conn):
+    """Ids de silver.proposicao_acompanhada (planilha antiga e inclusões manuais).
 
-    Por idade, não por dia da semana: se um run falhar, o seguinte compensa.
+    São recarregados todo dia, mesmo fora dos temas e sem tramitação recente,
+    para que qualquer movimentação delas chegue ao alerta.
     """
     with conn.cursor() as cur:
-        cur.execute(
-            "SELECT max(data_fim_janela) FROM bronze.controle_execucao WHERE tipo_carga = 'reconciliacao_365';"
-        )
-        ultima = cur.fetchone()[0]
-    return ultima is None or ultima <= date.today() - timedelta(days=RECONCILIACAO_LONGA_INTERVALO_DIAS)
+        cur.execute("SELECT id_proposicao FROM silver.proposicao_acompanhada ORDER BY id_proposicao;")
+        return [linha[0] for linha in cur.fetchall()]
 
 
-def executar_reconciliacoes(longa, ids_ja_carregados):
-    """Roda a reconciliação (365 dias se `longa`, senão 90) sem levantar erro.
+def executar_reconciliacao_diaria(ids_ja_carregados):
+    """Roda a reconciliação de 90 dias sem levantar erro.
 
-    Devolve (tipos de carga a registrar, ids carregados, descrição do erro ou None).
-    A de 365 cobre a de 90, então quando roda registra as duas.
+    Devolve (registro a gravar ou None, ids carregados, descrição do erro ou None).
     """
-    dias = RECONCILIACAO_LONGA_DIAS if longa else RECONCILIACAO_DIAS
-    print(f"\nReconciliação dos últimos {dias} dias (ausentes da bronze e sem keywords)...")
+    print(f"\nReconciliação dos últimos {RECONCILIACAO_DIAS} dias (ausentes da bronze)...")
     try:
         desde, ate, ids, erros = executar_reconciliacao(
-            dias, levantar_erro=False, ignorar=ids_ja_carregados
+            RECONCILIACAO_DIAS, levantar_erro=False, ignorar=ids_ja_carregados
         )
     except Exception as exc:
         print(f"  ! reconciliação falhou: {exc}")
-        return [], [], f"reconciliação de {dias} dias falhou: {exc}"
+        return None, [], f"reconciliação falhou: {exc}"
     if erros:
-        return [], ids, f"reconciliação de {dias} dias incompleta: {erros} endpoints com erro"
-    tipos = ["reconciliacao", "reconciliacao_365"] if longa else ["reconciliacao"]
-    return [(tipo, desde, ate, len(ids)) for tipo in tipos], ids, None
+        return None, ids, f"reconciliação incompleta: {erros} endpoints com erro"
+    return ("reconciliacao", desde, ate, len(ids)), ids, None
 
 
 def registrar_execucao(conn, tipo_carga, data_inicio, data_fim, qtd):
@@ -107,16 +100,16 @@ def registrar_execucao(conn, tipo_carga, data_inicio, data_fim, qtd):
 
 
 def executar_carga_incremental():
-    """Bronze D-14, reconciliação, eventos, silver e dims; depois registra as janelas.
+    """Bronze D-14 + acompanhadas, reconciliação, eventos, silver e dims; depois registra as janelas.
 
     Falha na D-14, nos eventos, na silver ou nas dims: levanta erro sem registrar nada.
-    Falha na reconciliação: o resto segue e `incremental`/`eventos` são registrados
-    (um id com erro crônico não pode travar a janela), mas `reconciliacao` não é,
-    e o run levanta erro no fim para o job aparecer como falho.
+    Falha nas acompanhadas ou na reconciliação: o resto segue e `incremental`/`eventos`
+    são registrados (um id com erro crônico não pode travar a janela), `reconciliacao`
+    só é registrada se ela completou, e o run levanta erro no fim para o job falhar.
     """
     with get_connection() as conn:
         data_inicio, data_fim = calcular_janela(conn)
-        longa = reconciliacao_longa_pendente(conn)
+        acompanhadas = carregar_ids_acompanhadas(conn)
 
     ids = coletar_ids_unicos(data_inicio, data_fim)
     print(f"Total de IDs únicos na janela: {len(ids)}")
@@ -137,7 +130,18 @@ def executar_carga_incremental():
     if erro_count:
         raise RuntimeError(f"Carga incremental incompleta: {erro_count} endpoints com erro.")
 
-    reconciliacoes, ids_reconciliados, erro_reconciliacao = executar_reconciliacoes(longa, ids)
+    # Acompanhadas fora da janela: carregadas à parte e sem levantar erro, como a
+    # reconciliação — um id ruim (ex.: inclusão manual inválida) não pode travar a janela.
+    na_janela = set(ids)
+    extras = [id_prop for id_prop in acompanhadas if id_prop not in na_janela]
+    print(f"\nRecarregando {len(extras)} proposições acompanhadas fora da janela...")
+    try:
+        ids_extras, erros_extras = carregar_ids(extras, levantar_erro=False)
+        erro_acompanhadas = f"acompanhadas: {erros_extras} endpoints com erro" if erros_extras else None
+    except Exception as exc:
+        ids_extras, erro_acompanhadas = [], f"acompanhadas falharam: {exc}"
+
+    reconciliacao, ids_reconciliados, erro_reconciliacao = executar_reconciliacao_diaria(ids + ids_extras)
 
     print("\nCarregando eventos/pautas...")
     hoje = date.today()
@@ -148,7 +152,7 @@ def executar_carga_incremental():
     executar_transformacao_silver()
 
     print("\nAtualizando dim_deputado...")
-    carregar_dim_deputado(seletivo=True, ids_proposicao=list(ids) + list(ids_reconciliados))
+    carregar_dim_deputado(seletivo=True, ids_proposicao=list(ids) + list(ids_extras) + list(ids_reconciliados))
 
     print("\nAtualizando dim_orgao...")
     carregar_dim_orgao()
@@ -158,11 +162,12 @@ def executar_carga_incremental():
     with get_connection() as conn:
         registrar_execucao(conn, "incremental", data_inicio, data_fim, len(ids))
         registrar_execucao(conn, "eventos", data_inicio_eventos, data_fim_eventos, qtd_eventos)
-        for tipo, desde, ate, qtd in reconciliacoes:
-            registrar_execucao(conn, tipo, desde, ate, qtd)
+        if reconciliacao:
+            registrar_execucao(conn, *reconciliacao)
 
-    if erro_reconciliacao:
-        raise RuntimeError(erro_reconciliacao.capitalize() + "; janela incremental registrada, reconciliação não.")
+    erros = [erro for erro in (erro_acompanhadas, erro_reconciliacao) if erro]
+    if erros:
+        raise RuntimeError("; ".join(erros) + " (janela incremental registrada; reconciliação só se completa).")
 
 
 if __name__ == "__main__":

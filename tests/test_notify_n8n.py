@@ -34,6 +34,15 @@ class WebhookTests(unittest.TestCase):
         self.assertEqual(options["json"]["run_id"], "123")
         self.assertNotIn("test-token", str(options["json"]))
 
+    def test_inclusao_e_aviso_de_falha(self):
+        with patch.object(notify_n8n.requests, "post", return_value=Mock(status_code=200)) as post:
+            notify_n8n.notify_n8n("inclusao", "falha")
+        self.assertEqual(post.call_args.kwargs["json"]["modo"], "inclusao")
+        self.assertEqual(post.call_args.kwargs["json"]["status"], "falha")
+        with patch.object(notify_n8n.requests, "post", return_value=Mock(status_code=200)) as post:
+            notify_n8n.notify_n8n("completo")
+        self.assertEqual(post.call_args.kwargs["json"]["status"], "sucesso")
+
     def test_http_errors_and_redirects_fail(self):
         for status in [301, 401, 404, 500]:
             with self.subTest(status=status), patch.object(

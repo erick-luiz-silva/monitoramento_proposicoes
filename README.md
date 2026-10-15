@@ -84,7 +84,12 @@ O partido/UF exibidos são os atuais do deputado (dimensão separada, atualizáv
 
 A carga incremental (`extract_incremental.py`) busca proposições com tramitação nos últimos 14 dias (pega movimentação em proposições já conhecidas, inclusive tramitações que a Câmara indexa com atraso) e registra cada execução em `bronze.controle_execucao`. A janela do próximo run nunca começa depois de "14 dias antes da última execução bem-sucedida" — se a máquina ficar dias sem rodar o job, a janela seguinte se alarga sozinha para cobrir o período perdido, sem depender de alguém notar a falha.
 
-Proposições **novas** chegam sobretudo pela **reconciliação**, que roda no mesmo job: a Câmara atribui o tema de 1 a 2 semanas depois da apresentação (e as keywords dela, depois do tema), quando a proposição já saiu da janela de tramitação. A reconciliação lista os últimos 90 dias por tema e carrega os ids ausentes da bronze e os que ainda estão sem keywords no último snapshot. Uma vez por semana (quando a última `reconciliacao_365` tem 7 dias ou mais) a varredura cobre 365 dias. Um erro na reconciliação não trava a janela incremental: o job registra `incremental` e `eventos`, não registra `reconciliacao` e falha no fim para aparecer no Actions. Em `controle_execucao`, `qtd_proposicoes` das linhas `reconciliacao` é o número de proposições recuperadas.
+Proposições **novas** chegam sobretudo pela **reconciliação**, que roda no mesmo job: a Câmara atribui o tema de 1 a 2 semanas depois da apresentação, quando a proposição já saiu da janela de tramitação. A reconciliação lista os últimos 90 dias por tema e carrega os ids ainda ausentes da bronze. Um erro nela não trava a janela incremental: o job registra `incremental` e `eventos`, não registra `reconciliacao` e falha no fim para aparecer no Actions. Em `controle_execucao`, `qtd_proposicoes` das linhas `reconciliacao` é o número de proposições recuperadas.
+
+**Acompanhamento e radar.** Desde outubro/2026 o sistema substitui a planilha antiga de acompanhamento do time político:
+- **Acompanhadas** (`silver.proposicao_acompanhada`): as proposições da planilha antiga (fotografia única em `sql/seed_acompanhadas.sql`; a aba antiga fica só para auditoria) e as incluídas manualmente. São recarregadas todo dia e aparecem sempre na gold, mesmo sem keyword ou paradas há anos; qualquer movimentação (tramitação, novo relator, pauta) vai para o e-mail.
+- **Radar de avaliação** (`em_radar`): além das acompanhadas, só proposições com keyword apresentadas a partir de 01/09/2026 — o foco é o que surge daqui para frente.
+- **Inclusão manual:** a responsável insere uma linha na aba "Proposições" só com a identificação (ex.: "PL 1234/2025"); o n8n localiza a proposição na Câmara, marca como relevante, grava em `proposicao_acompanhada` e dispara o modo `inclusao` do pipeline; um e-mail confirma quando ela já está na gold.
 
 A `dim_deputado` no run diário é seletiva: busca só os deputados ausentes da dimensão, os autores das proposições carregadas no run e um refresh rolante dos registros com mais de 7 dias (até 1/7 da dimensão por dia, o que cobre troca de partido). `python load_dim_deputado.py` sem argumentos atualiza todos.
 
@@ -116,6 +121,7 @@ python extract_bronze.py       # carga histórica (bronze) desde 2023-02-01, por
                                # reexecução após falha: --pular-existentes
                                # --ate AAAA-MM-DD limita o fim; --ids 1,2,3 carrega ids avulsos;
                                # --so-listar só conta os ids novos (estimativa antes de carregar)
+                               # setup_db.py também aplica a seed das proposições acompanhadas
 python load_dimensoes.py       # popula tabelas de referência (temas e keywords)
 python load_silver.py          # transforma bronze em tabelas relacionais (silver)
 python load_dim_deputado.py    # enriquece autores deputados com partido/UF atuais
@@ -197,7 +203,8 @@ o endpoint escolhido.
 - Falhas parciais em proposições, eventos ou deputados fazem o job falhar. A
   janela incremental só avança após Bronze, eventos, Silver e dimensões
   concluírem. Os endpoints já gravados permanecem na Bronze; a próxima execução
-  tenta novamente a janela, podendo acrescentar novos snapshots. A exceção é a
+  tenta novamente a janela, podendo acrescentar novos snapshots. Se o job falhar,
+  um passo final avisa o n8n (`status=falha`) para que o time receba e-mail. A exceção é a
   reconciliação: um erro nela faz o job falhar, mas não impede o registro da
   janela incremental (só a linha `reconciliacao` deixa de ser gravada).
 - O controle de concorrência do Actions não impede execução simultânea pela sua

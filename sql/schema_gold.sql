@@ -19,9 +19,16 @@ JOIN silver.dim_keyword k
          OR p.keywords_camara ~* k.termo_requerido)
 GROUP BY p.id_proposicao;
 
--- View principal: uma linha por proposição relevante (com pelo menos 1 keyword).
+-- View principal: uma linha por proposição com pelo menos 1 keyword OU acompanhada
+-- (silver.proposicao_acompanhada: planilha antiga e inclusões manuais, mesmo sem keyword).
 -- partido/UF do autor principal são os ATUAIS (via silver.dim_deputado), não os da
 -- data de apresentação da proposição — só se aplica quando o autor é deputado.
+-- em_radar: o que entra para avaliação/alerta. Acompanhadas sempre; as demais só se
+-- apresentadas a partir de 2026-09-01 (início da produção). Decisão da responsável:
+-- trazer o que surgir daqui para frente, sem o histórico; setembro (e não a data da
+-- mudança) recupera as que a Câmara demorou a classificar por tema.
+-- Colunas novas só no FIM: CREATE OR REPLACE VIEW não aceita reordenar/renomear, e
+-- vw_pautas_monitoradas depende desta view.
 CREATE OR REPLACE VIEW gold.vw_monitoramento AS
 SELECT
     p.id_proposicao,
@@ -38,15 +45,20 @@ SELECT
     (CURRENT_DATE - p.data_ultima_movimentacao::date) AS dias_sem_movimentacao,
     kw.keywords_encontradas,
     p.link_direto,
-    orgao.nome AS nome_orgao_atual
+    orgao.nome AS nome_orgao_atual,
+    (a.id_proposicao IS NOT NULL) AS acompanhada,
+    (a.id_proposicao IS NOT NULL
+     OR (kw.id_proposicao IS NOT NULL AND coalesce(p.data_apresentacao >= DATE '2026-09-01', false))) AS em_radar
 FROM silver.proposicao p
-JOIN gold.vw_proposicao_keywords kw ON kw.id_proposicao = p.id_proposicao
+LEFT JOIN gold.vw_proposicao_keywords kw ON kw.id_proposicao = p.id_proposicao
+LEFT JOIN silver.proposicao_acompanhada a ON a.id_proposicao = p.id_proposicao
 LEFT JOIN silver.proposicoes_proponentes autor
     ON autor.id_proposicao = p.id_proposicao AND autor.ordem_assinatura = 1
 LEFT JOIN silver.dim_deputado dep
     ON autor.tipo = 'Deputado(a)'
     AND dep.id_deputado = (regexp_replace(autor.uri, '.*/', ''))::int
 LEFT JOIN silver.dim_orgao orgao ON orgao.id_orgao = p.id_orgao_atual
+WHERE kw.id_proposicao IS NOT NULL OR a.id_proposicao IS NOT NULL
 ORDER BY p.data_ultima_movimentacao DESC;
 
 -- Histórico completo de tramitações, para drill-down a partir da view principal.
@@ -91,13 +103,45 @@ SELECT
         WHEN ep.uri_votacao IS NOT NULL THEN 'Votado'
         ELSE 'Encerrado sem votação'
     END AS status_alerta,
-    e.nome_orgao
+    e.nome_orgao,
+    m.id_proposicao,
+    m.acompanhada,
+    m.em_radar
 FROM silver.evento_pauta ep
 JOIN silver.evento e ON e.id_evento = ep.id_evento
 JOIN gold.vw_monitoramento m
     ON m.id_proposicao = ep.id_proposicao OR m.id_proposicao = ep.id_proposicao_relacionada
 LEFT JOIN silver.dim_deputado dep ON dep.id_deputado = ep.id_deputado_relator
 ORDER BY e.data_hora_inicio DESC;
+
+-- Tramitações ainda não alertadas das proposições da vw_monitoramento, para a seção
+-- "Movimentações" do e-mail (o n8n filtra acompanhadas/SIM e exclui as marcadas NÃO).
+-- data_extracao em silver.tramitacao é a da 1ª vez que a tramitação foi vista (insert
+-- com ON CONFLICT DO NOTHING), então pega também as indexadas com atraso, sem repetir.
+-- A marca 'alerta_movimentacoes' em controle_execucao é gravada pelo n8n só depois que
+-- o e-mail sai (com o instante capturado ANTES da consulta): run ou e-mail que falhe
+-- não faz perder alerta. O instante deve vir do próprio banco (SELECT localtimestamp),
+-- nunca do relógio do n8n: as colunas são TIMESTAMP sem fuso e um ISO com -03:00 teria
+-- o offset descartado, deixando a marca 3 h atrás (alertas repetidos). O limite de 30 dias evita despejar o histórico de proposições
+-- recém-carregadas.
+CREATE OR REPLACE VIEW gold.vw_movimentacoes AS
+SELECT
+    t.id_proposicao,
+    m.identificacao,
+    m.acompanhada,
+    t.data_hora,
+    t.sigla_orgao,
+    t.descricao_tramitacao,
+    t.despacho,
+    (coalesce(t.descricao_tramitacao, '') ~* '^Designação de Relator') AS eh_relator,
+    t.data_extracao
+FROM silver.tramitacao t
+JOIN gold.vw_monitoramento m ON m.id_proposicao = t.id_proposicao
+WHERE t.data_extracao > coalesce(
+        (SELECT max(executado_em) FROM bronze.controle_execucao WHERE tipo_carga = 'alerta_movimentacoes'),
+        now() - interval '1 day')
+  AND t.data_hora >= current_date - 30
+ORDER BY t.data_hora DESC;
 
 -- Audiências públicas cujo ASSUNTO bate nas keywords. Audiências não têm pauta
 -- estruturada nem link confiável com proposição — o cruzamento é feito pelo texto

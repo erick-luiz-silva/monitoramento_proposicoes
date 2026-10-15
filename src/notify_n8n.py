@@ -21,14 +21,14 @@ def webhook_config():
     return url, token
 
 
-def notify_n8n(mode):
+def notify_n8n(mode, status="sucesso"):
     url, token = webhook_config()
     run_id = os.getenv("GITHUB_RUN_ID")
     repository = os.getenv("GITHUB_REPOSITORY")
     payload = {
         "origem": "github_actions" if run_id else "local",
         "modo": mode,
-        "status": "sucesso",
+        "status": status,
         "concluido_em": datetime.now(timezone.utc).isoformat(),
         "run_id": run_id,
         "run_url": f"https://github.com/{repository}/actions/runs/{run_id}" if repository and run_id else None,
@@ -44,16 +44,25 @@ def notify_n8n(mode):
         ) from None
     if not 200 <= response.status_code < 300:
         raise RuntimeError(f"Webhook n8n rejeitou a chamada: HTTP {response.status_code}.")
-    print(f"Webhook n8n aceitou a chamada: HTTP {response.status_code}; modo={mode}; run_id={run_id or 'local'}.")
+    print(
+        f"Webhook n8n aceitou a chamada: HTTP {response.status_code}; modo={mode}; "
+        f"status={status}; run_id={run_id or 'local'}."
+    )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="Valida a configuração sem chamar o webhook")
-    parser.add_argument("--modo", choices=["completo", "pautas"], default="completo")
+    parser.add_argument("--modo", choices=["completo", "pautas", "inclusao"], default="completo")
+    parser.add_argument(
+        "--status",
+        choices=["sucesso", "falha"],
+        default="sucesso",
+        help="falha: avisa o n8n que a carga não terminou (e-mail de aviso, sem dados)",
+    )
     args = parser.parse_args()
     if args.check:
         webhook_config()
         print("Configuração do webhook n8n verificada.")
     else:
-        notify_n8n(args.modo)
+        notify_n8n(args.modo, args.status)

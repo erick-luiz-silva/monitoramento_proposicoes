@@ -61,28 +61,6 @@ def carregar_ids_existentes(conn):
         return {linha[0] for linha in cur.fetchall()}
 
 
-def carregar_ids_sem_keywords(conn, ids):
-    """Dentre `ids`, os que têm o último snapshot de detalhes com `keywords` vazio.
-
-    A Câmara indexa as keywords dias depois do tema; como a gold casa com o
-    último snapshot, esses ids precisam ser recarregados até o campo chegar.
-    """
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT id_proposicao FROM (
-                SELECT DISTINCT ON (id_proposicao) id_proposicao, payload
-                FROM bronze.proposicoes_json
-                WHERE id_proposicao = ANY(%s)
-                ORDER BY id_proposicao, id_bronze DESC
-            ) ultimo
-            WHERE coalesce(payload->>'keywords', '') = '';
-            """,
-            (list(ids),),
-        )
-        return {linha[0] for linha in cur.fetchall()}
-
-
 def _reconectar(conexao):
     """Abre uma conexão nova em `conexao` (ExitStack), com espera crescente entre tentativas."""
     ultimo_erro = None
@@ -175,12 +153,11 @@ def executar_carga_bronze(desde=DESDE_PADRAO, ate=None, pular_existentes=False, 
 
 
 def executar_reconciliacao(dias, levantar_erro=True, ignorar=()):
-    """Carrega, dos ids listados nos últimos `dias` dias, os ausentes da bronze e os
-    sem keywords no último snapshot. Não toca em controle_execucao.
+    """Carrega os ids listados nos últimos `dias` dias que ainda não estão na bronze.
 
-    Cobre a indexação tardia da Câmara: o tema chega de 1 a 2 semanas depois da
-    apresentação (e as keywords depois do tema), então a proposição já saiu da
-    janela do incremental quando passa a aparecer na listagem por tema.
+    Cobre a indexação tardia de tema: a Câmara atribui o tema de 1 a 2 semanas
+    depois da apresentação, quando a proposição já saiu da janela do incremental.
+    Não toca em controle_execucao.
 
     `ignorar`: ids já recarregados neste run (ex.: pela janela do incremental).
     Devolve (desde, ate, ids carregados, endpoints com erro).
@@ -191,14 +168,9 @@ def executar_reconciliacao(dias, levantar_erro=True, ignorar=()):
     ids = [id_prop for id_prop in coletar_ids_janelas(gerar_janelas(desde, ate)) if id_prop not in ignorar]
     with get_connection() as conn:
         existentes = carregar_ids_existentes(conn)
-        presentes = [id_prop for id_prop in ids if id_prop in existentes]
-        sem_keywords = carregar_ids_sem_keywords(conn, presentes) if presentes else set()
-    alvo = [id_prop for id_prop in ids if id_prop not in existentes or id_prop in sem_keywords]
-    print(
-        f"Reconciliação de {dias} dias: {len(ids)} ids listados, "
-        f"{len(ids) - len(presentes)} ausentes da bronze, {len(sem_keywords)} sem keywords"
-    )
-    carregados, erros = carregar_ids(alvo, levantar_erro=levantar_erro)
+    ausentes = [id_prop for id_prop in ids if id_prop not in existentes]
+    print(f"Reconciliação de {dias} dias: {len(ids)} ids listados, {len(ausentes)} ausentes da bronze")
+    carregados, erros = carregar_ids(ausentes, levantar_erro=levantar_erro)
     return desde, ate, carregados, erros
 
 

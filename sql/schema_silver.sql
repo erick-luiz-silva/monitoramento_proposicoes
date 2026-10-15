@@ -156,3 +156,18 @@ CREATE TABLE IF NOT EXISTS silver.dim_keyword (
     termo_requerido VARCHAR(400),
     ativo          BOOLEAN NOT NULL DEFAULT true
 );
+
+-- Proposições acompanhadas sempre, mesmo paradas, fora dos temas ou sem keyword:
+-- recarregadas todo dia pelo incremental e sempre presentes em gold.vw_monitoramento.
+-- origem 'planilha_antiga': fotografia única da aba "Acompanhamento manual"
+-- (sql/seed_acompanhadas.sql); a planilha antiga não é lida por nenhuma automação.
+-- origem 'inclusao_manual': gravada pelo n8n quando a responsável inclui uma
+-- proposição pela aba "Proposições" (só INSERT ... ON CONFLICT DO NOTHING);
+-- confirmada_em é preenchido pelo n8n depois do e-mail de confirmação.
+CREATE TABLE IF NOT EXISTS silver.proposicao_acompanhada (
+    id_proposicao BIGINT PRIMARY KEY,
+    origem        VARCHAR(30) NOT NULL,
+    observacao    TEXT,
+    incluida_em   TIMESTAMP NOT NULL DEFAULT now(),
+    confirmada_em TIMESTAMP
+);
