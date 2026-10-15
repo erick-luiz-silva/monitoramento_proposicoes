@@ -19,7 +19,9 @@ import load_bronze
 import load_dim_deputado
 import load_eventos
 import load_silver
+import pipeline_inclusao
 import pipeline_pautas
+import setup_db
 
 
 class FakeConnection:
@@ -129,7 +131,12 @@ class IncrementalTests(unittest.TestCase):
         self.stack.enter_context(patch.object(extract_incremental, "calcular_janela", return_value=(
             date(2026, 10, 3), date(2026, 10, 6)
         )))
-        self.stack.enter_context(patch.object(extract_incremental, "reconciliacao_longa_pendente", return_value=False))
+        self.acompanhadas = self.stack.enter_context(patch.object(
+            extract_incremental, "carregar_ids_acompanhadas", return_value=[]
+        ))
+        self.carregar_extras = self.stack.enter_context(patch.object(
+            extract_incremental, "carregar_ids", side_effect=lambda ids, levantar_erro: (list(ids), 0)
+        ))
         self.stack.enter_context(patch.object(extract_incremental, "coletar_ids_unicos", return_value=[123]))
         self.reconciliacao = self.stack.enter_context(patch.object(
             extract_incremental, "executar_reconciliacao",
@@ -189,6 +196,27 @@ class IncrementalTests(unittest.TestCase):
         extract_incremental.executar_carga_incremental()
         self.stages["carregar_dim_deputado"].assert_called_once_with(seletivo=True, ids_proposicao=[123, 456])
 
+    def test_acompanhadas_entram_na_carga_diaria_sem_repetir(self):
+        self.acompanhadas.return_value = [123, 789]
+        extract_incremental.executar_carga_incremental()
+        self.assertEqual([c.args[1] for c in self.bronze.call_args_list], [123])
+        self.carregar_extras.assert_called_once_with([789], levantar_erro=False)
+        self.reconciliacao.assert_called_once_with(90, levantar_erro=False, ignorar=[123, 789])
+        self.stages["carregar_dim_deputado"].assert_called_once_with(seletivo=True, ids_proposicao=[123, 789, 456])
+        # qtd do incremental conta só a janela D-14
+        self.assertEqual(self.register.call_args_list[0].args[1:], ("incremental", date(2026, 10, 3), date(2026, 10, 6), 1))
+
+    def test_acompanhada_com_erro_nao_trava_a_janela(self):
+        self.acompanhadas.return_value = [789]
+        for efeito in [{"side_effect": lambda ids, levantar_erro: (list(ids), 1)},
+                       {"side_effect": RuntimeError("Conexão com o banco perdida")}]:
+            with self.subTest(efeito=efeito):
+                self.register.reset_mock()
+                self.carregar_extras.configure_mock(**efeito)
+                with self.assertRaisesRegex(RuntimeError, "acompanhadas"):
+                    extract_incremental.executar_carga_incremental()
+                self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
+
     def test_erro_na_reconciliacao_registra_incremental_e_falha_no_fim(self):
         for efeito in [
             {"return_value": (date(2026, 7, 8), date(2026, 10, 6), [456], 2)},
@@ -203,13 +231,6 @@ class IncrementalTests(unittest.TestCase):
                 self.assertEqual(self.tipos_registrados(), ["incremental", "eventos"])
                 self.stages["carregar_dim_orgao"].assert_called()
 
-    def test_reconciliacao_longa_registra_as_duas(self):
-        with patch.object(extract_incremental, "reconciliacao_longa_pendente", return_value=True):
-            extract_incremental.executar_carga_incremental()
-        self.assertEqual(self.reconciliacao.call_args.args[0], 365)
-        self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao", "reconciliacao_365"])
-
-
 class WindowTests(unittest.TestCase):
     def test_windows_cover_initial_recent_and_missed_runs(self):
         for last, expected in [
@@ -223,23 +244,6 @@ class WindowTests(unittest.TestCase):
                 with patch.object(extract_incremental, "date") as mock_date:
                     mock_date.today.return_value = date(2026, 10, 6)
                     self.assertEqual(extract_incremental.calcular_janela(conn), (expected, date(2026, 10, 6)))
-
-    def test_reconciliacao_longa_por_idade_da_ultima(self):
-        for ultima, esperado in [
-            (None, True),
-            (date(2026, 9, 29), True),
-            (date(2026, 9, 30), False),
-            (date(2026, 10, 5), False),
-        ]:
-            with self.subTest(ultima=ultima):
-                conn = MagicMock()
-                cur = conn.cursor.return_value.__enter__.return_value
-                cur.fetchone.return_value = (ultima,)
-                with patch.object(extract_incremental, "date") as mock_date:
-                    mock_date.today.return_value = date(2026, 10, 6)
-                    self.assertEqual(extract_incremental.reconciliacao_longa_pendente(conn), esperado)
-                self.assertIn("'reconciliacao_365'", cur.execute.call_args.args[0])
-
 
 class EnvironmentTests(unittest.TestCase):
     def setUp(self):
@@ -344,34 +348,20 @@ class BackfillTests(unittest.TestCase):
         executed = [c.args[0] for c in conn.__enter__.return_value.cursor.return_value.__enter__.return_value.execute.call_args_list]
         self.assertFalse(any("controle_execucao" in sql for sql in executed))
 
-    def test_reconciliacao_carrega_ausentes_e_sem_keywords(self):
-        # 1: completo com keywords; 2: completo sem keywords; 3: ausente; 4: já carregado no run
+    def test_reconciliacao_carrega_so_ausentes(self):
+        # 1 e 2: já na bronze; 3: ausente; 4: ausente, mas já carregado neste run
         with patch.object(extract_bronze, "date") as mock_date, patch.object(
             extract_bronze, "coletar_ids_janelas", return_value=[1, 2, 3, 4]
         ) as coletar, patch.object(extract_bronze, "get_connection"), patch.object(
-            extract_bronze, "carregar_ids_existentes", return_value={1, 2, 4}
-        ), patch.object(extract_bronze, "carregar_ids_sem_keywords", return_value={2}) as sem_kw, patch.object(
-            extract_bronze, "carregar_ids", return_value=([2, 3], 0)
-        ) as carregar:
+            extract_bronze, "carregar_ids_existentes", return_value={1, 2}
+        ), patch.object(extract_bronze, "carregar_ids", return_value=([3], 0)) as carregar:
             mock_date.today.return_value = date(2026, 10, 13)
             resultado = extract_bronze.executar_reconciliacao(60, levantar_erro=False, ignorar=[4])
         janelas = coletar.call_args.args[0]
         self.assertEqual(janelas[0][0], date(2026, 10, 13) - timedelta(days=60))
         self.assertEqual(janelas[-1][1], date(2026, 10, 13))
-        self.assertEqual(sem_kw.call_args.args[1], [1, 2])
-        carregar.assert_called_once_with([2, 3], levantar_erro=False)
-        self.assertEqual(resultado, (date(2026, 10, 13) - timedelta(days=60), date(2026, 10, 13), [2, 3], 0))
-
-    def test_sem_keywords_olha_so_o_ultimo_snapshot(self):
-        conn = MagicMock()
-        cur = conn.cursor.return_value.__enter__.return_value
-        cur.fetchall.return_value = [(2,)]
-        self.assertEqual(extract_bronze.carregar_ids_sem_keywords(conn, [1, 2]), {2})
-        sql, params = cur.execute.call_args.args
-        self.assertIn("DISTINCT ON (id_proposicao)", sql)
-        self.assertIn("id_bronze DESC", sql)
-        self.assertIn("payload->>'keywords'", sql)
-        self.assertEqual(params, ([1, 2],))
+        carregar.assert_called_once_with([3], levantar_erro=False)
+        self.assertEqual(resultado, (date(2026, 10, 13) - timedelta(days=60), date(2026, 10, 13), [3], 0))
 
     def test_carregar_ids_sem_levantar_devolve_erros(self):
         with patch.object(extract_bronze, "get_connection"), patch.object(
@@ -515,6 +505,105 @@ class PautaTests(unittest.TestCase):
         sql = cur.execute.call_args.args[0]
         self.assertIn("silver.evento_pauta", sql)
         self.assertNotIn("proposicoes_proponentes", sql)
+
+
+class InclusaoTests(unittest.TestCase):
+    def test_carrega_so_acompanhadas_ausentes_sem_registrar_janela(self):
+        conn = MagicMock()
+        with patch.object(pipeline_inclusao, "get_connection", return_value=conn), patch.object(
+            pipeline_inclusao, "carregar_ids_acompanhadas", return_value=[1, 2, 3]
+        ), patch.object(
+            pipeline_inclusao, "carregar_ids_existentes", side_effect=[{1, 3}, {1, 2, 3}]
+        ), patch.object(
+            pipeline_inclusao, "carregar_ids", return_value=([2], 0)
+        ) as carregar, patch.object(pipeline_inclusao, "executar_transformacao_silver") as silver, patch.object(
+            pipeline_inclusao, "carregar_dim_deputado"
+        ) as dep, patch.object(pipeline_inclusao, "carregar_dim_orgao") as orgao:
+            pipeline_inclusao.executar_pipeline_inclusao()
+        carregar.assert_called_once_with([2], levantar_erro=False)
+        silver.assert_called_once()
+        dep.assert_called_once_with(seletivo=True, ids_proposicao=[2])
+        orgao.assert_called_once()
+        self.assertFalse(hasattr(pipeline_inclusao, "registrar_execucao"))
+
+    def rodar(self, ausentes, erros, existentes_depois=()):
+        with patch.object(pipeline_inclusao, "get_connection"), patch.object(
+            pipeline_inclusao, "carregar_ids_acompanhadas", return_value=ausentes
+        ), patch.object(
+            pipeline_inclusao, "carregar_ids_existentes", side_effect=[set(), set(existentes_depois)]
+        ), patch.object(
+            pipeline_inclusao, "carregar_ids", return_value=(ausentes, erros)
+        ), patch.object(pipeline_inclusao, "executar_transformacao_silver") as silver, patch.object(
+            pipeline_inclusao, "carregar_dim_deputado"
+        ), patch.object(pipeline_inclusao, "carregar_dim_orgao"):
+            pipeline_inclusao.executar_pipeline_inclusao()
+        return silver
+
+    def test_id_invalido_nao_bloqueia_as_demais(self):
+        # 2 proposições, 4 endpoints com erro (uma inteira falhou): segue para a silver
+        self.rodar([2, 3], 4, existentes_depois={3}).assert_called_once()
+
+    def test_falha_total_interrompe_antes_da_silver(self):
+        with self.assertRaisesRegex(RuntimeError, "Nenhuma proposição"):
+            self.rodar([2], 4)
+
+
+class GoldSqlTests(unittest.TestCase):
+    SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
+
+    def view(self, nome):
+        sql = re.sub(r"--[^\n]*", "", (self.SQL_DIR / "schema_gold.sql").read_text(encoding="utf-8"))
+        return re.search(rf"CREATE OR REPLACE VIEW gold\.{nome} AS(.*?);", sql, re.S).group(1)
+
+    def test_monitoramento_inclui_acompanhadas_e_radar_com_corte(self):
+        v = self.view("vw_monitoramento")
+        self.assertIn("LEFT JOIN gold.vw_proposicao_keywords kw", v)
+        self.assertIn("LEFT JOIN silver.proposicao_acompanhada a", v)
+        self.assertIn("WHERE kw.id_proposicao IS NOT NULL OR a.id_proposicao IS NOT NULL", v)
+        self.assertIn("p.data_apresentacao >= DATE '2026-09-01'", v)
+        self.assertNotIn("UNION", v)
+        # colunas novas só no fim (CREATE OR REPLACE VIEW não aceita reordenar)
+        select = v.split("FROM silver.proposicao p")[0]
+        self.assertLess(select.index("nome_orgao_atual"), select.index("AS acompanhada"))
+        self.assertTrue(select.rstrip().endswith("AS em_radar"))
+
+    def test_pautas_expoem_filtros_no_fim(self):
+        select = self.view("vw_pautas_monitoradas").split("FROM silver.evento_pauta")[0]
+        self.assertTrue(select.rstrip().endswith("m.em_radar"))
+        self.assertLess(select.index("e.nome_orgao"), select.index("m.id_proposicao"))
+
+    def test_movimentacoes_usa_marca_do_alerta_e_limite_de_30_dias(self):
+        v = self.view("vw_movimentacoes")
+        self.assertIn("tipo_carga = 'alerta_movimentacoes'", v)
+        self.assertIn("t.data_extracao >", v)
+        self.assertIn("t.data_hora >= current_date - 30", v)
+        self.assertIn("eh_relator", v)
+
+    def test_seed_idempotente_aplicada_antes_da_gold(self):
+        seed = (self.SQL_DIR / "seed_acompanhadas.sql").read_text(encoding="utf-8")
+        self.assertIn("ON CONFLICT (id_proposicao) DO NOTHING", seed)
+        self.assertGreaterEqual(len(re.findall(r"\(\d+, 'planilha_antiga'", seed)), 50)
+        fonte = Path(setup_db.__file__).read_text(encoding="utf-8")
+        self.assertLess(fonte.index("schema_silver.sql"), fonte.index("seed_acompanhadas.sql"))
+        self.assertLess(fonte.index("seed_acompanhadas.sql"), fonte.index("schema_gold.sql"))
+
+    def test_destaque_so_para_designacao_de_relator(self):
+        self.assertIn("~* '^Designação de Relator'", self.view("vw_movimentacoes"))
+
+    def test_ambiente_exige_tabela_e_view_novas(self):
+        self.assertIn("silver.proposicao_acompanhada", check_environment.REQUIRED_RELATIONS)
+        self.assertIn("gold.vw_movimentacoes", check_environment.REQUIRED_RELATIONS)
+
+
+class WorkflowYamlTests(unittest.TestCase):
+    def test_aviso_de_falha_so_quando_a_carga_falha_e_timeout_vira_falha(self):
+        yml = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "pipeline.yml").read_text(encoding="utf-8")
+        self.assertIn("id: carga", yml)
+        self.assertIn("if: ${{ failure() && steps.carga.outcome == 'failure' }}", yml)
+        passo = int(re.search(r"id: carga[\s\S]*?timeout-minutes: (\d+)", yml).group(1))
+        job = int(re.search(r"^    timeout-minutes: (\d+)", yml, re.M).group(1))
+        self.assertLess(passo, job)
+        self.assertIn("inclusao) python src/pipeline_inclusao.py", yml)
 
 
 class SilverSqlTests(unittest.TestCase):

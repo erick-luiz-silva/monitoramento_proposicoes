@@ -21,10 +21,11 @@ python -m unittest discover -s tests -v
 python -m unittest tests.test_pipeline.IncrementalTests.test_partial_bronze_failure_does_not_advance_window -v
 
 # Pipeline (from src/, requires src/.env with DATABASE_URL or DB_* vars — see src/.env.example)
-python setup_db.py          # applies sql/schema_bronze.sql, schema_silver.sql, schema_gold.sql (idempotent)
+python setup_db.py          # applies sql/schema_bronze.sql, schema_silver.sql, seed_acompanhadas.sql, schema_gold.sql (idempotent)
 python load_dimensoes.py    # reloads silver.dim_tema and silver.dim_keyword (from keywords.py)
 python pipeline.py          # daily full incremental run
 python pipeline_pautas.py   # intraday events/agendas-only refresh
+python pipeline_inclusao.py # loads acompanhadas still missing from bronze + silver + dims (modo=inclusao)
 
 # One-time bootstrap of an empty database (after setup_db.py + load_dimensoes.py):
 python extract_bronze.py    # historical bronze load for all TEMAS, desde 2023-02-01 em janelas de 90 dias (--desde, --ate, --ids 1,2,3, --so-listar, --pular-existentes, --reconciliar N, --pausa SEG); reconecta automaticamente se o banco derrubar a conexão
@@ -49,15 +50,20 @@ When updating dependencies: fresh venv with the pinned Python, install `requirem
 
 **Daily flow** (`pipeline.py` → `extract_incremental.executar_carga_incremental`):
 1. Compute window: `min(today-14, last successful data_fim - 14)` → today, so missed runs widen the next window automatically.
-2. List ids per theme, load each into bronze (`load_bronze.carregar_proposicao_bronze` — details, authors, themes, tramitações per endpoint).
-3. Reconciliation (`extract_bronze.executar_reconciliacao`): list the last 90 days (365 when the last `reconciliacao_365` row is ≥7 days old) and load ids missing from bronze plus ids whose latest `proposicoes_json` has empty `keywords`. This is the main path for *new* propositions: the Câmara assigns the theme 1–2 weeks after presentation, and keywords after that.
+2. List ids per theme, add every id in `silver.proposicao_acompanhada` (so tracked ones refresh daily even off-theme or idle), load each into bronze (`load_bronze.carregar_proposicao_bronze` — details, authors, themes, tramitações per endpoint).
+3. Reconciliation (`extract_bronze.executar_reconciliacao`): list the last 90 days and load ids missing from bronze. This is the main path for *new* propositions: the Câmara assigns the theme 1–2 weeks after presentation. (Empty `keywords` is structural by type — RIC/INC never get them — so it is *not* a reload criterion; a previous attempt reloaded ~3k ids/day and blew the job timeout.)
 4. Load events/agendas for committees in a D-7..D+14 window (`load_eventos.py`).
 5. Silver transform, then `dim_deputado` (selective: missing from the dim, authors of ids loaded in this run, plus a rolling refresh of rows >7 days old capped at 1/7 of the dim) and `dim_orgao`.
-6. Only then register `incremental` and `eventos` in `bronze.controle_execucao`, plus `reconciliacao` (and `reconciliacao_365`) if the reconciliation was complete.
+6. Only then register `incremental` and `eventos` in `bronze.controle_execucao`, plus `reconciliacao` if the reconciliation was complete.
+
+**Tracked propositions and radar** (decided by the business owner, Oct 2026):
+- `silver.proposicao_acompanhada` = always-tracked propositions: `planilha_antiga` (one-time snapshot of the old "Acompanhamento manual" tab, `sql/seed_acompanhadas.sql`) and `inclusao_manual` (inserted by the n8n "Inclusão manual de proposições" workflow when the owner adds a row with only `identificacao` to the "Proposições" tab; it then dispatches `modo=inclusao`). The old tab is audit-only: no automation reads or writes it.
+- `gold.vw_monitoramento` = keyword matches ∪ tracked; `acompanhada` and `em_radar` columns appended at the end (`em_radar` = tracked OR keyword match presented since 2026-09-01 — "from now on", no history). Pending-evaluation e-mails use `em_radar`; relevância SIM/NÃO lives in the sheet (Power BI reads it there) and is passed to n8n queries as parameters, never stored in the DB.
+- `gold.vw_movimentacoes` = not-yet-alerted tramitações (`silver.tramitacao.data_extracao` = first seen) after the latest `alerta_movimentacoes` row in `controle_execucao`, which n8n writes only after the e-mail is sent.
 
 **Failure semantics are deliberate and covered by tests**: any partial failure (a bronze endpoint, an event pauta, a deputado) must raise so the job fails, must roll back the aborted transaction so other rows still persist, and must *not* advance the incremental window. **Deliberate exception:** a reconciliation failure does not block the `incremental`/`eventos` windows (a chronically failing id would otherwise stay "missing" for 90 days and freeze the window) — it skips the `reconciliacao` row and raises at the end so the job still fails. `pipeline_pautas.py` refreshes only events/pautas/relatores/órgãos and registers only an `eventos` window — it must never advance the `incremental` window. Preserve these invariants when touching loaders.
 
-**Automation**: `.github/workflows/pipeline.yml` has no `schedule` (GitHub's cron delayed runs by hours or dropped them). Scheduling lives in n8n: workflow "Agendador – Monitoramento de Proposições" calls the GitHub `workflow_dispatch` API at 07:17 São Paulo with `modo=completo` and at 10h/14h with `modo=pautas`; the job picks the pipeline from `inputs.modo`. Change times in n8n, not in the YAML. Runs with `TZ=America/Sao_Paulo` (window dates depend on it). Before the load it runs `notify_n8n.py --check` and `check_environment.py` (verifies schemas and non-empty keywords). After success, `notify_n8n.py` POSTs to the n8n production webhook with `X-Webhook-Token` — it rejects test webhooks/plain HTTP and intentionally does not retry. The n8n webhook (workflow "Monitoramento de Proposições → Google Sheets") responds immediately, so HTTP 200 only means "received" — failures inside n8n (e.g. its own Postgres credential) show up only in n8n executions, not in Actions. Secrets (`DATABASE_URL`, `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_TOKEN`) live in the GitHub environment named `DATABASE_URL`.
+**Automation**: `.github/workflows/pipeline.yml` has no `schedule` (GitHub's cron delayed runs by hours or dropped them). Scheduling lives in n8n: workflow "Agendador – Monitoramento de Proposições" calls the GitHub `workflow_dispatch` API at 07:17 São Paulo with `modo=completo` and at 10h/14h with `modo=pautas`; the job picks the pipeline from `inputs.modo`. Change times in n8n, not in the YAML. Runs with `TZ=America/Sao_Paulo` (window dates depend on it). Before the load it runs `notify_n8n.py --check` and `check_environment.py` (verifies schemas and non-empty keywords). Modes: `completo`, `pautas`, `inclusao`. After success, `notify_n8n.py` POSTs to the n8n production webhook with `X-Webhook-Token` — it rejects test webhooks/plain HTTP and intentionally does not retry. On failure, an `if: failure()` step posts `status=falha` so n8n can e-mail that the run failed. The n8n webhook (workflow "Monitoramento de Proposições → Google Sheets") responds immediately, so HTTP 200 only means "received" — failures inside n8n (e.g. its own Postgres credential) show up only in n8n executions, not in Actions. Secrets (`DATABASE_URL`, `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_TOKEN`) live in the GitHub environment named `DATABASE_URL`.
 
 ## Notes
 

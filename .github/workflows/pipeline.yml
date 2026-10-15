@@ -2,6 +2,8 @@ name: Pipeline diário e pautas
 
 # Agendamento feito pelo n8n (workflow "Agendador – Monitoramento de Proposições"),
 # que chama workflow_dispatch às 07h17 (completo) e 10h/14h (pautas) de São Paulo.
+# O modo "inclusao" é disparado pelo n8n "Inclusão manual de proposições" quando a
+# responsável inclui uma proposição pela planilha.
 # O cron nativo do GitHub foi removido porque atrasava ou descartava disparos.
 on:
   workflow_dispatch:
@@ -12,6 +14,7 @@ on:
         options:
           - completo
           - pautas
+          - inclusao
         default: completo
       somente_notificar_n8n:
         description: Reenviar ao n8n usando os dados já carregados, sem executar nova carga
@@ -52,7 +55,11 @@ jobs:
         run: python -m pip install -r requirements.lock
 
       - name: Verificar ambiente e executar atualização
+        id: carga
         if: ${{ inputs.somente_notificar_n8n != true }}
+        # Abaixo do timeout do job: estourar o tempo vira falha deste passo (e dispara
+        # o aviso), em vez de cancelar o job inteiro em silêncio.
+        timeout-minutes: 110
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
@@ -65,20 +72,26 @@ jobs:
           fi
           python src/notify_n8n.py --check
           python src/check_environment.py
-          if [ "$MODO" = "pautas" ]; then
-            python src/pipeline_pautas.py
-          else
-            python src/pipeline.py
-          fi
+          case "$MODO" in
+            pautas) python src/pipeline_pautas.py ;;
+            inclusao) python src/pipeline_inclusao.py ;;
+            *) python src/pipeline.py ;;
+          esac
 
       - name: Notificar atualização ao n8n
         env:
           N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
           N8N_WEBHOOK_TOKEN: ${{ secrets.N8N_WEBHOOK_TOKEN }}
           MODO: ${{ inputs.modo }}
-        run: |
-          if [ "$MODO" = "pautas" ]; then
-            python src/notify_n8n.py --modo pautas
-          else
-            python src/notify_n8n.py --modo completo
-          fi
+        run: python src/notify_n8n.py --modo "$MODO"
+
+      # Sem isto, uma carga que falha simplesmente não gera e-mail e ninguém percebe.
+      # Só quando a CARGA falhou: se só a notificação falhou, o n8n pode já ter
+      # mandado o e-mail normal, e um aviso de falha confundiria.
+      - name: Avisar falha ao n8n
+        if: ${{ failure() && steps.carga.outcome == 'failure' }}
+        env:
+          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
+          N8N_WEBHOOK_TOKEN: ${{ secrets.N8N_WEBHOOK_TOKEN }}
+          MODO: ${{ inputs.modo }}
+        run: python src/notify_n8n.py --modo "$MODO" --status falha

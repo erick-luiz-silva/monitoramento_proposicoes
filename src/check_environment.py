@@ -19,11 +19,13 @@ REQUIRED_RELATIONS = (
     "silver.dim_deputado",
     "silver.dim_orgao",
     "silver.dim_keyword",
+    "silver.proposicao_acompanhada",
     "gold.vw_monitoramento",
     "gold.vw_tramitacoes",
     "gold.vw_proposicoes_sem_keyword",
     "gold.vw_pautas_monitoradas",
     "gold.vw_audiencias_de_interesse",
+    "gold.vw_movimentacoes",
 )
 
 
