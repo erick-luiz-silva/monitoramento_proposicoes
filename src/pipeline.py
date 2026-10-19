@@ -20,15 +20,15 @@ from db import get_connection  # noqa: E402
 from extract_incremental import executar_carga_incremental  # noqa: E402
 
 GOLD_CONTAGENS = [
-    ("gold.vw_monitoramento", "SELECT count(*) FROM gold.vw_monitoramento;"),
-    ("gold.vw_tramitacoes", "SELECT count(*) FROM gold.vw_tramitacoes;"),
-    ("gold.vw_proposicoes_sem_keyword", "SELECT count(*) FROM gold.vw_proposicoes_sem_keyword;"),
+    ("api.vw_monitoramento", "SELECT count(*) FROM api.vw_monitoramento;"),
+    ("api.vw_tramitacoes", "SELECT count(*) FROM api.vw_tramitacoes;"),
+    ("api.vw_proposicoes_sem_keyword", "SELECT count(*) FROM api.vw_proposicoes_sem_keyword;"),
 ]
 
 
 def resumo_gold():
-    """Gold é só views — não há carga aqui, isto apenas confirma que ela
-    reflete os dados frescos que acabaram de subir pela silver."""
+    """Gold é só views — não há carga aqui. Conta o schema api (cópia materializada da
+    gold, já atualizada pela carga), que é o que o Power BI lê e sai barato."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             for nome, query in GOLD_CONTAGENS:
@@ -38,7 +38,7 @@ def resumo_gold():
 
 def main():
     inicio = time.monotonic()
-    logger.info("=== Pipeline diário iniciado (bronze incremental -> silver -> dim_deputado -> gold) ===")
+    logger.info("=== Pipeline diário iniciado (bronze incremental -> silver -> dim_deputado -> gold/api) ===")
     try:
         executar_carga_incremental()
         resumo_gold()

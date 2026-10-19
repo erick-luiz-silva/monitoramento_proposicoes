@@ -3,6 +3,7 @@ import requests
 from config import API_BASE_URL
 from db import get_connection
 from keywords import KEYWORDS
+from load_api import atualizar_api
 
 
 def popular_dim_tema(conn):
@@ -43,3 +44,5 @@ if __name__ == "__main__":
     with get_connection() as conn:
         popular_dim_tema(conn)
         popular_dim_keyword(conn)
+    # Keyword nova muda monitoramento, tramitações e pautas que o Power BI lê.
+    atualizar_api()

@@ -26,6 +26,12 @@ REQUIRED_RELATIONS = (
     "gold.vw_pautas_monitoradas",
     "gold.vw_audiencias_de_interesse",
     "gold.vw_movimentacoes",
+    "api.vw_monitoramento",
+    "api.vw_proposicao_keywords",
+    "api.vw_proposicoes_sem_keyword",
+    "api.vw_tramitacoes",
+    "api.vw_pautas_monitoradas",
+    "api.vw_audiencias_de_interesse",
 )
 
 

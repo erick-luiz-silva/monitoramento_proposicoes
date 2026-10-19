@@ -8,6 +8,7 @@ from extract_incremental import (
     EVENTOS_DIAS_FUTURO,
     registrar_execucao,
 )
+from load_api import atualizar_api
 from load_dim_deputado import carregar_dim_deputado
 from load_dim_orgao import carregar_dim_orgao
 from load_eventos import executar_carga_eventos
@@ -25,6 +26,8 @@ def executar_pipeline_pautas():
     # O controle das proposições fica reservado à carga completa diária.
     with get_connection() as conn:
         registrar_execucao(conn, "eventos", inicio, fim, qtd)
+    # Tudo, não só pautas: dim_deputado/dim_orgao também aparecem em vw_monitoramento.
+    atualizar_api()
     print(f"Atualização de pautas concluída: {qtd} eventos entre {inicio} e {fim}.")
 
 

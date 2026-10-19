@@ -15,6 +15,7 @@ import comparar_acompanhamento
 import config
 import extract_bronze
 import extract_incremental
+import load_api
 import load_bronze
 import load_dim_deputado
 import load_eventos
@@ -157,6 +158,9 @@ class IncrementalTests(unittest.TestCase):
         self.register = self.stack.enter_context(patch.object(
             extract_incremental, "registrar_execucao", side_effect=lambda *args: self.events.append("checkpoint")
         ))
+        self.api = self.stack.enter_context(patch.object(
+            extract_incremental, "atualizar_api", side_effect=lambda: self.events.append("api")
+        ))
 
     def tipos_registrados(self):
         return [call.args[1] for call in self.register.call_args_list]
@@ -183,10 +187,23 @@ class IncrementalTests(unittest.TestCase):
         extract_incremental.executar_carga_incremental()
         self.assertEqual(self.events, [
             "executar_carga_eventos", "executar_transformacao_silver", "carregar_dim_deputado",
-            "carregar_dim_orgao", "checkpoint", "checkpoint", "checkpoint"
+            "carregar_dim_orgao", "checkpoint", "checkpoint", "checkpoint", "api"
         ])
         self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
         self.assertEqual(self.register.call_args_list[2].args[2:], (date(2026, 7, 8), date(2026, 10, 6), 1))
+
+    def test_falha_no_schema_api_nao_trava_janela_e_falha_no_fim(self):
+        self.api.side_effect = RuntimeError("lock timeout")
+        with self.assertRaisesRegex(RuntimeError, "schema api falhou: lock timeout"):
+            extract_incremental.executar_carga_incremental()
+        self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
+
+    def test_schema_api_atualiza_mesmo_com_reconciliacao_falhando(self):
+        self.reconciliacao.side_effect = RuntimeError("API fora do ar")
+        self.api.side_effect = RuntimeError("lock timeout")
+        with self.assertRaisesRegex(RuntimeError, "conciliação.*schema api falhou"):
+            extract_incremental.executar_carga_incremental()
+        self.api.assert_called_once()
 
     def test_reconciliacao_roda_apos_d14_sem_repetir_seus_ids(self):
         extract_incremental.executar_carga_incremental()
@@ -459,7 +476,7 @@ class PautaTests(unittest.TestCase):
         self.calls = MagicMock()
         self.stages = {}
         for name in ["executar_carga_eventos", "executar_transformacao_eventos", "carregar_dim_deputado",
-                     "carregar_dim_orgao", "registrar_execucao"]:
+                     "carregar_dim_orgao", "registrar_execucao", "atualizar_api"]:
             mock = self.stack.enter_context(patch.object(pipeline_pautas, name))
             self.calls.attach_mock(mock, name)
             self.stages[name] = mock
@@ -474,8 +491,14 @@ class PautaTests(unittest.TestCase):
         self.assertEqual(register.call_args.args[1:], ("eventos", date(2026, 9, 29), date(2026, 10, 20), 12))
         self.assertEqual([c[0] for c in self.calls.mock_calls], [
             "executar_carga_eventos", "executar_transformacao_eventos", "carregar_dim_deputado",
-            "carregar_dim_orgao", "registrar_execucao"
+            "carregar_dim_orgao", "registrar_execucao", "atualizar_api"
         ])
+
+    def test_falha_no_schema_api_nao_registra_incremental(self):
+        self.stages["atualizar_api"].side_effect = RuntimeError("lock timeout")
+        with self.assertRaisesRegex(RuntimeError, "lock timeout"):
+            pipeline_pautas.executar_pipeline_pautas()
+        self.assertEqual([c.args[1] for c in self.stages["registrar_execucao"].call_args_list], ["eventos"])
 
     def test_failed_stage_does_not_register_success(self):
         for name in ["executar_carga_eventos", "executar_transformacao_eventos", "carregar_dim_deputado", "carregar_dim_orgao"]:
@@ -484,6 +507,7 @@ class PautaTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "refresh failed"):
                     pipeline_pautas.executar_pipeline_pautas()
                 self.stages["registrar_execucao"].assert_not_called()
+                self.stages["atualizar_api"].assert_not_called()
                 self.stages[name].side_effect = None
 
     def test_event_transformation_does_not_write_propositions(self):
@@ -518,8 +542,11 @@ class InclusaoTests(unittest.TestCase):
             pipeline_inclusao, "carregar_ids", return_value=([2], 0)
         ) as carregar, patch.object(pipeline_inclusao, "executar_transformacao_silver") as silver, patch.object(
             pipeline_inclusao, "carregar_dim_deputado"
-        ) as dep, patch.object(pipeline_inclusao, "carregar_dim_orgao") as orgao:
+        ) as dep, patch.object(pipeline_inclusao, "carregar_dim_orgao") as orgao, patch.object(
+            pipeline_inclusao, "atualizar_api"
+        ) as api:
             pipeline_inclusao.executar_pipeline_inclusao()
+        api.assert_called_once()
         carregar.assert_called_once_with([2], levantar_erro=False)
         silver.assert_called_once()
         dep.assert_called_once_with(seletivo=True, ids_proposicao=[2])
@@ -535,7 +562,7 @@ class InclusaoTests(unittest.TestCase):
             pipeline_inclusao, "carregar_ids", return_value=(ausentes, erros)
         ), patch.object(pipeline_inclusao, "executar_transformacao_silver") as silver, patch.object(
             pipeline_inclusao, "carregar_dim_deputado"
-        ), patch.object(pipeline_inclusao, "carregar_dim_orgao"):
+        ), patch.object(pipeline_inclusao, "carregar_dim_orgao"), patch.object(pipeline_inclusao, "atualizar_api"):
             pipeline_inclusao.executar_pipeline_inclusao()
         return silver
 
@@ -587,12 +614,43 @@ class GoldSqlTests(unittest.TestCase):
         self.assertLess(fonte.index("schema_silver.sql"), fonte.index("seed_acompanhadas.sql"))
         self.assertLess(fonte.index("seed_acompanhadas.sql"), fonte.index("schema_gold.sql"))
 
+    def test_api_derrubado_antes_da_gold_e_recriado_depois(self):
+        fonte = Path(setup_db.__file__).read_text(encoding="utf-8")
+        ordem = [fonte.index(f'apply_sql_file(cur, "{nome}")') for nome in ("drop_api.sql", "schema_gold.sql", "schema_api.sql")]
+        self.assertEqual(ordem, sorted(ordem))
+
+    def test_api_expoe_so_views_finas_com_relogio_na_leitura(self):
+        sql = re.sub(r"--[^\n]*", "", (self.SQL_DIR / "schema_api.sql").read_text(encoding="utf-8"))
+        cache = re.findall(r"CREATE MATERIALIZED VIEW api_cache\.(\w+)", sql)
+        self.assertEqual(sorted(cache), sorted(load_api.MATERIALIZADAS))
+        self.assertEqual(sorted(re.findall(r"CREATE VIEW api\.(\w+)", sql)), sorted(cache))
+        # índice único em todas: exigido pelo REFRESH ... CONCURRENTLY
+        self.assertEqual(sorted(re.findall(r"CREATE UNIQUE INDEX ON api_cache\.(\w+)", sql)), sorted(cache))
+        # nada que dependa do relógio congelado no cache
+        for bloco in re.findall(r"CREATE MATERIALIZED VIEW.*?;", sql, re.S):
+            self.assertNotRegex(bloco, r"now\(\)|CURRENT_DATE|dias_sem_movimentacao|status_alerta")
+        self.assertIn("GRANT SELECT ON ALL TABLES IN SCHEMA api TO anon", sql)
+        self.assertNotRegex(sql, r"GRANT[^;]*api_cache[^;]*anon")
+        # tramitações filtradas pelo cache, atualizado antes na mesma transação
+        self.assertLess(load_api.MATERIALIZADAS.index("vw_monitoramento"), load_api.MATERIALIZADAS.index("vw_tramitacoes"))
+
+    def test_refresh_concorrente_numa_transacao(self):
+        conn = MagicMock()
+        with patch.object(load_api, "get_connection", return_value=conn):
+            load_api.atualizar_api()
+        cur = conn.__enter__.return_value.cursor.return_value.__enter__.return_value
+        sqls = [c.args[0] for c in cur.execute.call_args_list]
+        self.assertEqual(len(sqls), len(load_api.MATERIALIZADAS))
+        self.assertTrue(all(s.startswith("REFRESH MATERIALIZED VIEW CONCURRENTLY api_cache.") for s in sqls))
+        conn.__enter__.return_value.commit.assert_called_once()
+
     def test_destaque_so_para_designacao_de_relator(self):
         self.assertIn("~* '^Designação de Relator'", self.view("vw_movimentacoes"))
 
     def test_ambiente_exige_tabela_e_view_novas(self):
         self.assertIn("silver.proposicao_acompanhada", check_environment.REQUIRED_RELATIONS)
         self.assertIn("gold.vw_movimentacoes", check_environment.REQUIRED_RELATIONS)
+        self.assertIn("api.vw_tramitacoes", check_environment.REQUIRED_RELATIONS)
 
 
 class WorkflowYamlTests(unittest.TestCase):

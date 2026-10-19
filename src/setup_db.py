@@ -16,6 +16,9 @@ if __name__ == "__main__":
             apply_sql_file(cur, "schema_bronze.sql")
             apply_sql_file(cur, "schema_silver.sql")
             apply_sql_file(cur, "seed_acompanhadas.sql")
+            # api_cache depende da gold: derrubado antes e recriado depois (ver schema_api.sql).
+            apply_sql_file(cur, "drop_api.sql")
             apply_sql_file(cur, "schema_gold.sql")
+            apply_sql_file(cur, "schema_api.sql")
         conn.commit()
-    print("Schemas bronze, silver e gold (e seed das acompanhadas) aplicados com sucesso.")
+    print("Schemas bronze, silver, gold e api (e seed das acompanhadas) aplicados com sucesso.")

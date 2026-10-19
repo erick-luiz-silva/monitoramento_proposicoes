@@ -7,6 +7,7 @@ from config import TEMAS
 from db import get_connection
 from extract_bronze import carregar_ids, executar_reconciliacao
 from load_bronze import carregar_proposicao_bronze
+from load_api import atualizar_api
 from load_dim_deputado import carregar_dim_deputado
 from load_dim_orgao import carregar_dim_orgao
 from load_eventos import executar_carga_eventos
@@ -166,6 +167,15 @@ def executar_carga_incremental():
             registrar_execucao(conn, *reconciliacao)
 
     erros = [erro for erro in (erro_acompanhadas, erro_reconciliacao) if erro]
+
+    # Depois das janelas: é derivado (o próximo run recalcula) e não pode travar o
+    # incremental, mas roda mesmo quando acompanhadas/reconciliação falharam.
+    print("\nAtualizando schema api (Power BI)...")
+    try:
+        atualizar_api()
+    except Exception as exc:
+        erros.append(f"atualização do schema api falhou: {exc}")
+
     if erros:
         raise RuntimeError("; ".join(erros) + " (janela incremental registrada; reconciliação só se completa).")
 
