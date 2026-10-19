@@ -33,6 +33,8 @@ python load_silver.py && python load_dim_deputado.py && python load_dim_orgao.py
 python -c "from datetime import date; from load_eventos import executar_carga_eventos; executar_carga_eventos(date(2023,1,1), date.today())"
 ```
 
+Read-only audit tooling (local only, not part of the pipeline): `python google_auth.py` does the one-time Google OAuth consent and writes `src/token_google.json` (gitignored; `GOOGLE_TOKEN_JSON` env var in headless environments). Then `python comparar_acompanhamento.py [--keywords-candidatas]` compares the sheet (`GOOGLE_SHEET_MONITORAMENTO_ID`) with the DB, classifying each proposition A/B/C1/C2/NC and showing per-keyword precision from the "relevancia" column. Use it to try out new keywords before changing `keywords.py`. Its output goes to `data/` (gitignored).
+
 `src/executar.bat` is a legacy local Windows scheduler (gitignored, superseded by GitHub Actions) — don't extend it.
 
 When updating dependencies: fresh venv with the pinned Python, install `requirements.txt`, regenerate with `python -m pip freeze > requirements.lock`, run tests.
@@ -52,7 +54,7 @@ When updating dependencies: fresh venv with the pinned Python, install `requirem
 1. Compute window: `min(today-14, last successful data_fim - 14)` → today, so missed runs widen the next window automatically.
 2. List ids per theme, add every id in `silver.proposicao_acompanhada` (so tracked ones refresh daily even off-theme or idle), load each into bronze (`load_bronze.carregar_proposicao_bronze` — details, authors, themes, tramitações per endpoint).
 3. Reconciliation (`extract_bronze.executar_reconciliacao`): list the last 90 days and load ids missing from bronze. This is the main path for *new* propositions: the Câmara assigns the theme 1–2 weeks after presentation. (Empty `keywords` is structural by type — RIC/INC never get them — so it is *not* a reload criterion; a previous attempt reloaded ~3k ids/day and blew the job timeout.)
-4. Load events/agendas for committees in a D-7..D+14 window (`load_eventos.py`).
+4. Load events/agendas for committees (CAPADR, CCJC, CMADS, PLEN) in a D-7..D+14 window (`load_eventos.py`). In gold, `vw_pautas_monitoradas` links agenda items to monitored propositions, mostly indirectly through the item's "proposição relacionada". `vw_audiencias_de_interesse` matches public hearings by keyword on `evento.descricao`, because hearings have no structured link to a proposition.
 5. Silver transform, then `dim_deputado` (selective: missing from the dim, authors of ids loaded in this run, plus a rolling refresh of rows >7 days old capped at 1/7 of the dim) and `dim_orgao`.
 6. Only then register `incremental` and `eventos` in `bronze.controle_execucao`, plus `reconciliacao` if the reconciliation was complete.
 
