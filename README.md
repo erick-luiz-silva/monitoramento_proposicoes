@@ -46,7 +46,8 @@ API Câmara dos Deputados
    PostgreSQL
     ├── bronze  → JSON bruto da API, append-only (auditoria e reprocessamento)
     ├── silver  → dados normalizados em tabelas relacionais
-    └── gold    → views analíticas prontas para consumo (keywords aplicadas aqui)
+    ├── gold    → views analíticas prontas para consumo (keywords aplicadas aqui)
+    └── api     → cópia materializada da gold lida pelo Power BI (Data API do Supabase)
         │
         ▼
   Power BI / planilha exportada
@@ -61,7 +62,7 @@ O projeto nasceu com infraestrutura local (volume pequeno, consumidor interno, i
 | Extração e transformação | Python (`requests`, `pandas`) |
 | Armazenamento | PostgreSQL (Supabase) |
 | Orquestração | n8n (agendamento) disparando o GitHub Actions via `workflow_dispatch` |
-| Visualização | Power BI Desktop ou export CSV |
+| Visualização | Power BI Service (Data API do Supabase, atualização agendada) |
 
 ## Fonte de dados
 
@@ -211,8 +212,11 @@ o endpoint escolhido.
   máquina. Ao ativar o agendamento remoto, desative o agendamento local existente.
 - Se o token do GitHub expirar, o agendador do n8n falha ao disparar (HTTP 401)
   e nenhuma carga roda: renove o token na credencial do n8n.
-- Esse job atualiza o banco; a atualização do Power BI deve ser configurada
-  separadamente no Power BI Service ou executada no Desktop.
+- Esse job atualiza o banco e, no fim, as cópias do schema `api` que o Power BI
+  lê (`load_api.py`). O Power BI Service atualiza sozinho às 08:30, 10:30 e
+  14:30 (Brasília), depois das cargas, com e-mail em caso de falha. Ele lê pela
+  Data API do Supabase com a chave anon (credencial Anônima, conexão de nuvem
+  `con_supabase_monitoramento`) e a planilha Google com OAuth da conta dona.
 
 ### Arquivos locais do Power BI
 

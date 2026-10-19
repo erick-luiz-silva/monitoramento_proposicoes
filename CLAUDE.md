@@ -21,8 +21,9 @@ python -m unittest discover -s tests -v
 python -m unittest tests.test_pipeline.IncrementalTests.test_partial_bronze_failure_does_not_advance_window -v
 
 # Pipeline (from src/, requires src/.env with DATABASE_URL or DB_* vars — see src/.env.example)
-python setup_db.py          # applies sql/schema_bronze.sql, schema_silver.sql, seed_acompanhadas.sql, schema_gold.sql (idempotent)
-python load_dimensoes.py    # reloads silver.dim_tema and silver.dim_keyword (from keywords.py)
+python setup_db.py          # applies sql/schema_bronze.sql, schema_silver.sql, seed_acompanhadas.sql, drop_api.sql, schema_gold.sql, schema_api.sql (idempotent)
+python load_dimensoes.py    # reloads silver.dim_tema and silver.dim_keyword (from keywords.py), then refreshes api
+python load_api.py          # refreshes the api_cache materialized views (all pipelines already do it at the end)
 python pipeline.py          # daily full incremental run
 python pipeline_pautas.py   # intraday events/agendas-only refresh
 python pipeline_inclusao.py # loads acompanhadas still missing from bronze + silver + dims (modo=inclusao)
@@ -45,8 +46,9 @@ When updating dependencies: fresh venv with the pinned Python, install `requirem
 - `bronze` — raw API JSON, append-only snapshots (`bronze.proposicoes_json` etc.) plus `bronze.controle_execucao`, which records each successful run's date window.
 - `silver` — relational tables built entirely in SQL (`sql/transform_bronze_to_silver.sql`, `sql/transform_eventos_to_silver.sql`) executed by `load_silver.py`. Proposition tables take the latest bronze row per id and upsert; `silver.tramitacao` is historical and accumulates across all bronze rows. Dimension tables (`dim_deputado`, `dim_orgao`, `dim_tema`, `dim_keyword`) are loaded by their own Python scripts.
 - `gold` — **views only** (`sql/schema_gold.sql`), no load step. Changing gold means editing the SQL and re-running `setup_db.py`.
+- `api` — what Power BI reads through the Supabase Data API (`sql/schema_api.sql`). The `anon` role has a 3 s `statement_timeout` and the gold views recompute the keyword regex on every call (2–4 s), so `api_cache` (not exposed) holds MATERIALIZED VIEWs of the six gold views the model uses (tramitações filtered to monitored propositions: ~8k rows instead of ~207k), and `api` exposes thin views over them that compute the clock-dependent columns (`dias_sem_movimentacao`, `status_alerta`) at read time — keep those rules identical to gold. `load_api.atualizar_api()` refreshes them CONCURRENTLY in one transaction at the end of every pipeline and of `load_dimensoes.py`; it is derived, so in the daily run it runs *after* the windows are registered and a failure only makes the job fail at the end. `setup_db.py` drops both schemas before `schema_gold.sql` (the MVs depend on gold) and recreates them with grants after. Exposed schemas in Supabase: `gold, api`. If the pipeline fails, Power BI keeps showing the last refreshed snapshot.
 
-**Keyword matching is a gold-only concern.** `src/keywords.py` defines `(rotulo, termo, termo_requerido)` tuples of POSIX regex fragments; `load_dimensoes.py` truncates and reloads them into `silver.dim_keyword`; `gold.vw_proposicao_keywords` matches with `~*` against both `ementa` and `keywords_camara` (the Câmara's own indexing field). Terms use `\m` word-start anchors to avoid substring false positives (e.g. "ave" in "grave"), and `termo_requerido` is a second regex that must also match to disambiguate generic terms (e.g. production vs. pet "bem-estar animal"). Adding a keyword = edit `keywords.py` + run `load_dimensoes.py`; no re-extraction needed.
+**Keyword matching is a gold-only concern.** `src/keywords.py` defines `(rotulo, termo, termo_requerido)` tuples of POSIX regex fragments; `load_dimensoes.py` truncates and reloads them into `silver.dim_keyword`; `gold.vw_proposicao_keywords` matches with `~*` against both `ementa` and `keywords_camara` (the Câmara's own indexing field). Terms use `\m` word-start anchors to avoid substring false positives (e.g. "ave" in "grave"), and `termo_requerido` is a second regex that must also match to disambiguate generic terms (e.g. production vs. pet "bem-estar animal"). Adding a keyword = edit `keywords.py` + run `load_dimensoes.py` (which also refreshes `api`); no re-extraction needed.
 
 **Extraction filter**: coarse filter by API theme codes (`TEMAS = [64, 48, 66]`, defined only in `src/config.py`), fine filter by keywords in gold.
 

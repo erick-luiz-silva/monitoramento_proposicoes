@@ -9,6 +9,7 @@ em controle_execucao: a janela incremental continua sendo da carga diária.
 from db import get_connection
 from extract_bronze import carregar_ids, carregar_ids_existentes
 from extract_incremental import carregar_ids_acompanhadas
+from load_api import atualizar_api
 from load_dim_deputado import carregar_dim_deputado
 from load_dim_orgao import carregar_dim_orgao
 from load_silver import executar_transformacao_silver
@@ -33,6 +34,7 @@ def executar_pipeline_inclusao():
     executar_transformacao_silver()
     carregar_dim_deputado(seletivo=True, ids_proposicao=carregados)
     carregar_dim_orgao()
+    atualizar_api()
     print(f"Inclusão concluída: {len(carregados)} proposições processadas, {erros} endpoints com erro.")
 
 
