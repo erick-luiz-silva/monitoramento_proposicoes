@@ -62,11 +62,14 @@ CREATE UNIQUE INDEX ON api_cache.vw_audiencias_de_interesse (id_evento);
 
 -- Views expostas. Rodam com os privilégios do dono, então a anon só precisa de SELECT
 -- nelas, nunca no api_cache. As regras de relógio repetem as da gold — mantenha iguais.
+-- A sessão do banco é UTC e os horários da Câmara são de Brasília sem fuso: o relógio
+-- é sempre now() AT TIME ZONE 'America/Sao_Paulo', senão uma pauta vira "encerrada"
+-- 3 h antes de começar.
 CREATE VIEW api.vw_monitoramento AS
 SELECT id_proposicao, identificacao, ementa, autor_principal, tipo_autor_principal,
        partido_autor_principal, uf_autor_principal, situacao_atual, orgao_atual,
        nome_orgao_atual, ultima_movimentacao, data_ultima_movimentacao,
-       (CURRENT_DATE - data_ultima_movimentacao::date) AS dias_sem_movimentacao,
+       ((now() AT TIME ZONE 'America/Sao_Paulo')::date - data_ultima_movimentacao::date) AS dias_sem_movimentacao,
        keywords_encontradas, link_direto, acompanhada, em_radar
 FROM api_cache.vw_monitoramento;
 
@@ -86,7 +89,8 @@ SELECT _id, id_evento, data_hora_inicio, sigla_orgao, nome_orgao, descricao_tipo
        topico, titulo, identificacao, ementa, nome_relator, partido_relator, uf_relator,
        uri_votacao, situacao_item,
        CASE
-           WHEN data_hora_inicio > now() THEN 'Agendado'
+           WHEN situacao_evento = 'Cancelada' THEN 'Cancelada'
+           WHEN data_hora_inicio > (now() AT TIME ZONE 'America/Sao_Paulo') THEN 'Agendado'
            WHEN uri_votacao IS NOT NULL THEN 'Votado'
            ELSE 'Encerrado sem votação'
        END AS status_alerta,
@@ -96,8 +100,26 @@ FROM api_cache.vw_pautas_monitoradas;
 CREATE VIEW api.vw_audiencias_de_interesse AS
 SELECT id_evento, data_hora_inicio, sigla_orgao, nome_orgao, situacao_evento, assunto,
        keywords_encontradas, url_registro,
-       CASE WHEN data_hora_inicio > now() THEN 'Agendada' ELSE 'Realizada' END AS status_alerta
+       CASE
+           WHEN situacao_evento = 'Cancelada' THEN 'Cancelada'
+           WHEN data_hora_inicio > (now() AT TIME ZONE 'America/Sao_Paulo') THEN 'Agendada'
+           ELSE 'Realizada'
+       END AS status_alerta
 FROM api_cache.vw_audiencias_de_interesse;
+
+-- "Dados atualizados em" do relatório: a última carga que terminou bem, não a hora do
+-- refresh do Power BI (que roda mesmo se o pipeline falhar). Sem cache: lê
+-- controle_execucao direto, poucas linhas. executado_em é gravado em UTC (sessão UTC).
+-- data_referencia é o "hoje" de Brasília no momento da leitura, para o relatório não
+-- usar TODAY() (UTC no Service).
+CREATE VIEW api.vw_ultima_carga AS
+SELECT
+    (max(executado_em) FILTER (WHERE tipo_carga = 'incremental')
+        AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo' AS ultima_carga_diaria,
+    (max(executado_em) FILTER (WHERE tipo_carga = 'eventos')
+        AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo' AS ultima_carga_pautas,
+    (now() AT TIME ZONE 'America/Sao_Paulo')::date AS data_referencia
+FROM bronze.controle_execucao;
 
 REVOKE ALL ON SCHEMA api_cache FROM PUBLIC;
 GRANT USAGE ON SCHEMA api TO anon;

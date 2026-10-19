@@ -623,7 +623,8 @@ class GoldSqlTests(unittest.TestCase):
         sql = re.sub(r"--[^\n]*", "", (self.SQL_DIR / "schema_api.sql").read_text(encoding="utf-8"))
         cache = re.findall(r"CREATE MATERIALIZED VIEW api_cache\.(\w+)", sql)
         self.assertEqual(sorted(cache), sorted(load_api.MATERIALIZADAS))
-        self.assertEqual(sorted(re.findall(r"CREATE VIEW api\.(\w+)", sql)), sorted(cache))
+        # vw_ultima_carga é a única sem cache: lê bronze.controle_execucao direto
+        self.assertEqual(sorted(re.findall(r"CREATE VIEW api\.(\w+)", sql)), sorted(cache + ["vw_ultima_carga"]))
         # índice único em todas: exigido pelo REFRESH ... CONCURRENTLY
         self.assertEqual(sorted(re.findall(r"CREATE UNIQUE INDEX ON api_cache\.(\w+)", sql)), sorted(cache))
         # nada que dependa do relógio congelado no cache
@@ -633,6 +634,26 @@ class GoldSqlTests(unittest.TestCase):
         self.assertNotRegex(sql, r"GRANT[^;]*api_cache[^;]*anon")
         # tramitações filtradas pelo cache, atualizado antes na mesma transação
         self.assertLess(load_api.MATERIALIZADAS.index("vw_monitoramento"), load_api.MATERIALIZADAS.index("vw_tramitacoes"))
+
+    def test_relogio_em_horario_de_brasilia(self):
+        # sessão UTC × horários da Câmara sem fuso: now()/CURRENT_DATE puros erram 3 h
+        for arquivo in ("schema_gold.sql", "schema_api.sql"):
+            sql = re.sub(r"--[^\n]*", "", (self.SQL_DIR / arquivo).read_text(encoding="utf-8"))
+            self.assertNotRegex(sql, r"data_hora_inicio > now\(\)|CURRENT_DATE - (p\.)?data_ultima")
+            self.assertIn("data_hora_inicio > (now() AT TIME ZONE 'America/Sao_Paulo')", sql)
+
+    def test_status_cancelada_primeiro_e_igual_na_gold_e_no_api(self):
+        def casos(arquivo):
+            sql = re.sub(r"--[^\n]*", "", (self.SQL_DIR / arquivo).read_text(encoding="utf-8"))
+            blocos = re.findall(r"CASE(.*?)END AS status_alerta", sql, re.S)
+            # sem alias de tabela e sem espaços, para comparar a regra e não a formatação
+            return [re.sub(r"\s+", " ", re.sub(r"\b(e|ep)\.", "", b)).replace("situacao_evento", "situacao").strip()
+                    for b in blocos]
+        gold, api = casos("schema_gold.sql"), casos("schema_api.sql")
+        self.assertEqual(len(gold), 2)
+        self.assertEqual(gold, api)
+        for bloco in gold:
+            self.assertTrue(bloco.startswith("WHEN situacao = 'Cancelada' THEN 'Cancelada'"), bloco)
 
     def test_refresh_concorrente_numa_transacao(self):
         conn = MagicMock()
