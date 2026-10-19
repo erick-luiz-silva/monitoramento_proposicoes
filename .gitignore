@@ -22,3 +22,6 @@ src/token_google.json
 
 # Saídas locais de análise (comparação com a planilha do time).
 data/
+
+# Estado local do Claude Code
+.claude/scheduled_tasks.lock
