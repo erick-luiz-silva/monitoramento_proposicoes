@@ -634,6 +634,9 @@ class GoldSqlTests(unittest.TestCase):
             self.assertNotRegex(bloco, r"now\(\)|CURRENT_DATE|dias_sem_movimentacao|status_alerta")
         self.assertIn("GRANT SELECT ON ALL TABLES IN SCHEMA api TO anon", sql)
         self.assertNotRegex(sql, r"GRANT[^;]*api_cache[^;]*anon")
+        # chave anon é pública (modelo do Power BI no repositório): gold só para leitura
+        self.assertRegex(sql, r"REVOKE INSERT, UPDATE, DELETE, TRUNCATE[^;]*ON ALL TABLES IN SCHEMA gold FROM anon")
+        self.assertRegex(sql, r"ALTER DEFAULT PRIVILEGES[^;]*IN SCHEMA gold\s+REVOKE INSERT[^;]*FROM anon")
         # tramitações filtradas pelo cache, atualizado antes na mesma transação
         self.assertLess(load_api.MATERIALIZADAS.index("vw_monitoramento"), load_api.MATERIALIZADAS.index("vw_tramitacoes"))
 
