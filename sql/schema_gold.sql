@@ -48,7 +48,9 @@ SELECT
     orgao.nome AS nome_orgao_atual,
     (a.id_proposicao IS NOT NULL) AS acompanhada,
     (a.id_proposicao IS NOT NULL
-     OR (kw.id_proposicao IS NOT NULL AND coalesce(p.data_apresentacao >= DATE '2026-09-01', false))) AS em_radar
+     OR (kw.id_proposicao IS NOT NULL AND coalesce(p.data_apresentacao >= DATE '2026-09-01', false))) AS em_radar,
+    p.sigla_tipo,
+    p.data_apresentacao
 FROM silver.proposicao p
 LEFT JOIN gold.vw_proposicao_keywords kw ON kw.id_proposicao = p.id_proposicao
 LEFT JOIN silver.proposicao_acompanhada a ON a.id_proposicao = p.id_proposicao

@@ -20,7 +20,7 @@ CREATE MATERIALIZED VIEW api_cache.vw_monitoramento AS
 SELECT id_proposicao, identificacao, ementa, autor_principal, tipo_autor_principal,
        partido_autor_principal, uf_autor_principal, situacao_atual, orgao_atual,
        nome_orgao_atual, ultima_movimentacao, data_ultima_movimentacao,
-       keywords_encontradas, link_direto, acompanhada, em_radar
+       keywords_encontradas, link_direto, acompanhada, em_radar, sigla_tipo, data_apresentacao
 FROM gold.vw_monitoramento;
 CREATE UNIQUE INDEX ON api_cache.vw_monitoramento (id_proposicao);
 
@@ -70,7 +70,7 @@ SELECT id_proposicao, identificacao, ementa, autor_principal, tipo_autor_princip
        partido_autor_principal, uf_autor_principal, situacao_atual, orgao_atual,
        nome_orgao_atual, ultima_movimentacao, data_ultima_movimentacao,
        ((now() AT TIME ZONE 'America/Sao_Paulo')::date - data_ultima_movimentacao::date) AS dias_sem_movimentacao,
-       keywords_encontradas, link_direto, acompanhada, em_radar
+       keywords_encontradas, link_direto, acompanhada, em_radar, sigla_tipo, data_apresentacao
 FROM api_cache.vw_monitoramento;
 
 CREATE VIEW api.vw_proposicao_keywords AS

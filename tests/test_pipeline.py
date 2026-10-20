@@ -592,7 +592,9 @@ class GoldSqlTests(unittest.TestCase):
         # colunas novas só no fim (CREATE OR REPLACE VIEW não aceita reordenar)
         select = v.split("FROM silver.proposicao p")[0]
         self.assertLess(select.index("nome_orgao_atual"), select.index("AS acompanhada"))
-        self.assertTrue(select.rstrip().endswith("AS em_radar"))
+        self.assertLess(select.index("AS acompanhada"), select.index("AS em_radar"))
+        # depois de em_radar, só colunas acrescentadas no fim (tipo e apresentação, para o BI)
+        self.assertTrue(select.rstrip().endswith("p.data_apresentacao"))
 
     def test_pautas_expoem_filtros_no_fim(self):
         select = self.view("vw_pautas_monitoradas").split("FROM silver.evento_pauta")[0]
