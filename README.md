@@ -255,9 +255,13 @@ commitar qualquer coisa em `BI/`:
 
 ```bash
 git config filter.segredos-pbi.clean "python3 BI/filtro_segredos.py clean"
-git config filter.segredos-pbi.smudge "python3 BI/filtro_segredos.py smudge"
+git config filter.segredos-pbi.smudge "python3 BI/filtro_segredos.py smudge || cat"
 git config filter.segredos-pbi.required true
 ```
+
+O `|| cat` evita que um checkout aborte no meio quando o script ainda não está no
+disco (por exemplo, no primeiro checkout que o traz): o `.tmdl` sai com os
+marcadores e basta um `git checkout -- BI` depois para repor os valores.
 
 `tests/test_segredos.py` falha se uma chave do Supabase ou um link de planilha
 chegar ao índice. Mesmo que a chave vaze, a role `anon` só lê: SELECT no schema
