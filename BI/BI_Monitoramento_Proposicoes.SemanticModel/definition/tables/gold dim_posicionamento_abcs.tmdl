@@ -1,0 +1,92 @@
+table 'gold dim_posicionamento_abcs'
+	lineageTag: 8fd80b12-d1f1-4c2a-a0ba-e2fe840242ef
+
+	column identificacao
+		dataType: string
+		lineageTag: 445188c3-fee9-4fcd-be6c-764f2a973044
+		summarizeBy: none
+		sourceColumn: identificacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column ementa
+		dataType: string
+		lineageTag: 8a96a281-4959-46fd-8a8d-c16365ac27df
+		summarizeBy: none
+		sourceColumn: ementa
+
+		annotation SummarizationSetBy = Automatic
+
+	column posicao_abcs
+		dataType: string
+		lineageTag: 86029d66-b7c6-486b-9e91-dcc803ae0d71
+		summarizeBy: none
+		sourceColumn: posicao_abcs
+
+		annotation SummarizationSetBy = Automatic
+
+	column acao
+		dataType: string
+		lineageTag: 5f5dce45-0ecd-47d2-86fd-963e5456fefd
+		summarizeBy: none
+		sourceColumn: acao
+
+		annotation SummarizationSetBy = Automatic
+
+	column parecer_abcs
+		dataType: string
+		lineageTag: 002e1c68-f384-4ed7-9a2a-7de393375a6c
+		summarizeBy: none
+		sourceColumn: parecer_abcs
+
+		annotation SummarizationSetBy = Automatic
+
+	column prioridade
+		dataType: string
+		lineageTag: 2992be65-015f-418e-ad2c-4cbe90ee7f1a
+		summarizeBy: none
+		sourceColumn: prioridade
+
+		annotation SummarizationSetBy = Automatic
+
+	column observacoes
+		dataType: string
+		lineageTag: ec556140-68c2-4a7a-b0ea-7ad886f151d1
+		summarizeBy: none
+		sourceColumn: observacoes
+
+		annotation SummarizationSetBy = Automatic
+
+	column id_proposicao
+		dataType: string
+		lineageTag: 690d07bc-f617-44f6-b6d3-aae8cab847eb
+		summarizeBy: none
+		sourceColumn: id_proposicao
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'gold dim_posicionamento_abcs' = m
+		mode: import
+		source =
+				let
+				  Origem = GoogleSheets.Contents("https://docs.google.com/spreadsheets/d/ID-DA-PLANILHA/edit?usp=sharing"),
+				    #"Posicionamento ABCS_Table" = Origem{[name="Posicionamento ABCS",ItemKind="Table"]}[Data],
+				    #"Cabeçalhos Promovidos" = Table.PromoteHeaders(#"Posicionamento ABCS_Table", [PromoteAllScalars=true]),
+				    #"Tipo Alterado" = Table.TransformColumnTypes(#"Cabeçalhos Promovidos",{{"identificacao", type text}, {"ementa", type any}, {"posicao_abcs", type any}, {"acao", type any}, {"parecer_abcs", type any}, {"prioridade", type any}, {"observacoes", type any}}),
+				    // Planilha editada à mão: sem espaços sobrando e com prioridade/posição em caixa única,
+				    // senão "Sim " e "sim" viram categorias diferentes e as regras de cor falham.
+				    Limpo = Table.TransformColumns(#"Tipo Alterado", {
+				        {"identificacao", each if _ = null then null else Text.Trim(Text.From(_)), type text},
+				        {"prioridade", each if _ = null or Text.Trim(Text.From(_)) = "" then null else Text.Lower(Text.Trim(Text.From(_))), type text},
+				        {"posicao_abcs", each if _ = null or Text.Trim(Text.From(_)) = "" then null else Text.Trim(Text.From(_)), type text}
+				    }),
+				    ComId = Table.SelectRows(Limpo, each [identificacao] <> null and [identificacao] <> ""),
+				    // identificação repetida derrubaria a atualização (relação 1:1): fica a primeira linha
+				    SemRepetidas = Table.Distinct(ComId, {"identificacao"})
+				in
+				    SemRepetidas
+
+	annotation PBI_NavigationStepName = Navegação
+
+	annotation PBI_ResultType = Table
+

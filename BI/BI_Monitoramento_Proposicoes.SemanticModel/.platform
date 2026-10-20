@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "BI_Monitoramento_Proposicoes"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "6175764b-8759-41af-bfaa-9d6ff5a7ec84"
+  }
+}

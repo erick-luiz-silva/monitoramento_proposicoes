@@ -1,0 +1,653 @@
+table Medidas
+	lineageTag: c1a3316b-4565-45a2-9060-f1b06b540656
+
+	/// Proposições do painel: acompanhadas + marcadas SIM, sem NÃO e sem encerradas (coluna em_painel)
+	measure 'Total Proposições Monitoradas' =
+			CALCULATE(
+			    COUNTROWS('gold vw_monitoramento'),
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Visão Geral
+		lineageTag: 12dfa544-1913-48b2-985f-c3d8d7e97ae7
+
+	/// Total de registros de tramitação das proposições relevantes (relevancia = SIM)
+	measure 'Total Tramitações' =
+			CALCULATE(
+			    COUNTROWS('gold vw_tramitacoes'),
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Visão Geral
+		lineageTag: 0da939be-7079-476e-9696-777b00d18be5
+
+	/// Proposições do tema que não bateram em nenhuma keyword (auditoria)
+	measure 'Proposições Sem Keyword' = COUNTROWS('gold vw_proposicoes_sem_keyword')
+		formatString: #,##0
+		displayFolder: Visão Geral
+		lineageTag: ba6ecff7-54ed-4c79-99f8-843c5d3fe139
+
+	/// Proposições com movimentação nos últimos 7 dias
+	measure 'Movimentaram Últimos 7 Dias' =
+			CALCULATE(
+			    COUNTROWS('gold vw_monitoramento'),
+			    'gold vw_monitoramento'[dias_sem_movimentacao] <= 7,
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			) + 0
+		formatString: #,##0
+		displayFolder: Alertas
+		lineageTag: 75909cd8-5b54-4e5e-a449-0dcda09799d1
+
+	/// Proposições com movimentação nos últimos 30 dias
+	measure 'Movimentaram Últimos 30 Dias' =
+			CALCULATE(
+			    COUNTROWS('gold vw_monitoramento'),
+			    'gold vw_monitoramento'[dias_sem_movimentacao] <= 30,
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			) + 0
+		formatString: #,##0
+		displayFolder: Alertas
+		lineageTag: 9688b89d-e24b-486d-ba9a-28e6b909c037
+
+	/// Proposições sem movimentação há mais de 30 dias
+	measure 'Paradas > 30 Dias' =
+			CALCULATE(
+			    COUNTROWS('gold vw_monitoramento'),
+			    'gold vw_monitoramento'[dias_sem_movimentacao] > 30,
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Alertas
+		lineageTag: 3da3307a-2e38-412a-8310-406b490270c4
+
+	/// Proposições sem movimentação há mais de 60 dias
+	measure 'Paradas > 60 Dias' =
+			CALCULATE(
+			    COUNTROWS('gold vw_monitoramento'),
+			    'gold vw_monitoramento'[dias_sem_movimentacao] > 60,
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Alertas
+		lineageTag: f748ab54-819a-4399-b92b-d0770d359b52
+
+	/// Proposições sem movimentação há mais de 6 meses
+	measure 'Paradas > 180 Dias' =
+			CALCULATE(
+			    COUNTROWS('gold vw_monitoramento'),
+			    'gold vw_monitoramento'[dias_sem_movimentacao] > 180,
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Alertas
+		lineageTag: ad55617d-eaa8-43a3-ac4d-eedff1f17ed2
+
+	/// Média de dias sem movimentação das proposições monitoradas
+	measure 'Média Dias Sem Movimentação' =
+			CALCULATE(
+			    AVERAGE('gold vw_monitoramento'[dias_sem_movimentacao]),
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Alertas
+		lineageTag: 1499523f-c5c9-482e-bf55-15d4a25253f0
+
+	/// Quantidade de autores distintos entre as proposições monitoradas
+	measure 'Total Autores Distintos' =
+			CALCULATE(
+			    DISTINCTCOUNT('gold vw_monitoramento'[autor_principal]),
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Autores e Partidos
+		lineageTag: d1a12460-cf8a-46e2-a5bc-10c31f4db63d
+
+	/// Quantidade de partidos distintos entre os autores das proposições
+	measure 'Total Partidos Distintos' =
+			CALCULATE(
+			    DISTINCTCOUNTNOBLANK('gold vw_monitoramento'[partido_autor_principal]),
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Autores e Partidos
+		lineageTag: c54034db-7e09-453c-882b-4ec497b70d40
+
+	/// Quantidade de UFs distintas entre os autores das proposições
+	measure 'Total UFs Distintas' =
+			CALCULATE(
+			    DISTINCTCOUNTNOBLANK('gold vw_monitoramento'[uf_autor_principal]),
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Autores e Partidos
+		lineageTag: e4d7bab0-8751-46cc-8c26-36681a93a580
+
+	/// Média de tramitações por proposição monitorada
+	measure 'Tramitações por Proposição' =
+			DIVIDE(
+			    CALCULATE(
+			        COUNTROWS('gold vw_tramitacoes'),
+			        'gold vw_monitoramento'[em_painel] = TRUE()
+			    ),
+			    [Total Proposições Monitoradas],
+			    0
+			)
+		formatString: #,##0.0
+		displayFolder: Detalhamento
+		lineageTag: 340a933f-15d4-443e-a1d9-81300c5a94f4
+
+	/// Quantidade de comissões/órgãos distintos onde as proposições estão atualmente
+	measure 'Total Comissões Distintas' =
+			CALCULATE(
+			    DISTINCTCOUNT('gold vw_monitoramento'[orgao_atual]),
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Visão Geral
+		lineageTag: 4fff0140-0007-44f9-9836-b3e910f4318a
+
+	/// Quantidade de situações distintas entre as proposições
+	measure 'Total Situações Distintas' =
+			CALCULATE(
+			    DISTINCTCOUNT('gold vw_monitoramento'[situacao_atual]),
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Visão Geral
+		lineageTag: 8658ba5a-abe6-4d23-bce0-e131197cfd7f
+
+	/// Percentual de proposições que movimentaram nos últimos 30 dias
+	measure '% Movimentaram 30 Dias' =
+			DIVIDE(
+			    [Movimentaram Últimos 30 Dias],
+			    [Total Proposições Monitoradas],
+			    0
+			)
+		formatString: 0.0%
+		displayFolder: Alertas
+		lineageTag: 89f69718-2871-433d-8180-840a7a60be8d
+
+	/// Título fixo para uso em cabeçalhos de páginas do dashboard
+	measure 'Título Página' = "Monitoramento Legislativo — Suinocultura"
+		displayFolder: Navegação
+		lineageTag: f54ff8f5-cc1f-4809-9bd4-975a2680a45d
+
+	/// Data do andamento legislativo mais recente entre as proposições no filtro. Não é a data da carga: ver Dados Atualizados Em
+	measure 'Movimentação Mais Recente' = "Movimentação mais recente: " & FORMAT(MAX('gold vw_monitoramento'[data_ultima_movimentacao]), "DD/MM/YYYY")
+		displayFolder: Navegação
+		lineageTag: ad1d3a1c-a7d9-4ee0-a33b-f3381b88c5ba
+
+	/// Total de itens de pauta cruzados com proposições monitoradas
+	measure 'Total Itens em Pauta' =
+			CALCULATE(
+			    COUNTROWS('gold vw_pautas_monitoradas'),
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Pautas
+		lineageTag: f8193c6c-11ed-4ecd-8b98-22cc1f5d3326
+
+	/// Quantidade de proposições distintas que já apareceram em alguma pauta de comissão
+	measure 'Proposições Distintas em Pauta' =
+			CALCULATE(
+			    DISTINCTCOUNT('gold vw_pautas_monitoradas'[id_proposicao]),
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Pautas
+		lineageTag: d0e21773-ac22-45fe-bbc7-a28132b0571f
+
+	/// Quantidade de eventos deliberativos distintos com proposições monitoradas
+	measure 'Total Eventos com Pauta' =
+			CALCULATE(
+			    DISTINCTCOUNT('gold vw_pautas_monitoradas'[id_evento]),
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Pautas
+		lineageTag: 28ede17b-95da-40df-ad5f-feed3ad9374e
+
+	/// Itens de pauta que já foram votados (uriVotacao preenchida)
+	measure 'Pautas Votadas' =
+			CALCULATE(
+			    COUNTROWS('gold vw_pautas_monitoradas'),
+			    'gold vw_pautas_monitoradas'[status_alerta] = "Votado",
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			) + 0
+		formatString: #,##0
+		displayFolder: Pautas
+		lineageTag: e3211d6f-1cb6-477b-ba81-41eae3ee6693
+
+	/// Itens pautados em sessões que encerraram sem apreciar a matéria
+	measure 'Pautas Sem Votação' =
+			CALCULATE(
+			    COUNTROWS('gold vw_pautas_monitoradas'),
+			    'gold vw_pautas_monitoradas'[status_alerta] = "Encerrado sem votação",
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Pautas
+		lineageTag: 467721b2-95da-4cdc-9258-48972899cf94
+
+	/// Reuniões futuras (distintas) com proposições monitoradas na pauta — alerta principal do time político.
+	/// Conta reuniões, não itens: a view tem uma linha por item × proposição (vínculo direto ou relacionado)
+	measure 'Pautas Agendadas' =
+			CALCULATE(
+			    DISTINCTCOUNT('gold vw_pautas_monitoradas'[id_evento]),
+			    'gold vw_pautas_monitoradas'[status_alerta] = "Agendado",
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			) + 0
+		formatString: #,##0
+		displayFolder: Pautas
+		lineageTag: 29e5a8b3-f06f-4819-af00-f536aed5569a
+
+	/// Percentual de itens pautados que efetivamente foram votados
+	measure '% Pautas Votadas' =
+			DIVIDE(
+			    [Pautas Votadas],
+			    [Total Itens em Pauta],
+			    0
+			)
+		formatString: 0.0%
+		displayFolder: Pautas
+		lineageTag: 0bc48467-2aed-4c76-8cfc-a5226515454b
+
+	/// Quantidade de comissões distintas onde proposições monitoradas foram pautadas
+	measure 'Comissões com Pauta' =
+			CALCULATE(
+			    DISTINCTCOUNT('gold vw_pautas_monitoradas'[sigla_orgao]),
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Pautas
+		lineageTag: 0a0ee21d-fa26-45be-9b72-823c05708eeb
+
+	/// Percentual de proposições monitoradas que já apareceram em alguma pauta
+	measure '% Proposições já Pautadas' =
+			DIVIDE(
+			    [Proposições Distintas em Pauta],
+			    [Total Proposições Monitoradas],
+			    0
+			)
+		formatString: 0.0%
+		displayFolder: Pautas
+		lineageTag: dbd1ad87-b990-409a-a1e0-4a76d19f055d
+
+	/// Quantidade de relatores distintos designados nas pautas monitoradas
+	measure 'Relatores Distintos' =
+			CALCULATE(
+			    DISTINCTCOUNT('gold vw_pautas_monitoradas'[nome_relator]),
+			    NOT(ISBLANK('gold vw_pautas_monitoradas'[nome_relator])),
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			)
+		formatString: #,##0
+		displayFolder: Pautas
+		lineageTag: f0e2813b-be43-4dc3-8fa1-06acac3255ac
+
+	/// Total de audiências públicas identificadas por keyword no tema (K19)
+	measure 'Total Audiências de Interesse' = COUNTROWS('gold vw_audiencias_de_interesse')
+		formatString: #,##0
+		displayFolder: Audiências
+		lineageTag: a8ea2765-4f05-4b9f-970d-e3ca5bc0775b
+
+	/// Audiências públicas futuras de interesse do setor — alerta da Tela 6 (K20)
+	measure 'Audiências Agendadas' =
+			CALCULATE(
+			    COUNTROWS('gold vw_audiencias_de_interesse'),
+			    'gold vw_audiencias_de_interesse'[status_alerta] = "Agendada"
+			) + 0
+		formatString: #,##0
+		displayFolder: Audiências
+		lineageTag: 00e23ebc-bc84-49c4-b910-da6aa24cf609
+
+	/// Itens de pauta em reuniões canceladas (situação oficial do evento)
+	measure 'Pautas Canceladas' =
+			CALCULATE(
+			    COUNTROWS('gold vw_pautas_monitoradas'),
+			    'gold vw_pautas_monitoradas'[status_alerta] = "Cancelada",
+			    'gold vw_monitoramento'[em_painel] = TRUE()
+			) + 0
+		formatString: #,##0
+		displayFolder: Pautas
+		lineageTag: 6b1f4c2e-8a3d-4e7b-9c5a-0d2e7f1b8a63
+
+	/// "Hoje" em Brasília no último refresh. Use no lugar de TODAY(), que no Service é UTC
+	measure 'Data Referência' = MAX('api vw_ultima_carga'[data_referencia])
+		formatString: dd/mm/yyyy
+		displayFolder: Navegação
+		lineageTag: 2d7a9e4b-1c6f-4b3a-8e5d-7f0c3a9b6e12
+
+	/// Última carga diária concluída com sucesso (horário de Brasília). Se o pipeline falhar, esta data envelhece, mesmo com o Power BI atualizando
+	measure 'Dados Atualizados Em' =
+			VAR _carga = MAX('api vw_ultima_carga'[ultima_carga_diaria])
+			RETURN IF(ISBLANK(_carga), "Dados atualizados em: não disponível", "Dados atualizados em " & FORMAT(_carga, "DD/MM/YYYY \à\s hh:nn"))
+		displayFolder: Navegação
+		lineageTag: 9a4c1e7b-3f8d-4a2e-b5c6-1e9d7a3f0b84
+
+	/// Reuniões distintas agendadas entre hoje e os próximos 14 dias (Brasília) com proposições monitoradas
+	measure 'Pautas Próximos 14 Dias' =
+			VAR _ref = [Data Referência]
+			RETURN
+			    CALCULATE(
+			        DISTINCTCOUNT('gold vw_pautas_monitoradas'[id_evento]),
+			        'gold vw_pautas_monitoradas'[status_alerta] = "Agendado",
+			        'gold vw_pautas_monitoradas'[data_hora_inicio] < _ref + 15
+			    ) + 0
+		formatString: #,##0
+		displayFolder: Atenção
+		lineageTag: 4e8b2a6d-9c1f-4d7e-a3b5-8f2c6e0d1a97
+
+	/// Carteira permanente do time (planilha antiga + inclusões manuais), independente do filtro de relevância
+	measure 'Proposições Acompanhadas' =
+			CALCULATE(
+			    COUNTROWS('gold vw_monitoramento'),
+			    'gold vw_monitoramento'[acompanhada] = TRUE(),
+			    REMOVEFILTERS('gold vw_monitoramento'[em_painel])
+			)
+		formatString: #,##0
+		displayFolder: Visão Geral
+		lineageTag: 7f3a9c5e-2b8d-4e1a-9d6c-3a7e1f5b0c28
+
+	/// Radar: acompanhadas + keyword encontrada em proposição apresentada desde 01/09/2026, independente do filtro de relevância
+	measure 'Proposições em Radar' =
+			CALCULATE(
+			    COUNTROWS('gold vw_monitoramento'),
+			    'gold vw_monitoramento'[em_radar] = TRUE(),
+			    REMOVEFILTERS('gold vw_monitoramento'[em_painel])
+			)
+		formatString: #,##0
+		displayFolder: Visão Geral
+		lineageTag: 1c6e8b3a-7d2f-4a9e-8b4c-5e0a2d7f9c31
+
+	/// Nível de atenção (regra da Ana, 20/10/2026): 3 = Urgente, prioritária que se movimentou nos últimos 7 dias
+	/// (mesma régua de 'Movimentaram Últimos 7 Dias') ou entra em pauta em até 14 dias (decisão do Erick); 2 = Prioridade, prioritária parada; 1 = Acompanhamento; 0 = encerrada.
+	/// Parada não é atraso: sem prioridade, nunca ganha cor. Em branco fora do contexto de uma proposição
+	measure 'Nível de Atenção' =
+			VAR _id = SELECTEDVALUE('gold vw_monitoramento'[id_proposicao])
+			VAR _situacao = SELECTEDVALUE('gold vw_monitoramento'[situacao_atual])
+			VAR _prioritaria = SELECTEDVALUE('gold dim_posicionamento_abcs'[prioridade]) IN {"sim", "alta"}
+			VAR _dias = SELECTEDVALUE('gold vw_monitoramento'[dias_sem_movimentacao])
+			VAR _movimentou = NOT ISBLANK(_dias) && _dias <= 7
+			VAR _pauta = [Pautas Próximos 14 Dias] > 0
+			RETURN
+			    IF(
+			        ISBLANK(_id),
+			        BLANK(),
+			        SWITCH(
+			            TRUE(),
+			            _situacao IN {"Arquivada", "Transformado em Norma Jurídica"}, 0,
+			            _prioritaria && (_movimentou || _pauta), 3,
+			            _prioritaria, 2,
+			            1
+			        )
+			    )
+		formatString: 0
+		displayFolder: Atenção
+		lineageTag: 8d2b5f9a-4e1c-4b7d-a6e3-9c0f2b8d5a16
+
+	/// Rótulo do nível de atenção, para acompanhar a cor (cor nunca sozinha)
+	measure 'Atenção Rótulo' =
+			SWITCH(
+			    [Nível de Atenção],
+			    3, "Urgente",
+			    2, "Prioridade",
+			    1, "Acompanhamento",
+			    0, "Encerrada"
+			)
+		displayFolder: Atenção
+		lineageTag: 3b7e1d9c-6a4f-4e2b-9f8a-2d5c0b7e1a43
+
+	/// Por que a proposição está nesse nível
+	measure 'Atenção Motivo' =
+			VAR _nivel = [Nível de Atenção]
+			VAR _dias = SELECTEDVALUE('gold vw_monitoramento'[dias_sem_movimentacao])
+			VAR _movimentou = NOT ISBLANK(_dias) && _dias <= 7
+			VAR _pauta = [Pautas Próximos 14 Dias] > 0
+			RETURN
+			    SWITCH(
+			        TRUE(),
+			        ISBLANK(_nivel), BLANK(),
+			        _nivel = 0, "Arquivada ou transformada em norma",
+			        _nivel = 3 && _movimentou && _pauta, "Prioritária: movimentou nos últimos 7 dias e está em pauta",
+			        _nivel = 3 && _movimentou, "Prioritária: movimentou nos últimos 7 dias",
+			        _nivel = 3, "Prioritária: em pauta nos próximos 14 dias",
+			        _nivel = 2, "Prioritária, sem movimentação recente",
+			        "Acompanhamento"
+			    )
+		displayFolder: Atenção
+		lineageTag: 5a9c3e1f-8b2d-4f6a-b7e4-0c3d9a1f6b58
+
+	/// Cor da faixa de atenção (semáforo aprovado em 19/10/2026). Formatação condicional por valor de campo
+	measure 'Atenção Cor' =
+			SWITCH(
+			    [Nível de Atenção],
+			    3, "#D92D20",
+			    2, "#E8590C",
+			    1, "#D0D5DD",
+			    0, "#98A2B3"
+			)
+		displayFolder: Atenção
+		lineageTag: 0e6d4b8a-3c9f-4a1e-8d2b-7f5a1c9e3b04
+
+	/// Fundo claro da linha conforme o nível (texto escuro por cima, contraste ≥ 7:1)
+	measure 'Atenção Cor Fundo' =
+			SWITCH(
+			    [Nível de Atenção],
+			    3, "#FEE4E2",
+			    2, "#FFEAD5",
+			    1, "#FFFFFF",
+			    0, "#F2F4F7"
+			)
+		displayFolder: Atenção
+		lineageTag: 6c2a8e4f-1b7d-4e3a-9f5c-8d0b2e6a4c17
+
+	/// Cor do rótulo de atenção sobre o fundo claro
+	measure 'Atenção Cor Texto' =
+			SWITCH(
+			    [Nível de Atenção],
+			    3, "#7A271A",
+			    2, "#7E2410",
+			    1, "#4A5A51",
+			    0, "#475467"
+			)
+		displayFolder: Atenção
+		lineageTag: 9e4b1c7a-5d3f-4a8e-b2c6-3f7a0d9e5b28
+
+	/// Trecho da ementa para a lista (texto integral no detalhamento)
+	measure 'Ementa Trecho' =
+			VAR _e = SELECTEDVALUE('gold vw_monitoramento'[ementa])
+			RETURN IF(LEN(_e) > 95, LEFT(_e, 92) & "…", _e)
+		displayFolder: Carteira
+		lineageTag: 2f8c6a1e-9b4d-4c7a-8e3f-5a1d7c0b9e46
+
+	/// Ação registrada na planilha "Posicionamento ABCS"; deixa claro quando não há
+	measure 'Próxima Ação' =
+			VAR _id = SELECTEDVALUE('gold vw_monitoramento'[id_proposicao])
+			VAR _acao = TRIM(SELECTEDVALUE('gold dim_posicionamento_abcs'[acao]))
+			RETURN IF(ISBLANK(_id), BLANK(), IF(_acao = "", "Sem ação registrada", _acao))
+		displayFolder: Carteira
+		lineageTag: 7b3e9d1a-4c6f-4b2e-a8d5-1e9c3f7a0b52
+
+	/// Cor da próxima ação: cinza quando não há ação registrada
+	measure 'Próxima Ação Cor' = IF([Próxima Ação] = "Sem ação registrada", "#6B7770", "#14231B")
+		displayFolder: Carteira
+		lineageTag: 4d1f7b3e-8a2c-4e9b-b6d0-2c8e5a1f7d63
+
+	/// Frase de contagem acima da tabela
+	measure 'Contagem Carteira' =
+			VAR _n = [Total Proposições Monitoradas] + 0
+			RETURN FORMAT(_n, "0") & IF(_n = 1, " proposição no painel", " proposições no painel")
+		displayFolder: Carteira
+		lineageTag: 8a5c2e9f-3d7b-4f1a-9c4e-6b0d8f2a5e71
+
+	/// Prioritárias que se movimentaram nos últimos 7 dias ou entram em pauta em até 14 dias
+	measure Urgentes = COUNTROWS(FILTER(VALUES('gold vw_monitoramento'[id_proposicao]), [Nível de Atenção] = 3)) + 0
+		formatString: 0
+		displayFolder: Atenção
+		lineageTag: 1a7c4e9b-3d2f-4b8a-9e6c-5f0d2b8a1c34
+
+	/// Prioritárias sem movimentação recente
+	measure Prioridades = COUNTROWS(FILTER(VALUES('gold vw_monitoramento'[id_proposicao]), [Nível de Atenção] = 2)) + 0
+		formatString: 0
+		displayFolder: Atenção
+		lineageTag: 8e3a1d6f-2b9c-4e7a-a4d1-6c9e3b0f2a75
+
+	/// Fila de atenção do Início: só urgentes e prioridades (em branco nas demais, que somem da tabela)
+	measure 'Fila Nível' = VAR _n = [Nível de Atenção] RETURN IF(_n >= 2, _n)
+		formatString: 0
+		displayFolder: Início
+		lineageTag: 5c2e8a4d-1f7b-4a9e-8c3d-0b6f4e2a9d18
+
+	measure 'Fila Rótulo' = IF(NOT ISBLANK([Fila Nível]), [Atenção Rótulo])
+		displayFolder: Início
+		lineageTag: 2f9b6d1e-4c8a-4e3b-9d7f-1a5c8e2b4f69
+
+	measure 'Fila Motivo' = IF(NOT ISBLANK([Fila Nível]), [Atenção Motivo])
+		displayFolder: Início
+		lineageTag: 9d4a2c7e-6b1f-4d8a-b3e5-7c0a4f9d2e83
+
+	/// Data da última movimentação, só nas linhas da fila de atenção (data de verdade, para ordenar)
+	measure 'Última Mov.' = IF(NOT ISBLANK([Fila Nível]), MAX('gold vw_monitoramento'[data_ultima_movimentacao]))
+		formatString: dd/mm/yyyy
+		displayFolder: Início
+		lineageTag: 6a1e9c3f-8d2b-4f7a-a5c4-3e9b1d7f0a26
+
+	/// Aviso quando não há reunião agendada (fica " " quando há, para não cobrir a tabela)
+	measure 'Aviso Pautas Próximas' =
+			IF(
+			    [Pautas Próximos 14 Dias] = 0,
+			    "Nenhuma reunião com proposições do painel agendada até " & FORMAT([Data Referência] + 14, "dd/mm/yyyy") & ".",
+			    " "
+			)
+		displayFolder: Início
+		lineageTag: 3e8c5a2d-7f1b-4b9e-8a6c-2d4f0e8b3c51
+
+	/// Aviso quando ninguém se movimentou nos últimos 30 dias
+	measure 'Aviso Movimentações 30 Dias' =
+			VAR _ult = CALCULATE(MAX('gold vw_monitoramento'[data_ultima_movimentacao]))
+			VAR _id = CALCULATE(
+			    FIRSTNONBLANK('gold vw_monitoramento'[identificacao], 1),
+			    'gold vw_monitoramento'[data_ultima_movimentacao] = _ult
+			)
+			RETURN
+			    IF(
+			        [Movimentaram Últimos 30 Dias] + 0 = 0,
+			        "Nenhuma movimentação nos últimos 30 dias. Movimentação mais recente: " & FORMAT(_ult, "dd/mm/yyyy") & " (" & _id & ").",
+			        " "
+			    )
+		displayFolder: Início
+		lineageTag: 7b2d9f4e-1c6a-4e8b-9f3d-5a0c7e2b8d46
+
+	/// Resultado do item de pauta, encurtado para a lista
+	measure 'Resultado (trecho)' =
+			VAR _t = SELECTEDVALUE('gold vw_pautas_monitoradas'[situacao_item])
+			RETURN IF(LEN(_t) > 140, LEFT(_t, 137) & "…", _t)
+		displayFolder: Pautas
+		lineageTag: 4c9e1b7a-2d5f-4a8e-b6c3-9e2a5d1f7b30
+
+	/// Assunto da audiência, encurtado para a lista (texto integral no link da Câmara)
+	measure 'Assunto (trecho)' =
+			VAR _t = SUBSTITUTE(SELECTEDVALUE('gold vw_audiencias_de_interesse'[assunto]), UNICHAR(10), " ")
+			RETURN IF(LEN(_t) > 150, LEFT(_t, 147) & "…", _t)
+		displayFolder: Audiências
+		lineageTag: 8f1a6c3e-5b2d-4e9a-a7c4-0d3f8b6e1a92
+
+	/// Proposições do painel cujo autor registrado é o Senado Federal (projeto de senador)
+	measure 'Origem Senado' = CALCULATE([Total Proposições Monitoradas], 'gold vw_monitoramento'[origem_autor] = "Senado") + 0
+		formatString: 0
+		displayFolder: Autores e Partidos
+		lineageTag: 2b7d4f9a-6e1c-4b3a-8d5e-1f9c6a2e7b04
+
+	/// Página Proposição: campos rotulados
+	measure 'Proposição Selecionada' = SELECTEDVALUE('gold vw_monitoramento'[identificacao])
+		displayFolder: Proposição
+		lineageTag: 5e3b8d1a-9c4f-4a7e-b2d6-8a1e5c9f3b47
+
+	measure 'Atenção da Proposição' = "Atenção: " & [Atenção Rótulo]
+		displayFolder: Proposição
+		lineageTag: 1d6f3a8c-4e9b-4c2a-9e7d-3b8f1c6a4e25
+
+	measure 'Ementa Integral' = SELECTEDVALUE('gold vw_monitoramento'[ementa])
+		displayFolder: Proposição
+		lineageTag: 9a2c7e4f-1b8d-4f6a-a3e9-6d1b4f8c2a63
+
+	measure 'Link Câmara' = SELECTEDVALUE('gold vw_monitoramento'[link_direto])
+		displayFolder: Proposição
+		lineageTag: 6c8e2a5d-3f1b-4d9a-8b7e-4a2c9e6d1f38
+		dataCategory: WebUrl
+
+	measure 'Situação atual' = VAR _v = SELECTEDVALUE('gold vw_monitoramento'[situacao_atual]) RETURN IF(LEN(TRIM(_v)) = 0, "Não informada pela Câmara", _v)
+		displayFolder: Proposição
+		lineageTag: 3f1a9d6b-8e2c-4a5f-b9d3-7c4e1a8f6b02
+
+	measure 'Órgão atual' =
+			VAR _s = SELECTEDVALUE('gold vw_monitoramento'[orgao_atual])
+			VAR _n = SELECTEDVALUE('gold vw_monitoramento'[nome_orgao_atual])
+			RETURN IF(ISBLANK(_n), _s, _s & " — " & _n)
+		displayFolder: Proposição
+		lineageTag: 7d4b1e8a-2c6f-4e9b-a1d5-9e3a6c0f4d71
+
+	measure 'Última movimentação' =
+			VAR _d = MAX('gold vw_monitoramento'[data_ultima_movimentacao])
+			VAR _dias = SELECTEDVALUE('gold vw_monitoramento'[dias_sem_movimentacao])
+			RETURN FORMAT(_d, "dd/mm/yyyy") & " · há " & _dias & " dias"
+		displayFolder: Proposição
+		lineageTag: 4a8c2f6e-1d9b-4c3e-8f7a-2b5d9e1c6a84
+
+	measure 'Autor principal' =
+			VAR _a = SELECTEDVALUE('gold vw_monitoramento'[autor_principal])
+			VAR _p = SELECTEDVALUE('gold vw_monitoramento'[partido_autor_principal])
+			VAR _u = SELECTEDVALUE('gold vw_monitoramento'[uf_autor_principal])
+			RETURN IF(ISBLANK(_p), _a, _a & " (" & _p & "/" & _u & ")")
+		displayFolder: Proposição
+		lineageTag: 9e6a3c1f-5b8d-4f2a-a9c7-1d4e8b2f6c19
+
+	measure 'Posição ABCS' = VAR _v = SELECTEDVALUE('gold dim_posicionamento_abcs'[posicao_abcs]) RETURN IF(LEN(TRIM(_v)) = 0, "Sem posição registrada", _v)
+		displayFolder: Proposição
+		lineageTag: 2c5f8a1d-7e3b-4a9c-b6d2-8f1a4c7e3b56
+
+	measure Prioritária = IF(SELECTEDVALUE('gold dim_posicionamento_abcs'[prioridade]) IN {"sim", "alta"}, "Sim", "Não")
+		displayFolder: Proposição
+		lineageTag: 8b1e4d7a-3c9f-4e6b-a2d8-5c0f3a9e1b72
+
+	measure Parecer = VAR _v = SELECTEDVALUE('gold dim_posicionamento_abcs'[parecer_abcs]) RETURN IF(LEN(TRIM(_v)) = 0, "Sem parecer registrado", _v)
+		displayFolder: Proposição
+		lineageTag: 5d9a2e6c-1f4b-4d8e-9c3a-7b2e5f1d8a40
+
+	measure Observações = VAR _v = SELECTEDVALUE('gold dim_posicionamento_abcs'[observacoes]) RETURN IF(LEN(TRIM(_v)) = 0, "Sem observações", _v)
+		displayFolder: Proposição
+		lineageTag: 1f7c4a9e-6d2b-4e1a-b8f5-3a9d6c2e0f17
+
+	measure Palavra-chave = VAR _v = SELECTEDVALUE('gold vw_monitoramento'[keywords_encontradas]) RETURN IF(LEN(TRIM(_v)) = 0, "Incluída manualmente", _v)
+		displayFolder: Proposição
+		lineageTag: 6e2a9d4f-8b1c-4f7e-a5d3-0c8b2e7a4f95
+
+	/// Número da contagem da Carteira (cartão em negrito)
+	measure 'Contagem Número' = [Total Proposições Monitoradas] + 0
+		formatString: 0
+		displayFolder: Carteira
+		lineageTag: 3c7e1a9d-5f2b-4d8e-a6c4-9b1d7e3f5a28
+
+	/// Texto ao lado do número, no singular ou plural
+	measure 'Contagem Texto' = IF([Contagem Número] = 1, "proposição no painel", "proposições no painel")
+		displayFolder: Carteira
+		lineageTag: 8f4b2d6a-1e9c-4a7f-b3d5-6c0e8a2f4b91
+
+	column Column
+		isHidden
+		formatString: 0
+		lineageTag: 82c2398b-5bf3-45e1-bf74-c1e806a2bac1
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [Column]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Medidas = calculated
+		mode: import
+		source = Row("Column", BLANK())
+
+	annotation PBI_Id = 963edf33dac44a4c9d92baa4942ad2f2
+
+	annotation 436ba87b-9c83-4389-a31b-ebd06a36be98 = {"Expression":""}
+

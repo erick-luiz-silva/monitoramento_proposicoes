@@ -1,0 +1,178 @@
+table 'gold vw_pautas_monitoradas'
+	lineageTag: cb33bdc4-4ad0-4b61-a410-3638bbe880b0
+
+	column id_evento
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 1faeab93-efee-4423-8859-70cfd70b54b5
+		summarizeBy: sum
+		sourceColumn: id_evento
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_hora_inicio
+		dataType: dateTime
+		formatString: dd/mm/yyyy hh:nn
+		lineageTag: 2c759127-0eb8-4438-a1a8-676a292501d5
+		summarizeBy: none
+		sourceColumn: data_hora_inicio
+
+		annotation SummarizationSetBy = Automatic
+
+	column sigla_orgao
+		dataType: string
+		lineageTag: c3b2d313-7c9e-4425-9e70-43691d2b0627
+		summarizeBy: none
+		sourceColumn: sigla_orgao
+
+		annotation SummarizationSetBy = Automatic
+
+	column descricao_tipo
+		dataType: string
+		lineageTag: 44de2889-ecd8-48ea-85fe-a2a31c57034b
+		summarizeBy: none
+		sourceColumn: descricao_tipo
+
+		annotation SummarizationSetBy = Automatic
+
+	column situacao_evento
+		dataType: string
+		lineageTag: cd5c24a7-f533-4bd9-a71e-cf0e3fab6a31
+		summarizeBy: none
+		sourceColumn: situacao_evento
+
+		annotation SummarizationSetBy = Automatic
+
+	column topico
+		dataType: string
+		lineageTag: 1fae8bd4-a461-422f-a494-4870e2396711
+		summarizeBy: none
+		sourceColumn: topico
+
+		annotation SummarizationSetBy = Automatic
+
+	column titulo
+		dataType: string
+		lineageTag: 2cf42b41-98fb-43c9-9d25-6f203c8c4346
+		summarizeBy: none
+		sourceColumn: titulo
+
+		annotation SummarizationSetBy = Automatic
+
+	column identificacao
+		dataType: string
+		lineageTag: 7f2e5b43-a6a2-4771-ba01-b0cf9c5eed38
+		summarizeBy: none
+		sourceColumn: identificacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column ementa
+		dataType: string
+		lineageTag: 146a044f-4a22-4758-94e2-4c62347a9d9a
+		summarizeBy: none
+		sourceColumn: ementa
+
+		annotation SummarizationSetBy = Automatic
+
+	column nome_relator
+		dataType: string
+		lineageTag: a751aeb3-1dba-4fa8-b380-5d3b7fde77f5
+		summarizeBy: none
+		sourceColumn: nome_relator
+
+		annotation SummarizationSetBy = Automatic
+
+	column partido_relator
+		dataType: string
+		lineageTag: 3c38ed48-1479-491a-8f31-4b859b6cc1eb
+		summarizeBy: none
+		sourceColumn: partido_relator
+
+		annotation SummarizationSetBy = Automatic
+
+	column uf_relator
+		dataType: string
+		lineageTag: 41f1320c-c912-42a6-9d7f-2b267e696c41
+		summarizeBy: none
+		sourceColumn: uf_relator
+
+		annotation SummarizationSetBy = Automatic
+
+	column uri_votacao
+		dataType: string
+		lineageTag: 232a10ca-f438-46b5-b8e3-3dde427e604a
+		summarizeBy: none
+		sourceColumn: uri_votacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column situacao_item
+		dataType: string
+		lineageTag: d238d923-71f1-42a4-9e0f-f21a6c1804e2
+		summarizeBy: none
+		sourceColumn: situacao_item
+
+		annotation SummarizationSetBy = Automatic
+
+	column status_alerta
+		dataType: string
+		lineageTag: d95ebd1e-0956-45d0-be27-333f02748132
+		summarizeBy: none
+		sourceColumn: status_alerta
+
+		annotation SummarizationSetBy = Automatic
+
+	column nome_orgao
+		dataType: string
+		lineageTag: 415eab2a-0d19-40e5-88a8-1d8fad63d9b6
+		summarizeBy: none
+		sourceColumn: nome_orgao
+
+		annotation SummarizationSetBy = Automatic
+
+	column id_proposicao
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: dc6b127e-dc96-4f4d-8395-7d53d562c8ea
+		summarizeBy: none
+		sourceColumn: id_proposicao
+
+		annotation SummarizationSetBy = Automatic
+
+	column acompanhada
+		dataType: boolean
+		lineageTag: 8258bd35-7a8e-4e62-b578-7eab3d17b48d
+		summarizeBy: none
+		sourceColumn: acompanhada
+
+		annotation SummarizationSetBy = Automatic
+
+	column em_radar
+		dataType: boolean
+		lineageTag: 3617d2bb-a523-40cc-80c5-cdc4081b184d
+		summarizeBy: none
+		sourceColumn: em_radar
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Próximas = reunião agendada (a carga de eventos cobre até D+14); Histórico = o resto
+	column periodo = IF([status_alerta] = "Agendado", "Próximas", "Histórico")
+		dataType: string
+		lineageTag: 6d1b8e3f-4a9c-4e2d-b7a5-2f0c9e6d3b18
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	partition vw_pautas_monitoradas = m
+		mode: import
+		source =
+				let
+				    Fonte = fnSupabaseGold("vw_pautas_monitoradas", "_id", {{"id_evento", Int64.Type}, {"data_hora_inicio", type datetime}, {"sigla_orgao", type text}, {"nome_orgao", type text}, {"descricao_tipo", type text}, {"situacao_evento", type text}, {"topico", type text}, {"titulo", type text}, {"identificacao", type text}, {"ementa", type text}, {"nome_relator", type text}, {"partido_relator", type text}, {"uf_relator", type text}, {"uri_votacao", type text}, {"situacao_item", type text}, {"status_alerta", type text}, {"id_proposicao", Int64.Type}, {"acompanhada", type logical}, {"em_radar", type logical}})
+				in
+				    Fonte
+
+	annotation PBI_ResultType = Table
+

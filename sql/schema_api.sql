@@ -125,5 +125,13 @@ REVOKE ALL ON SCHEMA api_cache FROM PUBLIC;
 GRANT USAGE ON SCHEMA api TO anon;
 GRANT SELECT ON ALL TABLES IN SCHEMA api TO anon;
 
+-- A gold também está exposta na Data API (leitura de diagnóstico, ex.: BI/teste_api.py),
+-- e o Supabase concede ALL à anon/authenticated nos schemas expostos, inclusive em objetos
+-- futuros. A chave anon está no repositório público (modelo do Power BI): só leitura.
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+    ON ALL TABLES IN SCHEMA gold FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA gold
+    REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON TABLES FROM anon, authenticated;
+
 -- O Supabase já recarrega o cache do PostgREST em DDL; o NOTIFY garante (sai no commit).
 NOTIFY pgrst, 'reload schema';

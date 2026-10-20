@@ -1,0 +1,38 @@
+relationship AutoDetected_f9f4596b-53de-434c-b396-0be9f348635e
+	fromColumn: 'gold vw_pautas_monitoradas'.id_proposicao
+	toColumn: 'gold vw_monitoramento'.id_proposicao
+
+relationship 'gold vw_monitoramento_data_ultima_movimentacao_gold_vw_dim_calendario_Date'
+	fromColumn: 'gold vw_monitoramento'.data_ultima_movimentacao
+	toColumn: gold_vw_dim_calendario.Date
+
+relationship 'gold vw_audiencias_de_interesse_data_hora_inicio_gold_vw_dim_calendario_Date'
+	fromColumn: 'gold vw_audiencias_de_interesse'.data_hora_inicio
+	toColumn: gold_vw_dim_calendario.Date
+
+relationship 'gold vw_pautas_monitoradas_data_hora_inicio_gold_vw_dim_calendario_Date'
+	isActive: false
+	fromColumn: 'gold vw_pautas_monitoradas'.data_hora_inicio
+	toColumn: gold_vw_dim_calendario.Date
+
+relationship 'gold vw_tramitacoes_data_hora_gold_vw_dim_calendario_Date'
+	isActive: false
+	fromColumn: 'gold vw_tramitacoes'.data_hora
+	toColumn: gold_vw_dim_calendario.Date
+
+relationship AutoDetected_025c4d25-da3f-4186-a5c3-28dd36e95ebd
+	crossFilteringBehavior: bothDirections
+	fromCardinality: one
+	fromColumn: 'gold dim_posicionamento_abcs'.identificacao
+	toColumn: 'gold vw_monitoramento'.identificacao
+
+relationship AutoDetected_368ea4b6-63a8-4e94-ad33-2b9aa73b066d
+	crossFilteringBehavior: bothDirections
+	fromCardinality: one
+	fromColumn: 'gold dim_relevancia'.id_proposicao
+	toColumn: 'gold vw_monitoramento'.id_proposicao
+
+relationship 'gold vw_tramitacoes_id_proposicao_gold vw_monitoramento_id_proposicao'
+	fromColumn: 'gold vw_tramitacoes'.id_proposicao
+	toColumn: 'gold vw_monitoramento'.id_proposicao
+

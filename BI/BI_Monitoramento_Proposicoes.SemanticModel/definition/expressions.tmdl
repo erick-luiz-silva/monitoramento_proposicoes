@@ -1,0 +1,54 @@
+/// URL do projeto Supabase (Data API)
+expression SupabaseUrl = "https://SEU-PROJETO.supabase.co" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 1d4c078d-1b1a-42f5-9fbd-86fea37b9372
+
+	annotation PBI_ResultType = Text
+
+/// Chave anon (pública) do Supabase; acesso controlado por grants/RLS no schema api
+expression SupabaseAnonKey = "COLE-A-CHAVE-ANON" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: a6667b21-ca80-4b04-bbc6-2d2836565d8d
+
+	annotation PBI_ResultType = Text
+
+/// Lê uma view do schema api (cópia da gold) pela Data API do Supabase com paginação e tipos explícitos
+expression fnSupabaseGold =
+		// Lê uma view do schema api (cópia materializada da gold) pela Data API do Supabase, paginando de 1000 em 1000
+		// (limite max-rows do PostgREST). "ordem" precisa ser estável para não perder/duplicar linhas.
+		(view as text, ordem as text, tipos as list) as table =>
+		let
+		    TamanhoPagina = 1000,
+		    Pagina = (offset as number) as list =>
+		        Json.Document(
+		            Web.Contents(
+		                SupabaseUrl,
+		                [
+		                    RelativePath = "rest/v1/" & view,
+		                    Query = [
+		                        select = "*",
+		                        order = ordem,
+		                        limit = Text.From(TamanhoPagina),
+		                        offset = Text.From(offset)
+		                    ],
+		                    Headers = [
+		                        apikey = SupabaseAnonKey,
+		                        #"Accept-Profile" = "api",
+		                        Accept = "application/json"
+		                    ]
+		                ]
+		            )
+		        ),
+		    Paginas = List.Generate(
+		        () => [offset = 0, dados = Pagina(0)],
+		        each [dados] <> null,
+		        each if List.Count([dados]) < TamanhoPagina then [dados = null]
+		             else [offset = [offset] + TamanhoPagina, dados = Pagina([offset] + TamanhoPagina)],
+		        each [dados]
+		    ),
+		    Registros = List.Combine(Paginas),
+		    Colunas = List.Transform(tipos, each _{0}),
+		    Tabela = Table.FromRecords(Registros, Colunas, MissingField.UseNull),
+		    Tipada = Table.TransformColumnTypes(Tabela, tipos, "en-US")
+		in
+		    Tipada
+	lineageTag: c09c0ee2-b8c3-440c-a1d1-2d7eb11fc60c
+

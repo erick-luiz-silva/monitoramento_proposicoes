@@ -1,0 +1,64 @@
+table gold_vw_dim_calendario
+	lineageTag: df68555e-5cf0-4b50-ad50-a7994028d3c0
+	dataCategory: Time
+
+	column Date
+		isUnique
+		formatString: Short Date
+		lineageTag: b6d990da-5bae-4a0a-9a3e-4e77a2772f55
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Date]
+
+		annotation SummarizationSetBy = Automatic
+
+	column Ano
+		formatString: 0
+		lineageTag: d192966e-2b99-4907-bfee-8d0b108818b4
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Ano]
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Mês Num'
+		formatString: 0
+		lineageTag: 0a8fae06-d5d1-4c67-aecc-7e8cc0ce92ec
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Mês Num]
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Mês Nome'
+		lineageTag: 63cda7c0-b1ab-4716-87d5-b4cc2ace69b8
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Mês Nome]
+
+		annotation SummarizationSetBy = Automatic
+
+	column Ano-Mês
+		lineageTag: 38759501-89ea-4421-8ec8-d29292043163
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Ano-Mês]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition vw_dim_calendario = calculated
+		mode: import
+		source = ```
+				
+				ADDCOLUMNS(
+				    CALENDAR(DATE(2023, 1, 1), DATE(2027, 12, 31)),
+				    "Ano", YEAR([Date]),
+				    "Mês Num", MONTH([Date]),
+				    "Mês Nome", FORMAT([Date], "MMMM"),
+				    "Ano-Mês", FORMAT([Date], "YYYY-MM")
+				)
+				
+				```
+
+	annotation PBI_Id = e716e1045c4349f498cea1b18aefad30
+
