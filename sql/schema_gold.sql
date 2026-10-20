@@ -42,13 +42,15 @@ SELECT
     p.sigla_orgao_atual AS orgao_atual,
     COALESCE(p.descricao_tramitacao, p.despacho) AS ultima_movimentacao,
     p.data_ultima_movimentacao,
-    (CURRENT_DATE - p.data_ultima_movimentacao::date) AS dias_sem_movimentacao,
+    ((now() AT TIME ZONE 'America/Sao_Paulo')::date - p.data_ultima_movimentacao::date) AS dias_sem_movimentacao,
     kw.keywords_encontradas,
     p.link_direto,
     orgao.nome AS nome_orgao_atual,
     (a.id_proposicao IS NOT NULL) AS acompanhada,
     (a.id_proposicao IS NOT NULL
-     OR (kw.id_proposicao IS NOT NULL AND coalesce(p.data_apresentacao >= DATE '2026-09-01', false))) AS em_radar
+     OR (kw.id_proposicao IS NOT NULL AND coalesce(p.data_apresentacao >= DATE '2026-09-01', false))) AS em_radar,
+    p.sigla_tipo,
+    p.data_apresentacao
 FROM silver.proposicao p
 LEFT JOIN gold.vw_proposicao_keywords kw ON kw.id_proposicao = p.id_proposicao
 LEFT JOIN silver.proposicao_acompanhada a ON a.id_proposicao = p.id_proposicao
@@ -82,6 +84,9 @@ ORDER BY t.id_proposicao, t.sequencia;
 -- ou indireto, quando um item processual (ex. requerimento) referencia o PL de fato
 -- (ep.id_proposicao_relacionada). Este último é o caminho mais comum (ver achados_eventos.txt).
 -- Partido/UF do relator são os ATUAIS via dim_deputado, mesmo princípio do autor principal.
+-- status_alerta: a situação oficial do evento vem primeiro (reunião cancelada não é
+-- "agendada" nem "encerrada sem votação"); depois a data, no relógio de Brasília (a
+-- sessão é UTC e data_hora_inicio vem sem fuso). Mesma regra nas audiências e no api.
 CREATE OR REPLACE VIEW gold.vw_pautas_monitoradas AS
 SELECT
     e.id_evento,
@@ -99,7 +104,8 @@ SELECT
     ep.uri_votacao,
     ep.situacao_item,
     CASE
-        WHEN e.data_hora_inicio > now() THEN 'Agendado'
+        WHEN e.situacao = 'Cancelada' THEN 'Cancelada'
+        WHEN e.data_hora_inicio > (now() AT TIME ZONE 'America/Sao_Paulo') THEN 'Agendado'
         WHEN ep.uri_votacao IS NOT NULL THEN 'Votado'
         ELSE 'Encerrado sem votação'
     END AS status_alerta,
@@ -157,7 +163,11 @@ SELECT
     e.descricao AS assunto,
     string_agg(DISTINCT k.rotulo, ', ' ORDER BY k.rotulo) AS keywords_encontradas,
     e.url_registro,
-    CASE WHEN e.data_hora_inicio > now() THEN 'Agendada' ELSE 'Realizada' END AS status_alerta
+    CASE
+        WHEN e.situacao = 'Cancelada' THEN 'Cancelada'
+        WHEN e.data_hora_inicio > (now() AT TIME ZONE 'America/Sao_Paulo') THEN 'Agendada'
+        ELSE 'Realizada'
+    END AS status_alerta
 FROM silver.evento e
 JOIN silver.dim_keyword k
     ON k.ativo
