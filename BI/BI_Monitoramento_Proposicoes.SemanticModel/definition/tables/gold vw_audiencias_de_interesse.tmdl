@@ -1,0 +1,89 @@
+table 'gold vw_audiencias_de_interesse'
+	lineageTag: 1b883d08-a213-46db-b74f-7cd07d6ddd12
+
+	column id_evento
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: 146245ad-b943-47d4-9f07-d473a22300f5
+		summarizeBy: none
+		sourceColumn: id_evento
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_hora_inicio
+		dataType: dateTime
+		formatString: dd/mm/yyyy hh:nn
+		lineageTag: 6d74e4b8-cad8-4370-84b8-1e2e870c78ca
+		summarizeBy: none
+		sourceColumn: data_hora_inicio
+
+		annotation SummarizationSetBy = Automatic
+
+	column sigla_orgao
+		dataType: string
+		lineageTag: b7111ba9-dfd4-4781-997c-7089998d2a69
+		summarizeBy: none
+		sourceColumn: sigla_orgao
+
+		annotation SummarizationSetBy = Automatic
+
+	column nome_orgao
+		dataType: string
+		lineageTag: 5bab037f-0fe0-4cc5-bec3-4bbb5bfbc566
+		summarizeBy: none
+		sourceColumn: nome_orgao
+
+		annotation SummarizationSetBy = Automatic
+
+	column situacao_evento
+		dataType: string
+		lineageTag: 441c57b8-8e3d-40a4-9679-abbe636598d2
+		summarizeBy: none
+		sourceColumn: situacao_evento
+
+		annotation SummarizationSetBy = Automatic
+
+	column assunto
+		dataType: string
+		lineageTag: 5188eff3-bb38-4782-9e3c-c9e91854cac1
+		summarizeBy: none
+		sourceColumn: assunto
+
+		annotation SummarizationSetBy = Automatic
+
+	column keywords_encontradas
+		dataType: string
+		lineageTag: 318b17b7-9e37-4c39-8741-a741eab227d8
+		summarizeBy: none
+		sourceColumn: keywords_encontradas
+
+		annotation SummarizationSetBy = Automatic
+
+	column url_registro
+		dataType: string
+		lineageTag: 691e8ee6-e057-49fb-89bc-b9cfb4cbca04
+		dataCategory: WebUrl
+		summarizeBy: none
+		sourceColumn: url_registro
+
+		annotation SummarizationSetBy = Automatic
+
+	column status_alerta
+		dataType: string
+		lineageTag: a162d1c5-537a-425e-b246-01b45596b70b
+		summarizeBy: none
+		sourceColumn: status_alerta
+
+		annotation SummarizationSetBy = Automatic
+
+	partition vw_audiencias_de_interesse = m
+		mode: import
+		source =
+				let
+				    Fonte = fnSupabaseGold("vw_audiencias_de_interesse", "id_evento", {{"id_evento", Int64.Type}, {"data_hora_inicio", type datetime}, {"sigla_orgao", type text}, {"nome_orgao", type text}, {"situacao_evento", type text}, {"assunto", type text}, {"keywords_encontradas", type text}, {"url_registro", type text}, {"status_alerta", type text}})
+				in
+				    Fonte
+
+	annotation PBI_ResultType = Table
+

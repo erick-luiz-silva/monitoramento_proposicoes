@@ -1,0 +1,5440 @@
+cultureInfo pt-BR
+
+	linguisticMetadata =
+			{
+			  "Version": "4.1.0",
+			  "Language": "en-US",
+			  "Entities": {
+			    "gold_vw_monitoramento": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "gold vw_monitoramento": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.id_proposicao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "id_proposicao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "id proposicao": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "id_proposicao": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "identification proposicao": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.6
+			          }
+			        },
+			        {
+			          "identity proposicao": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.6
+			          }
+			        },
+			        {
+			          "identifier proposicao": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.6
+			          }
+			        },
+			        {
+			          "credential proposicao": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.582
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.identificacao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "identificacao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "identificacao": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.ementa": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "ementa"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "ementa": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.autor_principal": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "autor_principal"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "autor principal": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "autor_principal": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "autor leader": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.475
+			          }
+			        },
+			        {
+			          "autor doyenne": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.475
+			          }
+			        },
+			        {
+			          "autor doyen": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.475
+			          }
+			        },
+			        {
+			          "autor chief": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.461
+			          }
+			        },
+			        {
+			          "autor head": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.461
+			          }
+			        },
+			        {
+			          "autor headmaster": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.451
+			          }
+			        },
+			        {
+			          "autor headmistress": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.451
+			          }
+			        },
+			        {
+			          "autor dean": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.451
+			          }
+			        },
+			        {
+			          "autor provost": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.451
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.tipo_autor_principal": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "tipo_autor_principal"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "tipo autor principal": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "tipo_autor_principal": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "tipo autor leader": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.482
+			          }
+			        },
+			        {
+			          "tipo autor doyenne": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.482
+			          }
+			        },
+			        {
+			          "tipo autor doyen": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.482
+			          }
+			        },
+			        {
+			          "tipo autor chief": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.468
+			          }
+			        },
+			        {
+			          "tipo autor head": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.468
+			          }
+			        },
+			        {
+			          "tipo autor headmaster": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.458
+			          }
+			        },
+			        {
+			          "tipo autor headmistress": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.458
+			          }
+			        },
+			        {
+			          "tipo autor dean": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.458
+			          }
+			        },
+			        {
+			          "tipo autor provost": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.458
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.situacao_atual": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "situacao_atual"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "situacao atual": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "situacao_atual": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.orgao_atual": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "orgao_atual"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "orgao atual": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "orgao_atual": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.ultima_movimentacao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "ultima_movimentacao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "ultima movimentacao": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "ultima_movimentacao": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.data_ultima_movimentacao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "data_ultima_movimentacao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "data ultima movimentacao": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "data_ultima_movimentacao": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "date": {
+			            "State": "Generated",
+			            "Weight": 0.7
+			          }
+			        },
+			        {
+			          "information ultima movimentacao": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.609
+			          }
+			        },
+			        {
+			          "fact ultima movimentacao": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.609
+			          }
+			        },
+			        {
+			          "info ultima movimentacao": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.609
+			          }
+			        },
+			        {
+			          "statistic ultima movimentacao": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.609
+			          }
+			        },
+			        {
+			          "document ultima movimentacao": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "figure ultima movimentacao": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "record ultima movimentacao": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        }
+			      ],
+			      "SemanticType": "Time"
+			    },
+			    "gold_vw_monitoramento.dias_sem_movimentacao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "dias_sem_movimentacao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "dias sem movimentacao": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "dias_sem_movimentacao": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.keywords_encontrada": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "keywords_encontradas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "keywords encontrada": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "keyword encontrada": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.78
+			          }
+			        },
+			        {
+			          "keywords_encontradas": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.link_direto": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "link_direto"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "link direto": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "link_direto": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.partido_autor_principal": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "partido_autor_principal"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "partido autor principal": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "partido_autor_principal": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "partido autor leader": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.482
+			          }
+			        },
+			        {
+			          "partido autor doyenne": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.482
+			          }
+			        },
+			        {
+			          "partido autor doyen": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.482
+			          }
+			        },
+			        {
+			          "partido autor chief": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.468
+			          }
+			        },
+			        {
+			          "partido autor head": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.468
+			          }
+			        },
+			        {
+			          "partido autor headmaster": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.458
+			          }
+			        },
+			        {
+			          "partido autor headmistress": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.458
+			          }
+			        },
+			        {
+			          "partido autor dean": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.458
+			          }
+			        },
+			        {
+			          "partido autor provost": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.458
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.uf_autor_principal": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "uf_autor_principal"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "uf autor principal": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "uf_autor_principal": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        },
+			        {
+			          "state or province": {
+			            "State": "Generated",
+			            "Weight": 0.7
+			          }
+			        },
+			        {
+			          "uf autor leader": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.482
+			          }
+			        },
+			        {
+			          "uf autor doyenne": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.482
+			          }
+			        },
+			        {
+			          "uf autor doyen": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.482
+			          }
+			        },
+			        {
+			          "uf autor chief": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.468
+			          }
+			        },
+			        {
+			          "uf autor head": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.468
+			          }
+			        },
+			        {
+			          "uf autor headmaster": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.458
+			          }
+			        },
+			        {
+			          "uf autor headmistress": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.458
+			          }
+			        },
+			        {
+			          "uf autor dean": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.458
+			          }
+			        },
+			        {
+			          "uf autor provost": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.458
+			          }
+			        }
+			      ],
+			      "SemanticType": "Location"
+			    },
+			    "gold_vw_monitoramento.nome_partido_UF": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "Nome_Partido_UF"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "nome partido UF": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "Nome_Partido_UF": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "gold_dim_politica.acao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_politica",
+			          "ConceptualProperty": "acao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "acao": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "gold_dim_politica.posicao_abc": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_politica",
+			          "ConceptualProperty": "posicao_abcs"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "posicao abc": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "posicao_abcs": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.estado_autor": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "Estado Autor"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "estado autor": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "state or province": {
+			            "State": "Generated",
+			            "Weight": 0.7
+			          }
+			        }
+			      ],
+			      "SemanticType": "Location"
+			    },
+			    "gold_dim_politica": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_politica"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "gold dim_politica": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medida": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "medida": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medida.column": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Column"
+			        }
+			      },
+			      "State": "Generated",
+			      "Visibility": {
+			        "Value": "Hidden"
+			      },
+			      "Terms": [
+			        {
+			          "column": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "pilaster": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.491
+			          }
+			        },
+			        {
+			          "pier": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.491
+			          }
+			        },
+			        {
+			          "pillar": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.476
+			          }
+			        },
+			        {
+			          "post": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.476
+			          }
+			        },
+			        {
+			          "support": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.476
+			          }
+			        },
+			        {
+			          "stake": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.476
+			          }
+			        },
+			        {
+			          "pole": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.476
+			          }
+			        },
+			        {
+			          "buttress": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.476
+			          }
+			        },
+			        {
+			          "underpinning": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.476
+			          }
+			        },
+			        {
+			          "contribution": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.466
+			          }
+			        }
+			      ]
+			    },
+			    "medida.total_proposições_monitoradas": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Total Proposições Monitoradas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total proposições monitoradas": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "aggregate proposiçõe monitorada": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall proposiçõe monitorada": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "Proposições no painel": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        },
+			        {
+			          "Proposições": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medida.total_tramitações": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Total Tramitações"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total tramitações": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "aggregate tramitaçõe": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.582
+			          }
+			        },
+			        {
+			          "overall tramitaçõe": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.582
+			          }
+			        }
+			      ]
+			    },
+			    "medida.proposições_sem_keyword": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Proposições Sem Keyword"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "proposições sem keyword": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medida.movimentaram_últimos_7_dias": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Movimentaram Últimos 7 Dias"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "movimentaram últimos 7 dias": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "Movimentaram em 7 dias": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medida.movimentaram_últimos_30_dias": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Movimentaram Últimos 30 Dias"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "movimentaram últimos 30 dias": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medida.paradas__30_dias": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Paradas > 30 Dias"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "paradas > 30 dias": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medida.paradas__60_dias": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Paradas > 60 Dias"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "paradas > 60 dias": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medida.paradas__180_dias": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Paradas > 180 Dias"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "paradas > 180 dias": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medida.média_dias_sem_movimentação": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Média Dias Sem Movimentação"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "média dias sem movimentação": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medida.total_autores_distintos": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Total Autores Distintos"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total autores distintos": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "aggregate autore distinto": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall autore distinto": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "Autores": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medida.total_partidos_distintos": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Total Partidos Distintos"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total partidos distintos": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "aggregate partido distinto": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall partido distinto": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "Partidos": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medida.total_UFs_distintas": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Total UFs Distintas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total UFs distintas": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "aggregate uf distinta": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall uf distinta": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "UFs": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medida.tramitações_por_proposição": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Tramitações por Proposição"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "tramitações por proposição": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medida.total_comissões_distintas": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Total Comissões Distintas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total comissões distintas": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "aggregate comissõe distinta": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall comissõe distinta": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        }
+			      ]
+			    },
+			    "medida.total_situações_distintas": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Total Situações Distintas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total situações distintas": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "aggregate situaçõe distinta": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "overall situaçõe distinta": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        }
+			      ]
+			    },
+			    "medida.movimentaram_30_dias": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "% Movimentaram 30 Dias"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "% movimentaram 30 dias": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "percentage movimentaram 30 dias": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.617
+			          }
+			        },
+			        {
+			          "pct movimentaram 30 dias": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.599
+			          }
+			        }
+			      ]
+			    },
+			    "medida.título_página": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Título Página"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "título página": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medida.data_última_atualização": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Data Última Atualização"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "data última atualização": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "information última atualização": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.609
+			          }
+			        },
+			        {
+			          "fact última atualização": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.609
+			          }
+			        },
+			        {
+			          "info última atualização": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.609
+			          }
+			        },
+			        {
+			          "statistic última atualização": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.609
+			          }
+			        },
+			        {
+			          "document última atualização": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "figure última atualização": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        },
+			        {
+			          "record última atualização": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_dim_calendario"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "gold vw dim calendario": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "gold_vw_dim_calendario": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario.date": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_dim_calendario",
+			          "ConceptualProperty": "Date"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "date": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "moment": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.736
+			          }
+			        },
+			        {
+			          "period": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.714
+			          }
+			        }
+			      ],
+			      "SemanticType": "Time"
+			    },
+			    "gold_vw_dim_calendario.date.hierarquia_de_data": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_dim_calendario",
+			          "VariationSource": "Date",
+			          "VariationSet": "Variation",
+			          "Hierarchy": "Hierarquia de datas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "hierarquia de data": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "hierarquia de information": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.762
+			          }
+			        },
+			        {
+			          "hierarquia de fact": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.762
+			          }
+			        },
+			        {
+			          "hierarquia de info": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.762
+			          }
+			        },
+			        {
+			          "hierarquia de statistic": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.762
+			          }
+			        },
+			        {
+			          "hierarquia de document": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.739
+			          }
+			        },
+			        {
+			          "hierarquia de figure": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.739
+			          }
+			        },
+			        {
+			          "hierarquia de record": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.739
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario.date.ano": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_dim_calendario",
+			          "VariationSource": "Date",
+			          "VariationSet": "Variation",
+			          "Hierarchy": "Hierarquia de datas",
+			          "HierarchyLevel": "Ano"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "ano": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "date ano": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "moment ano": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.6
+			          }
+			        },
+			        {
+			          "period ano": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.582
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario.date.trimestre": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_dim_calendario",
+			          "VariationSource": "Date",
+			          "VariationSet": "Variation",
+			          "Hierarchy": "Hierarquia de datas",
+			          "HierarchyLevel": "Trimestre"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "trimestre": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "date trimestre": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "moment trimestre": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.6
+			          }
+			        },
+			        {
+			          "period trimestre": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.582
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario.date.mê": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_dim_calendario",
+			          "VariationSource": "Date",
+			          "VariationSet": "Variation",
+			          "Hierarchy": "Hierarquia de datas",
+			          "HierarchyLevel": "Mês"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "mê": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "date mê": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "moment mê": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.6
+			          }
+			        },
+			        {
+			          "period mê": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.582
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario.date.dia": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_dim_calendario",
+			          "VariationSource": "Date",
+			          "VariationSet": "Variation",
+			          "Hierarchy": "Hierarquia de datas",
+			          "HierarchyLevel": "Dia"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "dia": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "date dia": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "moment dia": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.6
+			          }
+			        },
+			        {
+			          "period dia": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.582
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario.ano": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_dim_calendario",
+			          "ConceptualProperty": "Ano"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "ano": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario.mês_num": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_dim_calendario",
+			          "ConceptualProperty": "Mês Num"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "mês num": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "mê num": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.78
+			          }
+			        },
+			        {
+			          "mê number": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.727
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario.mês_nome": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_dim_calendario",
+			          "ConceptualProperty": "Mês Nome"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "mês nome": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "mê nome": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.78
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario.anomê": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_dim_calendario",
+			          "ConceptualProperty": "Ano-Mês"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "ano-mê": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "ano mê": {
+			            "State": "Generated",
+			            "Weight": 0.97
+			          }
+			        }
+			      ]
+			    },
+			    "gold_dim_politica.parecer_abc": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_politica",
+			          "ConceptualProperty": "parecer_abcs"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "parecer abc": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "parecer_abcs": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "gold_dim_politica.prioridade": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_politica",
+			          "ConceptualProperty": "prioridade"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "prioridade": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "gold_dim_politica.observacoe": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_politica",
+			          "ConceptualProperty": "observacoes"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "observacoe": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.nome_orgao_atual": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "vw_monitoramento",
+			          "ConceptualProperty": "nome_orgao_atual"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "nome orgao atual": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "nome_orgao_atual": {
+			            "Type": "Noun",
+			            "State": "Generated",
+			            "Weight": 0.99
+			          }
+			        }
+			      ]
+			    },
+			    "medida.total_itens_em_pauta": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Total Itens em Pauta"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total itens em pauta": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "aggregate iten em pauta": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.599
+			          }
+			        },
+			        {
+			          "overall iten em pauta": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.599
+			          }
+			        }
+			      ]
+			    },
+			    "medida.proposições_distintas_em_pauta": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Proposições Distintas em Pauta"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "proposições distintas em pauta": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medida.total_eventos_com_pauta": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Total Eventos com Pauta"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total eventos com pauta": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "aggregate evento com pauta": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.599
+			          }
+			        },
+			        {
+			          "overall evento com pauta": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.599
+			          }
+			        },
+			        {
+			          "Reuniões no histórico": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medida.pautas_votadas": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Pautas Votadas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "pautas votadas": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "Itens votados": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medida.pautas_sem_votação": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Pautas Sem Votação"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "pautas sem votação": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medida.pautas_agendadas": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Pautas Agendadas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "pautas agendadas": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "Reuniões agendadas (14 dias)": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medida.pautas_votadas1": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "% Pautas Votadas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "% pautas votadas": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "percentage pauta votada": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.609
+			          }
+			        },
+			        {
+			          "pct pauta votada": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.591
+			          }
+			        }
+			      ]
+			    },
+			    "medida.comissões_com_pauta": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Comissões com Pauta"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "comissões com pauta": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medida.proposições_já_pautadas": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "% Proposições já Pautadas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "% proposições já pautadas": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "percentage proposiçõe já pautada": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.617
+			          }
+			        },
+			        {
+			          "pct proposiçõe já pautada": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.599
+			          }
+			        }
+			      ]
+			    },
+			    "medida.relatores_distintos": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Relatores Distintos"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "relatores distintos": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medida.total_audiências_de_interesse": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Total Audiências de Interesse"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "total audiências de interesse": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "aggregate audiência de interesse": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.599
+			          }
+			        },
+			        {
+			          "overall audiência de interesse": {
+			            "Type": "Noun",
+			            "State": "Suggested",
+			            "Source": {
+			              "Agent": "Thesaurus"
+			            },
+			            "Weight": 0.599
+			          }
+			        },
+			        {
+			          "Sugeridas no total": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medida.audiências_agendadas": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Audiências Agendadas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "audiências agendadas": {
+			            "State": "Generated"
+			          }
+			        },
+			        {
+			          "Agendadas": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_dim_politica.identificacao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "dim_politica",
+			          "ConceptualProperty": "identificacao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "identificacao": {
+			            "State": "Generated"
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.nível_de_atenção": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Nível de Atenção"
+			        }
+			      },
+			      "State": "Generated"
+			    },
+			    "medidas.atenção_rótulo": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Atenção Rótulo"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Atenção": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.ementa_trecho": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Ementa Trecho"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Ementa (trecho)": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.próxima_ação": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Próxima Ação"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Próxima ação": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.identificacao1": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_monitoramento",
+			          "ConceptualProperty": "identificacao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Proposição": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.orgao_atual1": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_monitoramento",
+			          "ConceptualProperty": "orgao_atual"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Órgão": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.data_ultima_movimentacao1": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_monitoramento",
+			          "ConceptualProperty": "data_ultima_movimentacao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Data": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        },
+			        {
+			          "Última mov.": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.link_direto1": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_monitoramento",
+			          "ConceptualProperty": "link_direto"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Câmara": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_dim_posicionamento_abcs.posicao_abcs": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold dim_posicionamento_abcs",
+			          "ConceptualProperty": "posicao_abcs"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Posição ABCS": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.ultima_movimentacao1": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_monitoramento",
+			          "ConceptualProperty": "ultima_movimentacao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "O que aconteceu": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.autor_principal1": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_monitoramento",
+			          "ConceptualProperty": "autor_principal"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Autor": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.partido_exibicao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_monitoramento",
+			          "ConceptualProperty": "partido_exibicao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Partido": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento.uf_exibicao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_monitoramento",
+			          "ConceptualProperty": "uf_exibicao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "UF": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.urgentes": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Urgentes"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Urgentes": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.prioridades": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Prioridades"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Prioridades": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.pautas_próximos_14_dias": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Pautas Próximos 14 Dias"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Pautas em 14 dias": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.fila_nível": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Fila Nível"
+			        }
+			      },
+			      "State": "Generated"
+			    },
+			    "medidas.fila_rótulo": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Fila Rótulo"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Atenção": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.fila_motivo": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Fila Motivo"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Motivo": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.última_mov_": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Última Mov."
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Última mov.": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.pautas_canceladas": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Pautas Canceladas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Itens em reuniões canceladas": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.resultado_trecho": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Resultado (trecho)"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Resultado (trecho)": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        },
+			        {
+			          "Resultado": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.assunto_trecho": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Assunto (trecho)"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Assunto (trecho)": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.origem_senado": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Origem Senado"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Origem Senado": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.posição_abcs": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Posição ABCS"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Posição ABCS": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.palavrachave": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Palavra-chave"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Palavra-chave": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.autor_principal": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Autor principal"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Autor principal": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.parecer": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Parecer"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Parecer": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.última_movimentação": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Última movimentação"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Última movimentação": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.observações": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Observações"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Observações": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.prioritária": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Prioritária"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Prioritária": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.situação_atual": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Situação atual"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Situação atual": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "medidas.órgão_atual": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Medidas",
+			          "ConceptualProperty": "Órgão atual"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Órgão atual": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_pautas_monitoradas.data_hora_inicio": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_pautas_monitoradas",
+			          "ConceptualProperty": "data_hora_inicio"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Data": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_pautas_monitoradas.sigla_orgao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_pautas_monitoradas",
+			          "ConceptualProperty": "sigla_orgao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Comissão": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_pautas_monitoradas.identificacao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_pautas_monitoradas",
+			          "ConceptualProperty": "identificacao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Proposição": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_pautas_monitoradas.nome_relator": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_pautas_monitoradas",
+			          "ConceptualProperty": "nome_relator"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Relator": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_pautas_monitoradas.partido_relator": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_pautas_monitoradas",
+			          "ConceptualProperty": "partido_relator"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Partido": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_pautas_monitoradas.status_alerta": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_pautas_monitoradas",
+			          "ConceptualProperty": "status_alerta"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Situação": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_audiencias_de_interesse.data_hora_inicio": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_audiencias_de_interesse",
+			          "ConceptualProperty": "data_hora_inicio"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Data": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_audiencias_de_interesse.sigla_orgao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_audiencias_de_interesse",
+			          "ConceptualProperty": "sigla_orgao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Comissão": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_audiencias_de_interesse.keywords_encontradas": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_audiencias_de_interesse",
+			          "ConceptualProperty": "keywords_encontradas"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Palavra-chave": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_audiencias_de_interesse.status_alerta": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_audiencias_de_interesse",
+			          "ConceptualProperty": "status_alerta"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Situação": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_audiencias_de_interesse.url_registro": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_audiencias_de_interesse",
+			          "ConceptualProperty": "url_registro"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Câmara": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_tramitacoes.data_hora": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_tramitacoes",
+			          "ConceptualProperty": "data_hora"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Data": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_tramitacoes.sigla_orgao": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_tramitacoes",
+			          "ConceptualProperty": "sigla_orgao"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Órgão": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "gold_vw_tramitacoes.despacho": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "gold vw_tramitacoes",
+			          "ConceptualProperty": "despacho"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "O que aconteceu": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    }
+			  },
+			  "Relationships": {
+			    "gold_vw_dim_calendario_date_mê_has_gold_vw_dim_calendario_date_dia": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_dim_calendario.date.mê": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.mê"
+			          }
+			        },
+			        "gold_vw_dim_calendario.date.dia": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.dia"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario.date.mê"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date.dia"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "mê_have_dias"
+			        },
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario.date.dia"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date.mê"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dias_have_mê"
+			        },
+			        {
+			          "Preposition": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario.date.dia"
+			            },
+			            "Prepositions": [
+			              {
+			                "in": {
+			                  "State": "Generated"
+			                }
+			              }
+			            ],
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date.mê"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dias_are_in_mê"
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario_date_trimestre_has_gold_vw_dim_calendario_date_mê": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_dim_calendario.date.trimestre": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.trimestre"
+			          }
+			        },
+			        "gold_vw_dim_calendario.date.mê": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.mê"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario.date.trimestre"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date.mê"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "trimestres_have_mê1"
+			        },
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario.date.mê"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date.trimestre"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "mê_have_trimestres1"
+			        },
+			        {
+			          "Preposition": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario.date.mê"
+			            },
+			            "Prepositions": [
+			              {
+			                "in": {
+			                  "State": "Generated"
+			                }
+			              }
+			            ],
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date.trimestre"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "mê_are_in_trimestres"
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario_date_ano_has_gold_vw_dim_calendario_date_trimestre": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_dim_calendario.date.ano": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.ano"
+			          }
+			        },
+			        "gold_vw_dim_calendario.date.trimestre": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.trimestre"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario.date.ano"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date.trimestre"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "anos_have_trimestres1"
+			        },
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario.date.trimestre"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date.ano"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "trimestres_have_anos1"
+			        },
+			        {
+			          "Preposition": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario.date.trimestre"
+			            },
+			            "Prepositions": [
+			              {
+			                "in": {
+			                  "State": "Generated"
+			                }
+			              }
+			            ],
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date.ano"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "trimestres_are_in_anos"
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario_date_hierarquia_de_data_has_gold_vw_dim_calendario_date_dia": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_dim_calendario.date.hierarquia_de_data": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.hierarquia_de_data"
+			          }
+			        },
+			        "gold_vw_dim_calendario.date.dia": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.dia"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario.date.hierarquia_de_data"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date.dia"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "hierarquia_de_data_have_dias1"
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario_date_hierarquia_de_data_has_gold_vw_dim_calendario_date_mê": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_dim_calendario.date.hierarquia_de_data": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.hierarquia_de_data"
+			          }
+			        },
+			        "gold_vw_dim_calendario.date.mê": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.mê"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario.date.hierarquia_de_data"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date.mê"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "hierarquia_de_data_have_mê1"
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario_date_hierarquia_de_data_has_gold_vw_dim_calendario_date_trimestre": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_dim_calendario.date.hierarquia_de_data": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.hierarquia_de_data"
+			          }
+			        },
+			        "gold_vw_dim_calendario.date.trimestre": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.trimestre"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario.date.hierarquia_de_data"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date.trimestre"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "hierarquia_de_data_have_trimestres1"
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario_date_hierarquia_de_data_has_gold_vw_dim_calendario_date_ano": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_dim_calendario.date.hierarquia_de_data": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.hierarquia_de_data"
+			          }
+			        },
+			        "gold_vw_dim_calendario.date.ano": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.ano"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario.date.hierarquia_de_data"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date.ano"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "hierarquia_de_data_have_anos1"
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario_date_has_hierarquia_de_data": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_dim_calendario.date": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date"
+			          }
+			        },
+			        "gold_vw_dim_calendario.date.hierarquia_de_data": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date.hierarquia_de_data"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario.date"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date.hierarquia_de_data"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "dates_have_hierarquia_de_data"
+			        }
+			      ]
+			    },
+			    "gold_dim_politica_has_gold_vw_monitoramento": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_politica"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_dim_politica": {
+			          "Target": {
+			            "Entity": "gold_dim_politica"
+			          }
+			        },
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_dim_politica"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_dim_politicas_have_gold_vw_monitoramentos"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_gold_dim_politica": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_dim_politica": {
+			          "Target": {
+			            "Entity": "gold_dim_politica"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_dim_politica"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_gold_dim_politicas"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_gold_vw_dim_calendario": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_dim_calendario": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_gold_vw_dim_calendarios"
+			        },
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_dim_calendarios_have_gold_vw_monitoramentos"
+			        }
+			      ]
+			    },
+			    "gold_dim_politica_has_identificacao": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_politica"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_dim_politica": {
+			          "Target": {
+			            "Entity": "gold_dim_politica"
+			          }
+			        },
+			        "gold_dim_politica.identificacao": {
+			          "Target": {
+			            "Entity": "gold_dim_politica.identificacao"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_dim_politica"
+			            },
+			            "Object": {
+			              "Role": "gold_dim_politica.identificacao"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_dim_politicas_have_identificacaos"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_proposições_já_pautadas": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.proposições_já_pautadas": {
+			          "Target": {
+			            "Entity": "medida.proposições_já_pautadas"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.proposições_já_pautadas"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have__proposições_já_pautadas"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_nome_orgao_atual": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.nome_orgao_atual": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.nome_orgao_atual"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.nome_orgao_atual"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_nome_orgao_atuals"
+			        }
+			      ]
+			    },
+			    "gold_dim_politica_has_observacoe": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_politica"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_dim_politica": {
+			          "Target": {
+			            "Entity": "gold_dim_politica"
+			          }
+			        },
+			        "gold_dim_politica.observacoe": {
+			          "Target": {
+			            "Entity": "gold_dim_politica.observacoe"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_dim_politica"
+			            },
+			            "Object": {
+			              "Role": "gold_dim_politica.observacoe"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_dim_politicas_have_observacoes"
+			        }
+			      ]
+			    },
+			    "gold_dim_politica_has_prioridade": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_politica"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_dim_politica": {
+			          "Target": {
+			            "Entity": "gold_dim_politica"
+			          }
+			        },
+			        "gold_dim_politica.prioridade": {
+			          "Target": {
+			            "Entity": "gold_dim_politica.prioridade"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_dim_politica"
+			            },
+			            "Object": {
+			              "Role": "gold_dim_politica.prioridade"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_dim_politicas_have_prioridades"
+			        }
+			      ]
+			    },
+			    "gold_dim_politica_has_parecer_abc": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_politica"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_dim_politica": {
+			          "Target": {
+			            "Entity": "gold_dim_politica"
+			          }
+			        },
+			        "gold_dim_politica.parecer_abc": {
+			          "Target": {
+			            "Entity": "gold_dim_politica.parecer_abc"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_dim_politica"
+			            },
+			            "Object": {
+			              "Role": "gold_dim_politica.parecer_abc"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_dim_politicas_have_parecer_abcs"
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario_has_anomê": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_dim_calendario": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario"
+			          }
+			        },
+			        "gold_vw_dim_calendario.anomê": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.anomê"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.anomê"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_dim_calendarios_have_anomê"
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario_has_mês_nome": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_dim_calendario": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario"
+			          }
+			        },
+			        "gold_vw_dim_calendario.mês_nome": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.mês_nome"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.mês_nome"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_dim_calendarios_have_mês_nome"
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario_has_mês_num": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_dim_calendario": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario"
+			          }
+			        },
+			        "gold_vw_dim_calendario.mês_num": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.mês_num"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.mês_num"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_dim_calendarios_have_mês_nums"
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario_has_ano": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_dim_calendario": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario"
+			          }
+			        },
+			        "gold_vw_dim_calendario.ano": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.ano"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.ano"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_dim_calendarios_have_anos"
+			        }
+			      ]
+			    },
+			    "gold_vw_dim_calendario_has_date": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_dim_calendario"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_dim_calendario": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario"
+			          }
+			        },
+			        "gold_vw_dim_calendario.date": {
+			          "Target": {
+			            "Entity": "gold_vw_dim_calendario.date"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_dim_calendario"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_dim_calendario.date"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_dim_calendarios_have_dates"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_data_última_atualização": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.data_última_atualização": {
+			          "Target": {
+			            "Entity": "medida.data_última_atualização"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.data_última_atualização"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_data_última_atualização"
+			        }
+			      ]
+			    },
+			    "medida_has_título_página": {
+			      "Binding": {
+			        "ConceptualEntity": "Medidas"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "medida": {
+			          "Target": {
+			            "Entity": "medida"
+			          }
+			        },
+			        "medida.título_página": {
+			          "Target": {
+			            "Entity": "medida.título_página"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "medida"
+			            },
+			            "Object": {
+			              "Role": "medida.título_página"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "medidas_have_título_página"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_movimentaram_30_dias": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.movimentaram_30_dias": {
+			          "Target": {
+			            "Entity": "medida.movimentaram_30_dias"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.movimentaram_30_dias"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have__movimentaram_30_dias"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_total_situações_distintas": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.total_situações_distintas": {
+			          "Target": {
+			            "Entity": "medida.total_situações_distintas"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.total_situações_distintas"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_total_situações_distintas"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_total_comissões_distintas": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.total_comissões_distintas": {
+			          "Target": {
+			            "Entity": "medida.total_comissões_distintas"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.total_comissões_distintas"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_total_comissões_distintas"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_tramitações_por_proposição": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.tramitações_por_proposição": {
+			          "Target": {
+			            "Entity": "medida.tramitações_por_proposição"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.tramitações_por_proposição"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_tramitações_por_proposição"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_total_UFs_distintas": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.total_UFs_distintas": {
+			          "Target": {
+			            "Entity": "medida.total_UFs_distintas"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.total_UFs_distintas"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_total_UFs_distintas"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_total_partidos_distintos": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.total_partidos_distintos": {
+			          "Target": {
+			            "Entity": "medida.total_partidos_distintos"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.total_partidos_distintos"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_total_partidos_distintos"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_total_autores_distintos": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.total_autores_distintos": {
+			          "Target": {
+			            "Entity": "medida.total_autores_distintos"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.total_autores_distintos"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_total_autores_distintos"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_média_dias_sem_movimentação": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.média_dias_sem_movimentação": {
+			          "Target": {
+			            "Entity": "medida.média_dias_sem_movimentação"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.média_dias_sem_movimentação"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_média_dias_sem_movimentação"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_paradas__180_dias": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.paradas__180_dias": {
+			          "Target": {
+			            "Entity": "medida.paradas__180_dias"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.paradas__180_dias"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_paradas__180_dias"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_paradas__60_dias": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.paradas__60_dias": {
+			          "Target": {
+			            "Entity": "medida.paradas__60_dias"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.paradas__60_dias"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_paradas__60_dias"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_paradas__30_dias": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.paradas__30_dias": {
+			          "Target": {
+			            "Entity": "medida.paradas__30_dias"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.paradas__30_dias"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_paradas__30_dias"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_movimentaram_últimos_30_dias": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.movimentaram_últimos_30_dias": {
+			          "Target": {
+			            "Entity": "medida.movimentaram_últimos_30_dias"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.movimentaram_últimos_30_dias"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_movimentaram_últimos_30_dias"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_movimentaram_últimos_7_dias": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.movimentaram_últimos_7_dias": {
+			          "Target": {
+			            "Entity": "medida.movimentaram_últimos_7_dias"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.movimentaram_últimos_7_dias"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_movimentaram_últimos_7_dias"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_medida_total_proposições_monitoradas": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "medida.total_proposições_monitoradas": {
+			          "Target": {
+			            "Entity": "medida.total_proposições_monitoradas"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "medida.total_proposições_monitoradas"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_total_proposições_monitoradas"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_estado_autor": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.estado_autor": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.estado_autor"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.estado_autor"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_estado_autors"
+			        }
+			      ]
+			    },
+			    "gold_dim_politica_has_posicao_abc": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_politica"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_dim_politica": {
+			          "Target": {
+			            "Entity": "gold_dim_politica"
+			          }
+			        },
+			        "gold_dim_politica.posicao_abc": {
+			          "Target": {
+			            "Entity": "gold_dim_politica.posicao_abc"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_dim_politica"
+			            },
+			            "Object": {
+			              "Role": "gold_dim_politica.posicao_abc"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_dim_politicas_have_posicao_abcs"
+			        }
+			      ]
+			    },
+			    "gold_dim_politica_has_acao": {
+			      "Binding": {
+			        "ConceptualEntity": "dim_politica"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_dim_politica": {
+			          "Target": {
+			            "Entity": "gold_dim_politica"
+			          }
+			        },
+			        "gold_dim_politica.acao": {
+			          "Target": {
+			            "Entity": "gold_dim_politica.acao"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_dim_politica"
+			            },
+			            "Object": {
+			              "Role": "gold_dim_politica.acao"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_dim_politicas_have_acaos"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_nome_partido_UF": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.nome_partido_UF": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.nome_partido_UF"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.nome_partido_UF"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_nome_partido_UFs"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_uf_autor_principal": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.uf_autor_principal": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.uf_autor_principal"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.uf_autor_principal"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_uf_autor_principals"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_partido_autor_principal": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.partido_autor_principal": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.partido_autor_principal"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.partido_autor_principal"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_partido_autor_principals"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_keywords_encontrada": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.keywords_encontrada": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.keywords_encontrada"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.keywords_encontrada"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_keywords_encontradas"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_dias_sem_movimentacao": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.dias_sem_movimentacao": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.dias_sem_movimentacao"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.dias_sem_movimentacao"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_dias_sem_movimentacaos"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_data_ultima_movimentacao": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.data_ultima_movimentacao": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.data_ultima_movimentacao"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.data_ultima_movimentacao"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_data_ultima_movimentacaos"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_ultima_movimentacao": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.ultima_movimentacao": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.ultima_movimentacao"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.ultima_movimentacao"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_ultima_movimentacaos"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_orgao_atual": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.orgao_atual": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.orgao_atual"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.orgao_atual"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_orgao_atuals"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_situacao_atual": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.situacao_atual": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.situacao_atual"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.situacao_atual"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_situacao_atuals"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_autor_principal": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.autor_principal": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.autor_principal"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.autor_principal"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_autor_principals"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_ementa": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.ementa": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.ementa"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.ementa"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_ementas"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_has_identificacao": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.identificacao": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.identificacao"
+			          }
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Attribute": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.identificacao"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_have_identificacaos"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_in_estado_autor": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.estado_autor": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.estado_autor"
+			          }
+			        }
+			      },
+			      "SemanticSlots": {
+			        "Where": {
+			          "Role": "gold_vw_monitoramento.estado_autor"
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Preposition": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Prepositions": [
+			              {
+			                "in": {
+			                  "State": "Generated"
+			                }
+			              }
+			            ],
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.estado_autor"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_are_in_estado_autors"
+			        }
+			      ]
+			    },
+			    "gold_vw_monitoramento_in_uf_autor_principal": {
+			      "Binding": {
+			        "ConceptualEntity": "vw_monitoramento"
+			      },
+			      "State": "Generated",
+			      "Roles": {
+			        "gold_vw_monitoramento": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento"
+			          }
+			        },
+			        "gold_vw_monitoramento.uf_autor_principal": {
+			          "Target": {
+			            "Entity": "gold_vw_monitoramento.uf_autor_principal"
+			          }
+			        }
+			      },
+			      "SemanticSlots": {
+			        "Where": {
+			          "Role": "gold_vw_monitoramento.uf_autor_principal"
+			        }
+			      },
+			      "Phrasings": [
+			        {
+			          "Preposition": {
+			            "Subject": {
+			              "Role": "gold_vw_monitoramento"
+			            },
+			            "Prepositions": [
+			              {
+			                "in": {
+			                  "State": "Generated"
+			                }
+			              }
+			            ],
+			            "Object": {
+			              "Role": "gold_vw_monitoramento.uf_autor_principal"
+			            }
+			          },
+			          "State": "Generated",
+			          "Weight": 0.99,
+			          "ID": "gold_vw_monitoramentos_are_in_uf_autor_principals"
+			        }
+			      ]
+			    }
+			  },
+			  "Agents": {
+			    "Internal": {
+			      "Version": "1.1.0"
+			    }
+			  }
+			}
+		contentType: json
+

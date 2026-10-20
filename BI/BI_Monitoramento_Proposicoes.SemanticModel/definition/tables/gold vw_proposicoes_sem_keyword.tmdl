@@ -1,0 +1,46 @@
+table 'gold vw_proposicoes_sem_keyword'
+	lineageTag: a90c88c7-fdb8-42ad-af85-64a7fe70bb08
+
+	column id_proposicao
+		dataType: int64
+		formatString: 0
+		lineageTag: cd5c475d-003e-4ad7-b590-11d94958a1c6
+		summarizeBy: sum
+		sourceColumn: id_proposicao
+
+		annotation SummarizationSetBy = Automatic
+
+	column identificacao
+		dataType: string
+		lineageTag: a477477d-a92f-4eb7-bf79-cd4e89ad6bf7
+		summarizeBy: none
+		sourceColumn: identificacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column ementa
+		dataType: string
+		lineageTag: b3adddd0-8b25-471a-8e02-0d18e9b9b051
+		summarizeBy: none
+		sourceColumn: ementa
+
+		annotation SummarizationSetBy = Automatic
+
+	column link_direto
+		dataType: string
+		lineageTag: d6ff5dfb-98eb-4db4-9f89-ba04c80c5b6e
+		summarizeBy: none
+		sourceColumn: link_direto
+
+		annotation SummarizationSetBy = Automatic
+
+	partition vw_proposicoes_sem_keyword = m
+		mode: import
+		source =
+				let
+				    Fonte = fnSupabaseGold("vw_proposicoes_sem_keyword", "id_proposicao", {{"id_proposicao", Int64.Type}, {"identificacao", type text}, {"ementa", type text}, {"link_direto", type text}})
+				in
+				    Fonte
+
+	annotation PBI_ResultType = Table
+

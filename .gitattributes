@@ -1,0 +1,2 @@
+# URL/chave do Supabase e link da planilha saem dos .tmdl no commit (ver BI/filtro_segredos.py).
+BI/**/*.tmdl filter=segredos-pbi

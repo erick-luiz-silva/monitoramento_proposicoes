@@ -1,0 +1,29 @@
+model Model
+	culture: pt-BR
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: pt-BR
+	valueFilterBehavior: independent
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+annotation PBI_QueryOrder = ["gold vw_monitoramento","gold vw_audiencias_de_interesse","gold vw_pautas_monitoradas","gold vw_proposicao_keywords","gold vw_proposicoes_sem_keyword","gold vw_tramitacoes","gold dim_relevancia","gold dim_posicionamento_abcs","api vw_ultima_carga","SupabaseUrl","SupabaseAnonKey","fnSupabaseGold"]
+
+annotation PBI_ProTooling = ["MCP-PBIModeling","DevMode"]
+
+ref table 'gold vw_monitoramento'
+ref table Medidas
+ref table gold_vw_dim_calendario
+ref table 'gold vw_audiencias_de_interesse'
+ref table 'gold vw_pautas_monitoradas'
+ref table 'gold vw_proposicao_keywords'
+ref table 'gold vw_proposicoes_sem_keyword'
+ref table 'gold vw_tramitacoes'
+ref table 'gold dim_relevancia'
+ref table 'gold dim_posicionamento_abcs'
+ref table 'api vw_ultima_carga'
+
+ref cultureInfo pt-BR
+

@@ -1,0 +1,104 @@
+table 'gold dim_relevancia'
+	lineageTag: 32fa9d4b-c5e0-4228-9fc6-5fe997de817a
+
+	column id_proposicao
+		dataType: int64
+		formatString: 0
+		lineageTag: 19ff6e64-8b41-4e7c-bc16-e3bcff5d2d8f
+		summarizeBy: none
+		sourceColumn: id_proposicao
+
+		annotation SummarizationSetBy = Automatic
+
+	column identificacao
+		dataType: string
+		lineageTag: 666f3003-f59e-4292-9da1-a0d580922224
+		summarizeBy: none
+		sourceColumn: identificacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column ementa
+		dataType: string
+		lineageTag: a8f59eca-d870-4a85-a1e3-5dee873710b1
+		summarizeBy: none
+		sourceColumn: ementa
+
+		annotation SummarizationSetBy = Automatic
+
+	column ultima_movimentacao
+		dataType: string
+		lineageTag: ca09ccd7-6190-48ee-b99a-ab096031d0db
+		summarizeBy: none
+		sourceColumn: ultima_movimentacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_ultima_movimentacao
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 9b5d0a5d-26a5-4b7c-9480-3d9a20f2d761
+		summarizeBy: none
+		sourceColumn: data_ultima_movimentacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column keywords_encontradas
+		dataType: string
+		lineageTag: f69bbf8f-d1a4-4722-adeb-2ee8bf49b189
+		summarizeBy: none
+		sourceColumn: keywords_encontradas
+
+		annotation SummarizationSetBy = Automatic
+
+	column link_direto
+		dataType: string
+		lineageTag: a46e86c1-347f-478a-80d6-feaf97c676c6
+		summarizeBy: none
+		sourceColumn: link_direto
+
+		annotation SummarizationSetBy = Automatic
+
+	column relevancia
+		dataType: string
+		lineageTag: 32d2761e-bbeb-40cb-b5c5-b47bbcd5b410
+		summarizeBy: none
+		sourceColumn: relevancia
+
+		annotation SummarizationSetBy = Automatic
+
+	column acompanhada
+		dataType: string
+		lineageTag: e74a6348-f0ff-4464-bffb-bf31d6aa0423
+		summarizeBy: none
+		sourceColumn: acompanhada
+
+		annotation SummarizationSetBy = Automatic
+
+	column status_inclusao
+		dataType: string
+		lineageTag: 26e2b115-c7df-45c8-9d5f-f997aa5ffae6
+		summarizeBy: none
+		sourceColumn: status_inclusao
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'gold dim_relevancia' = m
+		mode: import
+		source =
+				let
+				  Origem = GoogleSheets.Contents("https://docs.google.com/spreadsheets/d/ID-DA-PLANILHA/edit?usp=sharing"),
+				  #"Navegação 1" = Origem{[name = "Proposições", ItemKind = "Table"]}[Data],
+				    #"Cabeçalhos Promovidos" = Table.PromoteHeaders(#"Navegação 1", [PromoteAllScalars=true]),
+				    #"Tipo Alterado" = Table.TransformColumnTypes(#"Cabeçalhos Promovidos",{{"id_proposicao", Int64.Type}, {"identificacao", type text}, {"ementa", type text}, {"ultima_movimentacao", type text}, {"data_ultima_movimentacao", type datetime}, {"keywords_encontradas", type text}, {"link_direto", type text}, {"relevancia", type text}}),
+				  #"Linhas em branco removidas" = Table.SelectRows(#"Tipo Alterado", each not List.IsEmpty(List.RemoveMatchingItems(Record.FieldValues(_), {"", null}))),
+				  #"Linhas sem id removidas" = Table.SelectRows(#"Linhas em branco removidas", each [id_proposicao] <> null),
+				  // id repetido na planilha derrubaria a atualização (relação 1:1): fica a primeira linha
+				  #"Sem ids repetidos" = Table.Distinct(#"Linhas sem id removidas", {"id_proposicao"})
+				in
+				  #"Sem ids repetidos"
+
+	annotation PBI_NavigationStepName = Navegação
+
+	annotation PBI_ResultType = Table
+

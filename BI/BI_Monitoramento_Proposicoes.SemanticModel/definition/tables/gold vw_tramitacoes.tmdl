@@ -1,0 +1,90 @@
+table 'gold vw_tramitacoes'
+	lineageTag: 5a94a938-961e-44cc-99c7-bcf6cbb10b14
+
+	column id_proposicao
+		dataType: int64
+		formatString: 0
+		lineageTag: 11431833-707a-4873-af39-628b02545336
+		summarizeBy: sum
+		sourceColumn: id_proposicao
+
+		annotation SummarizationSetBy = Automatic
+
+	column identificacao
+		dataType: string
+		lineageTag: 3b3e2589-069f-49bf-ba2e-a63fca2c27cc
+		summarizeBy: none
+		sourceColumn: identificacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column sequencia
+		dataType: int64
+		formatString: 0
+		lineageTag: 5b1e0396-7bf7-447c-99bd-f8e932efa69a
+		summarizeBy: sum
+		sourceColumn: sequencia
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_hora
+		dataType: dateTime
+		formatString: dd/mm/yyyy hh:nn
+		lineageTag: b0861717-8c87-4fa4-b769-1a9a40435bf2
+		summarizeBy: none
+		sourceColumn: data_hora
+
+		annotation SummarizationSetBy = Automatic
+
+	column sigla_orgao
+		dataType: string
+		lineageTag: 04f8d6c1-f3f2-4166-bf4d-7d41af6eb349
+		summarizeBy: none
+		sourceColumn: sigla_orgao
+
+		annotation SummarizationSetBy = Automatic
+
+	column descricao_situacao
+		dataType: string
+		lineageTag: 2e018713-fa04-4edf-8bf7-2c8bc4e33b15
+		summarizeBy: none
+		sourceColumn: descricao_situacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column descricao_tramitacao
+		dataType: string
+		lineageTag: ba664f0a-4e47-4d94-bf1c-5c5e430ea3c0
+		summarizeBy: none
+		sourceColumn: descricao_tramitacao
+
+		annotation SummarizationSetBy = Automatic
+
+	column despacho
+		dataType: string
+		lineageTag: a78baaa8-d279-4665-acf7-46525d282bcb
+		summarizeBy: none
+		sourceColumn: despacho
+
+		annotation SummarizationSetBy = Automatic
+
+	column nome_orgao
+		dataType: string
+		lineageTag: d8888f47-4604-49c2-8001-152970aac139
+		summarizeBy: none
+		sourceColumn: nome_orgao
+
+		annotation SummarizationSetBy = Automatic
+
+	partition vw_tramitacoes = m
+		mode: import
+		source =
+				let
+				    Fonte = fnSupabaseGold("vw_tramitacoes", "id_proposicao,sequencia", {{"id_proposicao", Int64.Type}, {"identificacao", type text}, {"sequencia", Int64.Type}, {"data_hora", type datetime}, {"sigla_orgao", type text}, {"descricao_situacao", type text}, {"descricao_tramitacao", type text}, {"despacho", type text}, {"nome_orgao", type text}})
+				in
+				    Fonte
+
+	annotation PBI_NavigationStepName = Navegação
+
+	annotation PBI_ResultType = Table
+

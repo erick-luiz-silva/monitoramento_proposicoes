@@ -8,8 +8,10 @@ __pycache__/
 .vscode/
 *.log
 *.bat
-# Power BI: artefatos locais, dados embutidos e configurações da máquina.
-/BI/
+# Power BI: o projeto PBIP é versionado (acessos saem pelo filtro de .gitattributes);
+# ficam fora o .env, os dados embutidos e as configurações da máquina.
+BI/.env
+*:Zone.Identifier
 *.pbix
 *.pbit
 *.abf

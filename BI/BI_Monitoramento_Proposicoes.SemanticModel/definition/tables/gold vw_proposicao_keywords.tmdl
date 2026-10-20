@@ -1,0 +1,30 @@
+table 'gold vw_proposicao_keywords'
+	lineageTag: 6635fb5d-2565-42ec-b4c9-b90616fa8372
+
+	column id_proposicao
+		dataType: int64
+		formatString: 0
+		lineageTag: afa73ba4-348b-465d-8ce7-3c9cfcb431ba
+		summarizeBy: none
+		sourceColumn: id_proposicao
+
+		annotation SummarizationSetBy = Automatic
+
+	column keywords_encontradas
+		dataType: string
+		lineageTag: b791feef-5676-4cae-98d9-ddf6c68fa669
+		summarizeBy: none
+		sourceColumn: keywords_encontradas
+
+		annotation SummarizationSetBy = Automatic
+
+	partition vw_proposicao_keywords = m
+		mode: import
+		source =
+				let
+				    Fonte = fnSupabaseGold("vw_proposicao_keywords", "id_proposicao", {{"id_proposicao", Int64.Type}, {"keywords_encontradas", type text}})
+				in
+				    Fonte
+
+	annotation PBI_ResultType = Table
+

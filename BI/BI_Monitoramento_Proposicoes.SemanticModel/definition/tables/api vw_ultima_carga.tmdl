@@ -1,0 +1,44 @@
+/// Última carga com sucesso (horário de Brasília) e o "hoje" de Brasília no momento do refresh.
+/// Base de "Dados atualizados em" e das janelas de datas, já que TODAY() no Service é UTC.
+table 'api vw_ultima_carga'
+	lineageTag: 3f2b8c1e-6d4a-4f7b-9a1c-2e5d8b7f0a41
+
+	column ultima_carga_diaria
+		dataType: dateTime
+		formatString: dd/mm/yyyy hh:nn
+		lineageTag: 7c1e9a24-3b5d-4e8f-a6c2-9d0b1f4e7a35
+		summarizeBy: none
+		sourceColumn: ultima_carga_diaria
+
+		annotation SummarizationSetBy = Automatic
+
+	column ultima_carga_pautas
+		dataType: dateTime
+		formatString: dd/mm/yyyy hh:nn
+		lineageTag: 0a5d3f8b-2c6e-4b9a-8f1d-6e3c7b2a9d14
+		summarizeBy: none
+		sourceColumn: ultima_carga_pautas
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_referencia
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: 5e8b2d7a-9f3c-4a1e-b6d4-1c7f0e9a3b62
+		summarizeBy: none
+		sourceColumn: data_referencia
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	partition vw_ultima_carga = m
+		mode: import
+		source =
+				let
+				    Fonte = fnSupabaseGold("vw_ultima_carga", "data_referencia", {{"ultima_carga_diaria", type datetime}, {"ultima_carga_pautas", type datetime}, {"data_referencia", type date}})
+				in
+				    Fonte
+
+	annotation PBI_ResultType = Table
+

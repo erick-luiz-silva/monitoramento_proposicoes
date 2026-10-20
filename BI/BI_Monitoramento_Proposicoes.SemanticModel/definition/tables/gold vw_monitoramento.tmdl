@@ -1,0 +1,306 @@
+table 'gold vw_monitoramento'
+	lineageTag: 5e86ad40-6d64-4606-ad49-22dacacff111
+
+	column id_proposicao
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: a67d6a67-906f-4144-9ad5-9351ac30e926
+		summarizeBy: none
+		sourceColumn: id_proposicao
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column identificacao
+		dataType: string
+		lineageTag: 35563839-2638-4414-9859-6327319d7a4c
+		summarizeBy: none
+		sourceColumn: identificacao
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column ementa
+		dataType: string
+		lineageTag: 05713246-0755-4e89-9ba5-4cc07d2b7bf3
+		summarizeBy: none
+		sourceColumn: ementa
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column autor_principal
+		dataType: string
+		lineageTag: aac174c6-6c57-4ff9-9074-6f96ac55816a
+		summarizeBy: none
+		sourceColumn: autor_principal
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column tipo_autor_principal
+		dataType: string
+		isHidden
+		lineageTag: 67d989e1-1ab5-40fa-90e2-bd6d89f35498
+		summarizeBy: none
+		sourceColumn: tipo_autor_principal
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column situacao_atual
+		dataType: string
+		lineageTag: d03d6e59-ab71-4310-9c74-7d6630368f96
+		summarizeBy: none
+		sourceColumn: situacao_atual
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column orgao_atual
+		dataType: string
+		lineageTag: 3caf1ce3-d275-4854-9b81-0d54645390b4
+		summarizeBy: none
+		sourceColumn: orgao_atual
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column ultima_movimentacao
+		dataType: string
+		lineageTag: a11779ab-0324-43e0-ada7-b293ee9cdc90
+		summarizeBy: none
+		sourceColumn: ultima_movimentacao
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_ultima_movimentacao
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: 6ce1dc87-a694-483d-85e3-21e74fcbe4c3
+		summarizeBy: none
+		sourceColumn: data_ultima_movimentacao
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column dias_sem_movimentacao
+		dataType: int64
+		formatString: 0
+		lineageTag: 6710dade-4111-4042-b886-c1a6720ed520
+		summarizeBy: sum
+		sourceColumn: dias_sem_movimentacao
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column keywords_encontradas
+		dataType: string
+		lineageTag: 119e8e27-89d1-4a9f-ac37-33f508faf6e2
+		summarizeBy: none
+		sourceColumn: keywords_encontradas
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column link_direto
+		dataType: string
+		lineageTag: dfc36bd8-ef48-4b7c-841e-86838fa051ed
+		dataCategory: WebUrl
+		summarizeBy: none
+		sourceColumn: link_direto
+
+		changedProperty = IsHidden
+
+		annotation SummarizationSetBy = Automatic
+
+	column partido_autor_principal
+		dataType: string
+		lineageTag: 53f8ff9c-142b-48ce-8ab0-5ddc6383bea8
+		summarizeBy: none
+		sourceColumn: partido_autor_principal
+
+		annotation SummarizationSetBy = Automatic
+
+	column uf_autor_principal
+		dataType: string
+		lineageTag: 7815caca-6ee7-4102-a1d0-8bbe5bd29847
+		dataCategory: StateOrProvince
+		summarizeBy: none
+		sourceColumn: uf_autor_principal
+
+		annotation SummarizationSetBy = Automatic
+
+	column Nome_Partido_UF
+		dataType: string
+		lineageTag: 726a060c-4f87-464e-8898-ecd8d4875ef1
+		summarizeBy: none
+		sourceColumn: Nome_Partido_UF
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Nome completo do estado do autor principal, derivado da sigla UF para uso em visuais de mapa
+	column 'Estado Autor' =
+			VAR _uf = 'gold vw_monitoramento'[uf_autor_principal]
+			RETURN
+			    SWITCH(
+			        _uf,
+			        "AC", "Acre",
+			        "AL", "Alagoas",
+			        "AP", "Amapá",
+			        "AM", "Amazonas",
+			        "BA", "Bahia",
+			        "CE", "Ceará",
+			        "DF", "Distrito Federal",
+			        "ES", "Espírito Santo",
+			        "GO", "Goiás",
+			        "MA", "Maranhão",
+			        "MT", "Mato Grosso",
+			        "MS", "Mato Grosso do Sul",
+			        "MG", "Minas Gerais",
+			        "PA", "Pará",
+			        "PB", "Paraíba",
+			        "PR", "Paraná",
+			        "PE", "Pernambuco",
+			        "PI", "Piauí",
+			        "RJ", "Rio de Janeiro",
+			        "RN", "Rio Grande do Norte",
+			        "RS", "Rio Grande do Sul",
+			        "RO", "Rondônia",
+			        "RR", "Roraima",
+			        "SC", "Santa Catarina",
+			        "SP", "São Paulo",
+			        "SE", "Sergipe",
+			        "TO", "Tocantins",
+			        BLANK()
+			    )
+		lineageTag: 6c270870-caab-4736-8c0b-0b80c48dd631
+		dataCategory: StateOrProvince
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	column nome_orgao_atual
+		dataType: string
+		lineageTag: c7525f59-0538-4b89-b139-37540bbeee0b
+		summarizeBy: none
+		sourceColumn: nome_orgao_atual
+
+		annotation SummarizationSetBy = Automatic
+
+	column acompanhada
+		dataType: boolean
+		lineageTag: 1e11d3ca-a84c-484f-bd53-5a7a5a8009f8
+		summarizeBy: none
+		sourceColumn: acompanhada
+
+		annotation SummarizationSetBy = Automatic
+
+	column em_radar
+		dataType: boolean
+		lineageTag: b20411df-dba8-4e86-8628-d09a2049811b
+		summarizeBy: none
+		sourceColumn: em_radar
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Entra no painel: acompanhada ou marcada SIM na aba "Proposições", sem as marcadas NÃO e sem as encerradas
+	/// (arquivada ou transformada em norma). Mesma regra do e-mail diário; decidido com a Ana em 20/10/2026
+	column em_painel =
+			VAR _relevancia = UPPER(TRIM(LOOKUPVALUE('gold dim_relevancia'[relevancia], 'gold dim_relevancia'[id_proposicao], [id_proposicao])))
+			VAR _encerrada = [situacao_atual] IN {"Arquivada", "Transformado em Norma Jurídica"}
+			RETURN ([acompanhada] || _relevancia = "SIM") && NOT (_relevancia IN {"NÃO", "NAO"}) && NOT _encerrada
+		dataType: boolean
+		lineageTag: 5d9a2c7e-1f4b-4e8a-b3d6-9c0e7a2f4b18
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	column sigla_tipo
+		dataType: string
+		lineageTag: 2c8e5a1f-7d3b-4e9a-b6c4-1f0d8e2a5c73
+		summarizeBy: none
+		sourceColumn: sigla_tipo
+
+		annotation SummarizationSetBy = Automatic
+
+	column data_apresentacao
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: 9b4d2f7e-3a1c-4e8b-a5d6-7c0e3f9b1a24
+		summarizeBy: none
+		sourceColumn: data_apresentacao
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Ano de apresentação da proposição (gráfico por ano)
+	column ano_apresentacao = YEAR([data_apresentacao])
+		dataType: int64
+		formatString: 0
+		lineageTag: 4f7a1c9e-2d5b-4b8e-9a3c-6e1f8d0b2c57
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Origem do autor principal: deputado, Senado (projeto de senador) ou Poder Executivo
+	column origem_autor =
+			SWITCH(
+			    TRUE(),
+			    [tipo_autor_principal] = "Deputado(a)", "Deputado(a)",
+			    CONTAINSSTRING([autor_principal], "Senado"), "Senado",
+			    CONTAINSSTRING([tipo_autor_principal], "Executivo"), "Poder Executivo",
+			    [tipo_autor_principal]
+			)
+		dataType: string
+		lineageTag: 7e2b9d4a-1f6c-4a3e-8d5b-0c9a7e2f4b61
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Partido para os gráficos: autor que é órgão (Senado, Executivo) não tem partido
+	column partido_exibicao =
+			IF(
+			    ISBLANK([partido_autor_principal]) || [partido_autor_principal] = "",
+			    [origem_autor] & " (sem partido)",
+			    [partido_autor_principal]
+			)
+		dataType: string
+		lineageTag: 3a6d0f8c-5e2b-4c7a-9f1d-8b4e2a6c0d95
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	/// UF para os gráficos: autor que é órgão (Senado, Executivo) não tem UF
+	column uf_exibicao = IF(ISBLANK([uf_autor_principal]) || [uf_autor_principal] = "", [origem_autor] & " (sem UF)", [uf_autor_principal])
+		dataType: string
+		lineageTag: 0f5c2a8e-6d3b-4e1a-9b7c-4a8e1d5f2c36
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	partition vw_monitoramento = m
+		mode: import
+		source =
+				let
+				    Fonte = fnSupabaseGold("vw_monitoramento", "id_proposicao", {{"id_proposicao", Int64.Type}, {"identificacao", type text}, {"ementa", type text}, {"autor_principal", type text}, {"tipo_autor_principal", type text}, {"partido_autor_principal", type text}, {"uf_autor_principal", type text}, {"situacao_atual", type text}, {"orgao_atual", type text}, {"nome_orgao_atual", type text}, {"ultima_movimentacao", type text}, {"data_ultima_movimentacao", type datetime}, {"dias_sem_movimentacao", Int64.Type}, {"keywords_encontradas", type text}, {"link_direto", type text}, {"acompanhada", type logical}, {"em_radar", type logical}, {"sigla_tipo", type text}, {"data_apresentacao", type datetime}}),
+				    NomePartidoUF = Table.AddColumn(Fonte, "Nome_Partido_UF", each [autor_principal] & " " & [partido_autor_principal] & "/" & [uf_autor_principal], type text)
+				in
+				    NomePartidoUF
+
+	annotation PBI_ResultType = Table
+
+	annotation PBI_NavigationStepName = Navegação
+

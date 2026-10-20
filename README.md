@@ -6,6 +6,8 @@ Pipeline de dados que automatiza o acompanhamento de proposições legislativas 
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-4169E1?logo=postgresql&logoColor=white)
 ![Status](https://img.shields.io/badge/status-em%20produ%C3%A7%C3%A3o-brightgreen)
 
+**[Abrir o painel no Power BI](https://app.powerbi.com/view?r=eyJrIjoiNDRmMjA4YzUtZDkyZi00OTlkLWE0YTktYzE1OGFjNmFhOTc4IiwidCI6Ijc5NTEwNDhlLWUxNWEtNDBjOC04NjM3LTYxOTg4NjkwNmUyNyJ9)** (público, atualizado três vezes ao dia)
+
 ---
 
 ## Sobre o projeto
@@ -236,13 +238,30 @@ o endpoint escolhido.
   Data API do Supabase com a chave anon (credencial Anônima, conexão de nuvem
   `con_supabase_monitoramento`) e a planilha Google com OAuth da conta dona.
 
-### Arquivos locais do Power BI
+### Projeto do Power BI (PBIP)
 
-O diretório `BI/`, arquivos `.pbix`, `.pbit`, `.abf` e configurações locais de
-projetos PBIP ficam no `.gitignore`. Eles podem conter dados embutidos, caches e
-metadados de conexão. O PBIX anteriormente versionado foi retirado do índice;
-a cópia local é preservada. Isso não remove o arquivo dos commits históricos.
-Não inclua esses artefatos ao publicar alterações do pipeline.
+O painel está versionado em `BI/` no formato PBIP (modelo em TMDL e relatório em
+PBIR), junto com os scripts de design. Ficam fora do repositório o `BI/.env`, o
+cache com os dados importados (`.pbi/cache.abf`), as configurações locais
+(`localSettings.json`, `editorSettings.json`) e os arquivos `.pbix`/`.pbit`.
+
+O repositório é público. Por isso, a URL e a chave anon do Supabase e o link da
+planilha saem dos `.tmdl` no commit, por um filtro do git (`.gitattributes` →
+`BI/filtro_segredos.py`): no repositório ficam marcadores (`SEU-PROJETO`,
+`COLE-A-CHAVE-ANON`, `ID-DA-PLANILHA`) e, no checkout, os valores voltam a partir
+de `BI/.env` (`SUPABASE_URL`, `SUPABASE_KEY`) e `src/.env`
+(`GOOGLE_SHEET_MONITORAMENTO_ID`). Configure uma vez em cada clone, antes de
+commitar qualquer coisa em `BI/`:
+
+```bash
+git config filter.segredos-pbi.clean "python3 BI/filtro_segredos.py clean"
+git config filter.segredos-pbi.smudge "python3 BI/filtro_segredos.py smudge"
+git config filter.segredos-pbi.required true
+```
+
+`tests/test_segredos.py` falha se uma chave do Supabase ou um link de planilha
+chegar ao índice. Mesmo que a chave vaze, a role `anon` só lê: SELECT no schema
+`api` e na `gold` (escrita revogada em `sql/schema_api.sql`).
 
 ### Notificação ao n8n
 

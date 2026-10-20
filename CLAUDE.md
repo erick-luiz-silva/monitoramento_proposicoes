@@ -71,6 +71,7 @@ When updating dependencies: fresh venv with the pinned Python, install `requirem
 
 ## Notes
 
-- `BI/`, `*.pbix`, `*.pbit`, `*.abf` and PBIP local settings are gitignored (may contain embedded data) — never commit them.
+- The PBIP project in `BI/` is versioned in a **public** repo. `BI/.env`, `*.pbix`, `*.pbit`, `*.abf` (incl. `.pbi/cache.abf`) and PBIP local settings stay gitignored — never commit them. The Supabase URL/anon key and the sheet link in the `.tmdl` files are replaced by placeholders on commit by the `segredos-pbi` git filter (`.gitattributes` → `BI/filtro_segredos.py`; local `git config` per clone, see README) and restored on checkout from the `.env` files; `tests/test_segredos.py` fails if a key or sheet link reaches the index. Never put an access value anywhere else in the repo. The `anon` role is read-only (SELECT on `api` and `gold`; write grants revoked in `schema_api.sql`).
+- Public report ("Publicar na Web") link is in the README header.
 - Partido/UF shown for authors are the deputy's *current* ones (from `dim_deputado`), by design.
 - Open item: filtering archived propositions out of KPIs (situação codes 914/920/923/930/931/940, possibly others) and ~55 propositions with null `cod_situacao` — see README "Status do projeto".

@@ -1,0 +1,149 @@
+{
+  "version": "1.1.0",
+  "diagrams": [
+    {
+      "ordinal": 0,
+      "scrollPosition": {
+        "x": 0,
+        "y": 0
+      },
+      "nodes": [
+        {
+          "location": {
+            "x": 2935.9472361573035,
+            "y": 415.19025601134581
+          },
+          "nodeIndex": "Medidas",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 713.94723615730322,
+            "y": 317.19025601134581
+          },
+          "nodeIndex": "gold vw_audiencias_de_interesse",
+          "nodeLineageTag": "1b883d08-a213-46db-b74f-7cd07d6ddd12",
+          "size": {
+            "height": 296,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 310.93574590500845,
+            "y": 301.80676805804342
+          },
+          "nodeIndex": "gold vw_monitoramento",
+          "nodeLineageTag": "5e86ad40-6d64-4606-ad49-22dacacff111",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 479.59456899161904,
+            "y": -50
+          },
+          "nodeIndex": "gold vw_pautas_monitoradas",
+          "nodeLineageTag": "cb33bdc4-4ad0-4b61-a410-3638bbe880b0",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 997.94723615730322,
+            "y": 401.19025601134581
+          },
+          "nodeIndex": "gold vw_proposicao_keywords",
+          "nodeLineageTag": "6635fb5d-2565-42ec-b4c9-b90616fa8372",
+          "size": {
+            "height": 128,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1281.9472361573032,
+            "y": 377.19025601134581
+          },
+          "nodeIndex": "gold vw_proposicoes_sem_keyword",
+          "nodeLineageTag": "a90c88c7-fdb8-42ad-af85-64a7fe70bb08",
+          "size": {
+            "height": 176,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1565.9472361573032,
+            "y": 317.19025601134581
+          },
+          "nodeIndex": "gold vw_tramitacoes",
+          "nodeLineageTag": "5a94a938-961e-44cc-99c7-bcf6cbb10b14",
+          "size": {
+            "height": 296,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 479.94723615730322,
+            "y": 658.02042388121311
+          },
+          "nodeIndex": "gold_vw_dim_calendario",
+          "nodeLineageTag": "df68555e-5cf0-4b50-ad50-a7994028d3c0",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 3453.9472361573035,
+            "y": 329.19025601134581
+          },
+          "nodeIndex": "gold dim_relevancia",
+          "size": {
+            "height": 272,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 3169.9472361573035,
+            "y": 341.19025601134581
+          },
+          "nodeIndex": "gold dim_posicionamento_abcs",
+          "size": {
+            "height": 248,
+            "width": 234
+          },
+          "zIndex": 0
+        }
+      ],
+      "name": "Todas as tabelas",
+      "zoomValue": 40.359115268673186,
+      "pinKeyFieldsToTop": false,
+      "showExtraHeaderInfo": false,
+      "hideKeyFieldsWhenCollapsed": false,
+      "tablesLocked": false
+    }
+  ],
+  "selectedDiagram": "Todas as tabelas",
+  "defaultDiagram": "Todas as tabelas"
+}
