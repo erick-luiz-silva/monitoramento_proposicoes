@@ -8,7 +8,7 @@ os parâmetros no Desktop.
 
 Configuração única por clone (a partir da raiz do repositório):
     git config filter.segredos-pbi.clean "python3 BI/filtro_segredos.py clean"
-    git config filter.segredos-pbi.smudge "python3 BI/filtro_segredos.py smudge"
+    git config filter.segredos-pbi.smudge "python3 BI/filtro_segredos.py smudge || cat"
     git config filter.segredos-pbi.required true
 
 Lê o arquivo na entrada padrão e escreve na saída padrão (só biblioteca padrão: roda com
