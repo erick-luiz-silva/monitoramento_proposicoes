@@ -49,5 +49,31 @@ class ChaveSenadoTests(unittest.TestCase):
                 config.chave_senado(invalido)
 
 
+class SilverSenadoSqlTests(unittest.TestCase):
+    def test_colunas_novas_idempotentes(self):
+        sql = ler("schema_silver.sql")
+        for trecho in ("ADD COLUMN IF NOT EXISTS casa", "ADD COLUMN IF NOT EXISTS id_origem",
+                       "ADD COLUMN IF NOT EXISTS data_apresentacao_origem", "ADD COLUMN IF NOT EXISTS eh_relator",
+                       "ADD COLUMN IF NOT EXISTS votado", "ck_proposicao_casa",
+                       "CREATE TABLE IF NOT EXISTS silver.proposicao_vinculo"):
+            self.assertIn(trecho, sql)
+
+    def test_backfill_so_toca_a_camara(self):
+        updates = [c for c in sem_comentarios(ler("schema_silver.sql")).split(";") if "UPDATE silver." in c]
+        self.assertEqual(len(updates), 4)
+        for u in updates:
+            self.assertTrue("casa = 'CD'" in u or "< 1000000000" in u, u)
+        self.assertTrue(any("votado = (uri_votacao IS NOT NULL)" in u for u in updates))
+
+    def test_camara_grava_origem_relator_e_votado(self):
+        bronze = sem_comentarios(ler("transform_bronze_to_silver.sql"))
+        self.assertIn("id_origem", bronze)
+        self.assertIn("data_apresentacao_origem", bronze)
+        self.assertIn("~* '^Designação de Relator'", bronze)
+        eventos = sem_comentarios(ler("transform_eventos_to_silver.sql"))
+        self.assertIn("(elem->>'uriVotacao') IS NOT NULL", eventos)
+        self.assertRegex(eventos, r"DELETE FROM silver\.evento_pauta[\s\S]*?id_evento < 1000000000")
+
+
 if __name__ == "__main__":
     unittest.main()
