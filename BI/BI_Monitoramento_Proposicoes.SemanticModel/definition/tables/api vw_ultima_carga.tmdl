@@ -32,11 +32,28 @@ table 'api vw_ultima_carga'
 
 		annotation UnderlyingDateTimeDataType = Date
 
+	/// Última carga diária do Senado que terminou bem (horário de Brasília)
+	column ultima_carga_senado
+		dataType: dateTime
+		lineageTag: 43af9e62-8d14-4268-ab70-2e7a90e3c2e5
+		summarizeBy: none
+		sourceColumn: ultima_carga_senado
+
+		annotation SummarizationSetBy = Automatic
+
+	column ultima_carga_pautas_senado
+		dataType: dateTime
+		lineageTag: 47b37373-06b6-46b3-850a-6c0c7c02b4f9
+		summarizeBy: none
+		sourceColumn: ultima_carga_pautas_senado
+
+		annotation SummarizationSetBy = Automatic
+
 	partition vw_ultima_carga = m
 		mode: import
 		source =
 				let
-				    Fonte = fnSupabaseGold("vw_ultima_carga", "data_referencia", {{"ultima_carga_diaria", type datetime}, {"ultima_carga_pautas", type datetime}, {"data_referencia", type date}})
+				    Fonte = fnSupabaseGold("vw_ultima_carga", "data_referencia", {{"ultima_carga_diaria", type datetime}, {"ultima_carga_pautas", type datetime}, {"data_referencia", type date}, {"ultima_carga_senado", type datetime}, {"ultima_carga_pautas_senado", type datetime}})
 				in
 				    Fonte
 

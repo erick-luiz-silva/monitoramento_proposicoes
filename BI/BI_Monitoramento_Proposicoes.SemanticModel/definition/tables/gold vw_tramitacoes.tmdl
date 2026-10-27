@@ -76,11 +76,19 @@ table 'gold vw_tramitacoes'
 
 		annotation SummarizationSetBy = Automatic
 
+	column casa
+		dataType: string
+		lineageTag: 4016e4d5-6349-476a-a6de-0ab4d9a5f165
+		summarizeBy: none
+		sourceColumn: casa
+
+		annotation SummarizationSetBy = Automatic
+
 	partition vw_tramitacoes = m
 		mode: import
 		source =
 				let
-				    Fonte = fnSupabaseGold("vw_tramitacoes", "id_proposicao,sequencia", {{"id_proposicao", Int64.Type}, {"identificacao", type text}, {"sequencia", Int64.Type}, {"data_hora", type datetime}, {"sigla_orgao", type text}, {"descricao_situacao", type text}, {"descricao_tramitacao", type text}, {"despacho", type text}, {"nome_orgao", type text}})
+				    Fonte = fnSupabaseGold("vw_tramitacoes", "id_proposicao,sequencia", {{"id_proposicao", Int64.Type}, {"identificacao", type text}, {"sequencia", Int64.Type}, {"data_hora", type datetime}, {"sigla_orgao", type text}, {"descricao_situacao", type text}, {"descricao_tramitacao", type text}, {"despacho", type text}, {"nome_orgao", type text}, {"casa", type text}})
 				in
 				    Fonte
 

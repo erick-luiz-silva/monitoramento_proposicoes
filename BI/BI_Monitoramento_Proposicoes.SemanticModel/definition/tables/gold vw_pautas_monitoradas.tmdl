@@ -166,11 +166,28 @@ table 'gold vw_pautas_monitoradas'
 
 		annotation SummarizationSetBy = Automatic
 
+	column casa
+		dataType: string
+		lineageTag: 784cafc1-a589-4853-8a3f-214ce4ce8569
+		summarizeBy: none
+		sourceColumn: casa
+
+		annotation SummarizationSetBy = Automatic
+
+	column chave_projeto
+		dataType: int64
+		formatString: 0
+		lineageTag: 7f5cffff-999e-4986-8d2f-ab9fc2a65056
+		summarizeBy: none
+		sourceColumn: chave_projeto
+
+		annotation SummarizationSetBy = Automatic
+
 	partition vw_pautas_monitoradas = m
 		mode: import
 		source =
 				let
-				    Fonte = fnSupabaseGold("vw_pautas_monitoradas", "_id", {{"id_evento", Int64.Type}, {"data_hora_inicio", type datetime}, {"sigla_orgao", type text}, {"nome_orgao", type text}, {"descricao_tipo", type text}, {"situacao_evento", type text}, {"topico", type text}, {"titulo", type text}, {"identificacao", type text}, {"ementa", type text}, {"nome_relator", type text}, {"partido_relator", type text}, {"uf_relator", type text}, {"uri_votacao", type text}, {"situacao_item", type text}, {"status_alerta", type text}, {"id_proposicao", Int64.Type}, {"acompanhada", type logical}, {"em_radar", type logical}})
+				    Fonte = fnSupabaseGold("vw_pautas_monitoradas", "_id", {{"id_evento", Int64.Type}, {"data_hora_inicio", type datetime}, {"sigla_orgao", type text}, {"nome_orgao", type text}, {"descricao_tipo", type text}, {"situacao_evento", type text}, {"topico", type text}, {"titulo", type text}, {"identificacao", type text}, {"ementa", type text}, {"nome_relator", type text}, {"partido_relator", type text}, {"uf_relator", type text}, {"uri_votacao", type text}, {"situacao_item", type text}, {"status_alerta", type text}, {"id_proposicao", Int64.Type}, {"acompanhada", type logical}, {"em_radar", type logical}, {"casa", type text}, {"chave_projeto", Int64.Type}})
 				in
 				    Fonte
 

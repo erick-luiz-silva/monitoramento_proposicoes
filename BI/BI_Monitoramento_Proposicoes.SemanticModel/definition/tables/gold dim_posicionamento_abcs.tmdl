@@ -65,26 +65,46 @@ table 'gold dim_posicionamento_abcs'
 
 		annotation SummarizationSetBy = Automatic
 
+	/// Grupo do projeto (liga à vw_monitoramento); negativa = sem ligação
+	column chave_projeto
+		dataType: int64
+		formatString: 0
+		lineageTag: b92f5da1-b5f9-4f1f-92a8-b1e0924e9ace
+		summarizeBy: none
+		sourceColumn: chave_projeto
+
+		annotation SummarizationSetBy = Automatic
+
 	partition 'gold dim_posicionamento_abcs' = m
 		mode: import
 		source =
 				let
-				  Origem = GoogleSheets.Contents("https://docs.google.com/spreadsheets/d/ID-DA-PLANILHA/edit?usp=sharing"),
-				    #"Posicionamento ABCS_Table" = Origem{[name="Posicionamento ABCS",ItemKind="Table"]}[Data],
-				    #"Cabeçalhos Promovidos" = Table.PromoteHeaders(#"Posicionamento ABCS_Table", [PromoteAllScalars=true]),
-				    #"Tipo Alterado" = Table.TransformColumnTypes(#"Cabeçalhos Promovidos",{{"identificacao", type text}, {"ementa", type any}, {"posicao_abcs", type any}, {"acao", type any}, {"parecer_abcs", type any}, {"prioridade", type any}, {"observacoes", type any}}),
-				    // Planilha editada à mão: sem espaços sobrando e com prioridade/posição em caixa única,
-				    // senão "Sim " e "sim" viram categorias diferentes e as regras de cor falham.
-				    Limpo = Table.TransformColumns(#"Tipo Alterado", {
-				        {"identificacao", each if _ = null then null else Text.Trim(Text.From(_)), type text},
-				        {"prioridade", each if _ = null or Text.Trim(Text.From(_)) = "" then null else Text.Lower(Text.Trim(Text.From(_))), type text},
-				        {"posicao_abcs", each if _ = null or Text.Trim(Text.From(_)) = "" then null else Text.Trim(Text.From(_)), type text}
-				    }),
-				    ComId = Table.SelectRows(Limpo, each [identificacao] <> null and [identificacao] <> ""),
-				    // identificação repetida derrubaria a atualização (relação 1:1): fica a primeira linha
-				    SemRepetidas = Table.Distinct(ComId, {"identificacao"})
+				    // A planilha vem de stg_posicionamento (expressions.tmdl); esta query só referencia
+				    // outras queries, sem acessar fonte direto (evita o Formula.Firewall).
+				    Monit = Table.SelectColumns(#"gold vw_monitoramento", {"identificacao", "identificacao_casa", "chave_projeto"}),
+				    PorCasa = Table.Buffer(Table.Distinct(Table.SelectColumns(Monit, {"identificacao_casa", "chave_projeto"}), {"identificacao_casa"})),
+				    PorIdent = Table.Buffer(Table.Group(Monit, {"identificacao"}, {{"chaves", each List.Distinct([chave_projeto]), type list}})),
+				    ComIndice = Table.AddIndexColumn(stg_posicionamento, "Indice", 1, 1, Int64.Type),
+				    // A posição vale para o projeto nas duas casas (decisão de 27/10/2026): a linha liga ao grupo
+				    // do projeto (chave_projeto). Com sufixo de casa ("PL 1879/2022 (Senado)") liga àquela versão;
+				    // sem sufixo, só se a identificação levar a um único grupo. Ambígua ou sem par: chave negativa
+				    // única (a linha fica no modelo, sem ligação), em vez de ligar ao projeto errado.
+				    ComChave = Table.AddColumn(ComIndice, "chave_projeto", (linha) =>
+				        let
+				            ident = linha[identificacao],
+				            exata = Table.SelectRows(PorCasa, each [identificacao_casa] = ident),
+				            grupos = Table.SelectRows(PorIdent, each [identificacao] = ident),
+				            unica = Table.RowCount(grupos) = 1 and List.Count(grupos{0}[chaves]) = 1
+				        in
+				            if Table.RowCount(exata) > 0 then exata{0}[chave_projeto]
+				            else if unica then grupos{0}[chaves]{0}
+				            else -linha[Indice], Int64.Type),
+				    // Repetidas no mesmo grupo: fica a primeira linha da aba (relação exige chave única aqui)
+				    Ligadas = Table.Distinct(Table.Buffer(Table.SelectRows(ComChave, each [chave_projeto] > 0)), {"chave_projeto"}),
+				    SemLigacao = Table.SelectRows(ComChave, each [chave_projeto] < 0),
+				    Resultado = Table.RemoveColumns(Table.Combine({Ligadas, SemLigacao}), {"Indice"})
 				in
-				    SemRepetidas
+				    Resultado
 
 	annotation PBI_NavigationStepName = Navegação
 
