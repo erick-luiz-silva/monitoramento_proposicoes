@@ -93,14 +93,14 @@ Base: `https://legis.senado.leg.br/dadosabertos`. Usamos a família `/processo`.
 - **bronze**: `sf_processo_json`, `sf_relatoria_json`, `sf_agenda_comissao_json` (uma linha por reunião) e `sf_plenario_pauta_json` (uma linha por sessão). Todas append-only, mas **só gravam quando o payload mudou** (hash ou `dataUltimaAtualizacao` igual à da última linha). Sem isso, de 4 a 7 GB por ano. A transformação lê só o último snapshot por id; os informes são cumulativos no payload.
 - **silver**: as mesmas tabelas, com colunas novas no fim. `sql/transform_senado_to_silver.sql` faz o mapeamento:
   - `proposicao`: `casa`, `id_origem`, `codigo_materia`, `casa_iniciadora` e `data_apresentacao_origem` (ver 4.6). `casa` é **sempre `'SF'`** para o que vem da API do Senado, porque indica a API de origem. `'CN'` (MPV) só vai para `casa_iniciadora`, e a CHECK de `casa` continua valendo. `descricao_situacao` = situação mais recente entre as autuações, porque `situacaoAtual` pode vir nula. A indexação vai para a coluna de keywords (renomear `keywords_camara` → `indexacao` fica a critério de quem implementa).
-  - `tramitacao`: `sequencia` = `informe.id`, com `ON CONFLICT DO NOTHING` (nunca `DO UPDATE`, porque há id repetido). Ganha a coluna nova `eh_relator`, calculada na silver para as duas casas. No Senado, casa o informe com a relatoria (mesma data e colegiado de `dataDesignacao`), com regex como reserva. Na Câmara, a regex atual.
+  - `tramitacao`: `sequencia` = `informe.id`, com `ON CONFLICT DO NOTHING` (nunca `DO UPDATE`, porque há id repetido). Ganha a coluna nova `eh_relator`, calculada na silver para as duas casas. No Senado, **a regra é a regex** sobre `informe.descricao` (fase 0: 96,5% de cobertura, nenhum falso positivo encontrado). A relatoria (`dataDesignacao` + colegiado) só identifica o relator (código, partido, UF). Casar só por dia e colegiado daria 21% de falsos positivos. Na Câmara, a regex atual.
   - `proposicoes_proponentes` (de `autoriaIniciativa`): `uri = NULL`. Os tipos ficam distintos dos da Câmara ('Senador(a)', 'Deputado(a) – via Senado', 'Câmara dos Deputados'…), para `load_dim_deputado` e a gold nunca os confundirem.
   - `proposicao_tema`: vem de `classificacoes` (código de 8 dígitos, que não colide com os temas da Câmara).
   - `evento_pauta`: o relator do Senado vai para colunas próprias (`codigo_parlamentar_relator`, partido e UF do momento), **nunca** para `id_deputado_relator`. Ganha a coluna `votado boolean`, normalizada para as duas casas (Câmara: `uri_votacao IS NOT NULL`; Senado: `siglaResultado` numa lista de resultados de votação, levantada na fase 0).
 - **`silver.dim_senador`**: código, nome, partido e UF atuais. Na gold, autor e relator buscam em `dim_deputado` ou `dim_senador` conforme o tipo. Para deputado autor de projeto que veio da Câmara, o partido sai do registro vinculado da Câmara, quando houver.
 
 ### 4.3 Extração e janela (`extract_senado.py`)
-1. **Candidatos do dia**: `numdias` com `codigoClasse` para cada código da subárvore configurada (`CLASSES_SENADO` em `config.py`; os filhos saem de `/processo/classes`). Avaliar o filtro `alteracao` para cortar ruído. Mais as MPVs (`numdias` com `sigla=MPV`), conforme a fase 0.
+1. **Candidatos do dia**: `numdias` com `codigoClasse` para cada código da subárvore configurada (`CLASSES_SENADO` em `config.py`; os filhos saem de `/processo/classes`). **Sem o filtro `alteracao`**: a fase 0 mostrou que ele perderia eventos. Mais **todas** as MPVs (`numdias` com `sigla=MPV`): só 32 das 238 desde 2023 estão nas classes.
 2. **Acompanhadas do Senado** (`id >= 1e9`): recarregadas todo dia. Erro por id não trava a janela, como na Câmara.
 3. **Gêmeos de proposições monitoradas** (4.4): recarregados todo dia.
 4. **Reconciliação** de 90 dias por apresentação e classe, para os ausentes.
@@ -112,7 +112,8 @@ Base: `https://legis.senado.leg.br/dadosabertos`. Usamos a família `/processo`.
 
 ### 4.4 Vínculo entre as casas
 - `silver.proposicao_vinculo (id_proposicao_cd, id_proposicao_sf)`, com **PK nos dois campos (N:M)**.
-- Calculada a partir do detalhe dos processos do Senado: `identificacaoProcessoInicial` e todos os `outrosNumeros[casaIdentificadora = 'CD']`, casados com `silver.proposicao` da Câmara por sigla/número/ano, sem zeros à esquerda.
+- Calculada a partir do detalhe dos processos do Senado: `identificacaoProcessoInicial` e todos os `outrosNumeros[casaIdentificadora = 'CD']`, **qualquer que seja a casa iniciadora**, casados com `silver.proposicao` da Câmara por sigla/número/ano, sem zeros à esquerda. Exemplo: o PL 1167/2024 e o PL 4262/2025 nasceram no Senado e trazem o próprio número CD em `outrosNumeros`.
+- **Vínculos manuais** (origem `'manual'`, num seed): pares que a API não liga. Da planilha antiga: PLC 10/2018 ↔ PL 5851/2016 e PLS 302/2018 ↔ PL 3047/2022. O mapa dos "Revisora" só cobre o que tramita no Senado.
 - **Como encontrar o gêmeo no Senado** de um projeto monitorado da Câmara:
   - Pós-2019: busca direta por `sigla/numero/ano`.
   - Pré-2019: um mapa mantido a partir dos processos "Revisora". A carga inicial lê o detalhe de todos os ~2 mil processos tramitando (~1 mil são PL), uma vez só. Depois, a cada dia, só os novos "Revisora" que aparecem no `numdias`. O detalhe é o mesmo que já vai para a bronze, então não há custo extra para os que estão nas classes.
@@ -122,8 +123,8 @@ Base: `https://legis.senado.leg.br/dadosabertos`. Usamos a família `/processo`.
   - `ids_vinculados`: texto, para exibição.
 - **Teste de unicidade** de `id_proposicao` em `vw_monitoramento`.
 - **MPV** (decisão 8.5): vem do Senado, e a versão da Câmara entra no mesmo grupo pelo vínculo `'mpv'`.
-  - Regra do vínculo: identificação idêntica (`sigla_tipo = 'MPV'`), ano ≥ 2002, número sem zeros à esquerda e datas de apresentação a no máximo 7 dias uma da outra.
-  - Se a conversão gerar um PLV separado no Senado (verificar na fase 0), o PLV entra no mesmo grupo.
+  - Regra do vínculo: identificação idêntica (`sigla_tipo = 'MPV'`), ano ≥ 2002, número sem zeros à esquerda e **`dataInicioEfetivo` do detalhe do Senado** a no máximo 7 dias da data de apresentação na Câmara. A `dataApresentacao` da lista é a data de leitura no Senado e falhou num caso (MPV 1339/2026, 119 dias). Fase 0: 98/98 MPVs casam 1:1.
+  - O Senado **não cria processo PLV**: o projeto de conversão fica dentro do processo da MPV (`deliberacao.siglaTipo = APROVADO_PLV`). O PLV da Câmara é uma proposição própria e não entra no grupo nesta fase.
 
 ### 4.5 Agenda e audiências
 - **Comissões**:
@@ -131,17 +132,30 @@ Base: `https://legis.senado.leg.br/dadosabertos`. Usamos a família `/processo`.
   - Filtro por **qualquer** colegiado da reunião (`colegiados[]`), dentro de `COMISSOES_SENADO`.
   - **Uma linha de `silver.evento` por parte da reunião.** As partes deliberativas vão para `evento_pauta` com `id_proposicao = 1e9 + doma.idProcesso`.
   - **Comissões mistas de MPV**: entram as reuniões com algum colegiado de tipo 42 (CMMPV) cuja `colegiadoCriador.materiasOriginadoras.idProcesso` esteja na silver do Senado.
-    - Como essas reuniões não têm itens de pauta, grava-se **uma linha** em `evento_pauta` com `id_proposicao = 1e9 + idProcesso`: na parte deliberativa, se houver; senão, na primeira parte. Fica no máximo uma linha por (reunião, MPV).
+    - Fase 0: 14 de 44 reuniões de CMMPV têm uma parte deliberativa cujo item é a própria MPV (`doma.idProcesso` = `materiasOriginadoras.idProcesso`). Nessas, vale o item real. Nas que não têm item (audiência, instalação, trabalho), grava-se **uma linha sintética** em `evento_pauta` com `id_proposicao = 1e9 + idProcesso`, na primeira parte. Fica no máximo uma linha por (reunião, MPV).
+    - O relator de CMMPV pode ser deputado (`casaRelator = CD`): a dimensão de relatores não pode supor que todo relator é senador.
     - A audiência da CMMPV também fica ligada à MPV por essa linha, porque a finalidade não casa com keywords.
     - Os colegiados CMMPV vão para `dim_orgao` com `casa = 'CN'`.
   - As partes com `descricaoTipo` LIKE 'Audiência Pública%' viram `descricao_tipo = 'Audiência Pública'` e `descricao = finalidade`. O match por keyword continua igual.
-- **Situação do evento**: mapeada pelo `status` da reunião. "Cancelada" e "Não realizada" viram 'Cancelada'. "Adiada" vira 'Adiada', um rótulo novo (decisão minha, ver 7); as regras de `status_alerta` ganham esse caso, idêntico na gold e no api.
-- **Plenário**: `/plenario/agenda/dia` por dia da janela, mais a pauta de cada sessão. `codMateria` vira `id_proposicao` por `silver.proposicao.codigo_materia`. Sessões do Congresso (`Casa = 'CN'`) ficam fora (decisão 8.4).
+- **Situação do evento**: mapeada pelo campo `status` da reunião, nunca por `situacao`, que junta Cancelada, Adiada e Não realizada.
+  - Realizada e "Continua em …" → 'Realizada'.
+  - Cancelada e Não realizada → 'Cancelada'.
+  - Adiada → 'Adiada', um rótulo novo (decisão minha, ver 7).
+  - Qualquer outro valor → 'Agendada', com registro em log.
+  - As regras de `status_alerta` ganham o caso 'Adiada', idêntico na gold e no api.
+- **Votado nas comissões**: `siglaResultado` em `RESULTADOS_VOTADO`, com os 13 valores de `data/senado_fase0/RESULTADOS_04.md`. "Prejudicado" e "Sem deliberação" não contam. Falso negativo conhecido: a MPV 1304/2025 foi aprovada na comissão (reunião 14185), mas veio com "Sem deliberação". O caso foi aceito; se ficar frequente, usar como reserva a regex `descricaoResultado ~* 'aprovad[oa].*relat'`. Um teste lista os valores conhecidos, e um valor novo cai na reserva `apreciado = 'true'`.
+- **Relator na pauta das comissões**: `item.doma.relatorias.relator.parlamentar` (código, partido, UF), ou `relatorAdhoc` quando existir.
+- **Plenário**: `/plenario/agenda/dia` por dia da janela, mais `/plenario/encontro/{codigoSessao}/pauta`.
+  - A pauta traz `materiaLegislativa.idProcesso`, que é o id do `/processo` (fase 0: 25/25). Esse é o vínculo. `materiaLegislativa.codigo` é o documento, não o processo, e `codigo_materia` fica só como reserva.
+  - Entram só sessões com `Casa = 'SF'` e `TipoSessao` deliberativa. Sessões do Congresso ficam fora (decisão 8.4).
+  - Situação da sessão: Encerrada → Realizada; Cancelada e Sessão não realizada → Cancelada.
+  - Votado: o item principal (`indItemPrincipal = 'S'`) tem `txtDecisao ~* '^\s*(aprovad|rejeitad|requerimentos?\s+(aprovad|rejeitad))'`.
 - **"Votado"**: a regra passa a ler `evento_pauta.votado`, levado ao `api_cache`, igual na gold e no api.
 - `pipeline_pautas.py` também atualiza a agenda do Senado e registra só `eventos_senado`.
 
 ### 4.6 Gold, api e keywords
-- **`vw_proposicao_keywords`**: o match usa ementa e indexação. Na fase 0, conferir os termos com acento contra a indexação do Senado, que vem em MAIÚSCULAS e às vezes sem acento.
+- **`vw_proposicao_keywords`**: o match usa ementa e indexação. A indexação do Senado vem às vezes sem acento ("AGROINDUSTRIA"). Nas linhas do Senado, o match usa `unaccent` dos dois lados; na fase 0, isso subiu os casamentos de 49 para 55. A Câmara continua como está, para não mudar resultados em produção; estender à Câmara depende de medir antes com o comparador.
+- **Precisão antes do radar**: 85% dos casamentos do Senado vêm de "produtor rural", keyword já marcada como de baixa precisão. Refinar essa keyword antes de a fase 3 entrar em produção.
 - **`vw_monitoramento`**: colunas novas **no fim**: `casa`, `chave_projeto`, `ids_vinculados`, `identificacao_casa` (ex. "PL 2159/2021 (Senado)"). Mais:
   - `link_direto` do Senado = `https://www25.senado.leg.br/web/atividade/materias/-/materia/{codigoMateria}`.
   - Autor, partido e UF conforme 4.2.
