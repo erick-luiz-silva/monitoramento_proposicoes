@@ -3,11 +3,40 @@
 import argparse
 from datetime import datetime, timezone
 import os
+from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
 
 import config  # noqa: F401 — carrega também o .env para execução local.
+
+# Aviso de falha só do Senado: a carga grava, a notificação manda ao n8n (o e-mail sai
+# com o aviso no topo). O job não falha por causa do Senado (decisão de 27/10/2026).
+ARQUIVO_AVISO = Path(__file__).resolve().parent.parent / "logs" / "aviso_senado.txt"
+
+
+def limpar_aviso_senado():
+    try:
+        ARQUIVO_AVISO.unlink(missing_ok=True)
+    except OSError as exc:
+        print(f"Não foi possível apagar o aviso do Senado: {exc}")
+
+
+def gravar_aviso_senado(texto):
+    """Nunca levanta: um problema ao gravar o aviso não pode derrubar a carga da Câmara."""
+    print(f"::warning::{texto}")
+    try:
+        ARQUIVO_AVISO.parent.mkdir(parents=True, exist_ok=True)
+        ARQUIVO_AVISO.write_text(texto, encoding="utf-8")
+    except OSError as exc:
+        print(f"Não foi possível gravar o aviso do Senado: {exc}")
+
+
+def ler_aviso_senado():
+    try:
+        return ARQUIVO_AVISO.read_text(encoding="utf-8").strip() or None
+    except OSError:
+        return None
 
 
 def webhook_config():
@@ -32,6 +61,7 @@ def notify_n8n(mode, status="sucesso"):
         "concluido_em": datetime.now(timezone.utc).isoformat(),
         "run_id": run_id,
         "run_url": f"https://github.com/{repository}/actions/runs/{run_id}" if repository and run_id else None,
+        "aviso_senado": ler_aviso_senado(),
     }
     try:
         response = requests.post(

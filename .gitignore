@@ -27,3 +27,6 @@ data/
 
 # Estado local do Claude Code
 .claude/scheduled_tasks.lock
+
+# Aviso de falha do Senado gravado pela carga para o n8n (logs/aviso_senado.txt).
+logs/

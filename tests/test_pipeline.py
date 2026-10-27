@@ -161,6 +161,11 @@ class IncrementalTests(unittest.TestCase):
         self.api = self.stack.enter_context(patch.object(
             extract_incremental, "atualizar_api", side_effect=lambda: self.events.append("api")
         ))
+        self.senado = self.stack.enter_context(patch.object(
+            extract_incremental, "executar_carga_senado", side_effect=lambda: self.events.append("senado")
+        ))
+        self.aviso = self.stack.enter_context(patch.object(extract_incremental, "gravar_aviso_senado"))
+        self.stack.enter_context(patch.object(extract_incremental, "limpar_aviso_senado"))
 
     def tipos_registrados(self):
         return [call.args[1] for call in self.register.call_args_list]
@@ -187,10 +192,32 @@ class IncrementalTests(unittest.TestCase):
         extract_incremental.executar_carga_incremental()
         self.assertEqual(self.events, [
             "executar_carga_eventos", "executar_transformacao_silver", "carregar_dim_deputado",
-            "carregar_dim_orgao", "checkpoint", "checkpoint", "checkpoint", "api"
+            "carregar_dim_orgao", "checkpoint", "checkpoint", "checkpoint", "senado", "api"
         ])
+        self.aviso.assert_not_called()
         self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
         self.assertEqual(self.register.call_args_list[2].args[2:], (date(2026, 7, 8), date(2026, 10, 6), 1))
+
+    def test_falha_do_senado_vira_aviso_sem_falhar_nem_travar_a_camara(self):
+        self.senado.side_effect = RuntimeError("HTTP 503")
+        extract_incremental.executar_carga_incremental()           # não levanta
+        self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
+        self.assertEqual(self.events[-1], "api")
+        self.api.assert_called_once()
+        self.assertIn("HTTP 503", self.aviso.call_args.args[0])
+
+    def test_falha_da_camara_nao_roda_senado_e_derruba(self):
+        self.bronze.return_value = {"proposicoes_json": "erro: timeout"}
+        with self.assertRaisesRegex(RuntimeError, "incompleta"):
+            extract_incremental.executar_carga_incremental()
+        self.senado.assert_not_called()
+
+    def test_erro_nao_bloqueante_da_camara_ainda_roda_o_senado(self):
+        self.reconciliacao.side_effect = RuntimeError("API fora do ar")
+        with self.assertRaisesRegex(RuntimeError, "conciliação"):
+            extract_incremental.executar_carga_incremental()
+        self.senado.assert_called_once()
+        self.api.assert_called_once()
 
     def test_falha_no_schema_api_nao_trava_janela_e_falha_no_fim(self):
         self.api.side_effect = RuntimeError("lock timeout")
@@ -476,11 +503,13 @@ class PautaTests(unittest.TestCase):
         self.calls = MagicMock()
         self.stages = {}
         for name in ["executar_carga_eventos", "executar_transformacao_eventos", "carregar_dim_deputado",
-                     "carregar_dim_orgao", "registrar_execucao", "atualizar_api"]:
+                     "carregar_dim_orgao", "registrar_execucao", "executar_pautas_senado", "atualizar_api"]:
             mock = self.stack.enter_context(patch.object(pipeline_pautas, name))
             self.calls.attach_mock(mock, name)
             self.stages[name] = mock
         self.stages["executar_carga_eventos"].return_value = 12
+        self.aviso = self.stack.enter_context(patch.object(pipeline_pautas, "gravar_aviso_senado"))
+        self.stack.enter_context(patch.object(pipeline_pautas, "limpar_aviso_senado"))
 
     def test_refreshes_events_and_relatores_without_advancing_propositions(self):
         pipeline_pautas.executar_pipeline_pautas()
@@ -491,8 +520,15 @@ class PautaTests(unittest.TestCase):
         self.assertEqual(register.call_args.args[1:], ("eventos", date(2026, 9, 29), date(2026, 10, 20), 12))
         self.assertEqual([c[0] for c in self.calls.mock_calls], [
             "executar_carga_eventos", "executar_transformacao_eventos", "carregar_dim_deputado",
-            "carregar_dim_orgao", "registrar_execucao", "atualizar_api"
+            "carregar_dim_orgao", "registrar_execucao", "executar_pautas_senado", "atualizar_api"
         ])
+
+    def test_falha_do_senado_nas_pautas_vira_aviso(self):
+        self.stages["executar_pautas_senado"].side_effect = RuntimeError("HTTP 503")
+        pipeline_pautas.executar_pipeline_pautas()                  # não levanta
+        self.assertEqual([c.args[1] for c in self.stages["registrar_execucao"].call_args_list], ["eventos"])
+        self.stages["atualizar_api"].assert_called_once()
+        self.assertIn("HTTP 503", self.aviso.call_args.args[0])
 
     def test_falha_no_schema_api_nao_registra_incremental(self):
         self.stages["atualizar_api"].side_effect = RuntimeError("lock timeout")
