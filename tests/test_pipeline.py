@@ -308,9 +308,28 @@ class EnvironmentTests(unittest.TestCase):
 
     def test_initialized_database_passes(self):
         self.cur.fetchone.side_effect = [(name,) for name in check_environment.REQUIRED_RELATIONS] + [(10,)]
+        self.cur.fetchall.return_value = []          # sem ids duplicados na gold
         with patch.object(check_environment, "get_connection", return_value=self.conn):
             check_environment.check_environment()
         self.conn.__enter__.return_value.commit.assert_not_called()
+
+    def test_id_duplicado_da_camara_bloqueia(self):
+        self.cur.fetchone.side_effect = [(name,) for name in check_environment.REQUIRED_RELATIONS] + [(10,)]
+        self.cur.fetchall.return_value = [(123,)]
+        with patch.object(check_environment, "get_connection", return_value=self.conn):
+            with self.assertRaisesRegex(RuntimeError, "ids duplicados em gold.vw_monitoramento: 123"):
+                check_environment.check_environment()
+        self.assertIn(check_environment.SQL_DUPLICADAS, [c.args[0] for c in self.cur.execute.call_args_list])
+
+    def test_duplicata_so_do_senado_avisa_sem_bloquear(self):
+        self.cur.fetchone.side_effect = [(name,) for name in check_environment.REQUIRED_RELATIONS] + [(10,)]
+        self.cur.fetchall.return_value = [(1008152618,)]
+        with patch.object(check_environment, "get_connection", return_value=self.conn), patch(
+            "builtins.print"
+        ) as saida:
+            check_environment.check_environment()
+        self.assertTrue(any("::warning::" in str(c.args[0]) and "1008152618" in str(c.args[0])
+                            for c in saida.call_args_list))
 
 
 class BackfillTests(unittest.TestCase):
@@ -718,6 +737,8 @@ class GoldSqlTests(unittest.TestCase):
         self.assertIn("silver.proposicao_acompanhada", check_environment.REQUIRED_RELATIONS)
         self.assertIn("gold.vw_movimentacoes", check_environment.REQUIRED_RELATIONS)
         self.assertIn("api.vw_tramitacoes", check_environment.REQUIRED_RELATIONS)
+        self.assertIn("silver.proposicao_vinculo", check_environment.REQUIRED_RELATIONS)
+        self.assertIn("gold.vw_grupo_projeto", check_environment.REQUIRED_RELATIONS)
 
 
 class WorkflowYamlTests(unittest.TestCase):

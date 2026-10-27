@@ -1,5 +1,6 @@
 """Verificação somente de leitura antes da carga automatizada."""
 
+from config import SENADO_OFFSET
 from db import get_connection
 
 REQUIRED_RELATIONS = (
@@ -20,6 +21,8 @@ REQUIRED_RELATIONS = (
     "silver.dim_orgao",
     "silver.dim_keyword",
     "silver.proposicao_acompanhada",
+    "silver.proposicao_vinculo",
+    "gold.vw_grupo_projeto",
     "gold.vw_monitoramento",
     "gold.vw_tramitacoes",
     "gold.vw_proposicoes_sem_keyword",
@@ -33,6 +36,11 @@ REQUIRED_RELATIONS = (
     "api.vw_pautas_monitoradas",
     "api.vw_audiencias_de_interesse",
 )
+
+# Uma linha por id_proposicao na gold: duplicata faria o REFRESH CONCURRENTLY falhar e
+# congelaria o api inteiro. Consulta a gold (o cache tem índice único e nunca teria
+# duplicata); custa 2–4 s com o papel do pipeline, sem o timeout da anon.
+SQL_DUPLICADAS = "SELECT id_proposicao FROM gold.vw_monitoramento GROUP BY 1 HAVING count(*) > 1 LIMIT 5"
 
 
 def check_environment():
@@ -53,6 +61,16 @@ def check_environment():
                 raise RuntimeError(
                     "Nenhuma keyword ativa. Configure a dimensão antes de ativar o pipeline."
                 )
+            cur.execute(SQL_DUPLICADAS)
+            duplicadas = [linha[0] for linha in cur.fetchall()]
+            da_camara = [id_prop for id_prop in duplicadas if id_prop < SENADO_OFFSET]
+            if da_camara:
+                raise RuntimeError(
+                    "ids duplicados em gold.vw_monitoramento: " + ", ".join(map(str, da_camara))
+                )
+            if duplicadas:
+                # Só do Senado: não bloqueia a Câmara (o Senado nunca derruba a carga).
+                print("::warning::ids do Senado duplicados na gold: " + ", ".join(map(str, duplicadas)))
     print("Conexão, schemas e keywords verificados com sucesso.")
 
 
