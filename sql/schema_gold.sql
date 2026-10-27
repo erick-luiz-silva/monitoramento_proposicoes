@@ -19,12 +19,56 @@ JOIN silver.dim_keyword k
          OR p.keywords_camara ~* k.termo_requerido)
 GROUP BY p.id_proposicao;
 
+-- Grupo do projeto: as versões do mesmo projeto nas duas casas (silver.proposicao_vinculo,
+-- N:M). chave_projeto = menor id do componente conexo do grafo de vínculos, ou o próprio id
+-- sem vínculo. O recursivo começa só pelas arestas (barato) e usa UNION (não UNION ALL),
+-- o que garante o término mesmo com ciclos; o GROUP BY deixa uma linha por nó.
+-- grupo_acompanhado: alguma versão do grupo está em silver.proposicao_acompanhada —
+-- acompanhar um projeto vale para as duas casas (decisão de 27/10/2026). Calculado aqui,
+-- uma vez por grupo, para vw_monitoramento não precisar de EXISTS por linha.
+-- Uma linha por id de silver.proposicao (a PK de proposicao_acompanhada impede duplicar).
+CREATE OR REPLACE VIEW gold.vw_grupo_projeto AS
+WITH RECURSIVE arestas AS (
+    SELECT id_proposicao_cd AS origem, id_proposicao_sf AS destino FROM silver.proposicao_vinculo
+    UNION
+    SELECT id_proposicao_sf, id_proposicao_cd FROM silver.proposicao_vinculo
+),
+alcance (no, alcancado) AS (
+    SELECT origem, origem FROM arestas
+    UNION
+    SELECT al.no, ar.destino FROM alcance al JOIN arestas ar ON ar.origem = al.alcancado
+),
+componentes AS (
+    SELECT no, min(alcancado) AS chave FROM alcance GROUP BY no
+),
+outras_versoes AS (
+    SELECT c1.no,
+           string_agg(p2.sigla_tipo || ' ' || p2.numero || '/' || p2.ano
+                      || CASE p2.casa WHEN 'SF' THEN ' (Senado)' ELSE ' (Câmara)' END,
+                      ', ' ORDER BY p2.casa, p2.id_proposicao) AS ids_grupo
+    FROM componentes c1
+    JOIN componentes c2 ON c2.chave = c1.chave AND c2.no <> c1.no
+    JOIN silver.proposicao p2 ON p2.id_proposicao = c2.no
+    GROUP BY c1.no
+)
+SELECT
+    p.id_proposicao,
+    coalesce(c.chave, p.id_proposicao) AS chave_projeto,
+    o.ids_grupo,
+    bool_or(a.id_proposicao IS NOT NULL) OVER (PARTITION BY coalesce(c.chave, p.id_proposicao)) AS grupo_acompanhado
+FROM silver.proposicao p
+LEFT JOIN componentes c ON c.no = p.id_proposicao
+LEFT JOIN outras_versoes o ON o.no = p.id_proposicao
+LEFT JOIN silver.proposicao_acompanhada a ON a.id_proposicao = p.id_proposicao;
+
 -- View principal: uma linha por proposição com pelo menos 1 keyword OU acompanhada
 -- (silver.proposicao_acompanhada: planilha antiga e inclusões manuais, mesmo sem keyword).
 -- partido/UF do autor principal são os ATUAIS (via silver.dim_deputado), não os da
 -- data de apresentação da proposição — só se aplica quando o autor é deputado.
 -- em_radar: o que entra para avaliação/alerta. Acompanhadas sempre; as demais só se
--- apresentadas a partir de 2026-09-01 (início da produção). Decisão da responsável:
+-- apresentadas a partir de 2026-09-01 (início da produção), contando a data na casa
+-- iniciadora (projeto antigo da Câmara que chega ao Senado não é novo).
+-- Acompanhada = alguma versão do grupo do projeto (as duas casas) está acompanhada. Decisão da responsável:
 -- trazer o que surgir daqui para frente, sem o histórico; setembro (e não a data da
 -- mudança) recupera as que a Câmara demorou a classificar por tema.
 -- Colunas novas só no FIM: CREATE OR REPLACE VIEW não aceita reordenar/renomear, e
@@ -46,21 +90,29 @@ SELECT
     kw.keywords_encontradas,
     p.link_direto,
     orgao.nome AS nome_orgao_atual,
-    (a.id_proposicao IS NOT NULL) AS acompanhada,
-    (a.id_proposicao IS NOT NULL
-     OR (kw.id_proposicao IS NOT NULL AND coalesce(p.data_apresentacao >= DATE '2026-09-01', false))) AS em_radar,
+    g.grupo_acompanhado AS acompanhada,
+    (g.grupo_acompanhado
+     OR (kw.id_proposicao IS NOT NULL
+         AND coalesce(coalesce(p.data_apresentacao_origem, p.data_apresentacao) >= DATE '2026-09-01', false))) AS em_radar,
     p.sigla_tipo,
-    p.data_apresentacao
+    p.data_apresentacao,
+    p.casa,
+    g.chave_projeto,
+    p.sigla_tipo || ' ' || p.numero || '/' || p.ano
+        || CASE p.casa WHEN 'SF' THEN ' (Senado)' ELSE ' (Câmara)' END AS identificacao_casa,
+    g.ids_grupo AS ids_vinculados
 FROM silver.proposicao p
+JOIN gold.vw_grupo_projeto g ON g.id_proposicao = p.id_proposicao
 LEFT JOIN gold.vw_proposicao_keywords kw ON kw.id_proposicao = p.id_proposicao
-LEFT JOIN silver.proposicao_acompanhada a ON a.id_proposicao = p.id_proposicao
 LEFT JOIN silver.proposicoes_proponentes autor
     ON autor.id_proposicao = p.id_proposicao AND autor.ordem_assinatura = 1
+-- Cast protegido: o Postgres não garante a ordem das condições, e autores do Senado têm uri nula.
 LEFT JOIN silver.dim_deputado dep
     ON autor.tipo = 'Deputado(a)'
-    AND dep.id_deputado = (regexp_replace(autor.uri, '.*/', ''))::int
+    AND autor.uri ~ '/[0-9]+$'
+    AND dep.id_deputado = (CASE WHEN autor.uri ~ '/[0-9]+$' THEN regexp_replace(autor.uri, '.*/', '') END)::int
 LEFT JOIN silver.dim_orgao orgao ON orgao.id_orgao = p.id_orgao_atual
-WHERE kw.id_proposicao IS NOT NULL OR a.id_proposicao IS NOT NULL
+WHERE kw.id_proposicao IS NOT NULL OR g.grupo_acompanhado
 ORDER BY p.data_ultima_movimentacao DESC;
 
 -- Histórico completo de tramitações, para drill-down a partir da view principal.
@@ -74,7 +126,8 @@ SELECT
     t.descricao_situacao,
     t.descricao_tramitacao,
     t.despacho,
-    orgao.nome AS nome_orgao
+    orgao.nome AS nome_orgao,
+    t.casa
 FROM silver.tramitacao t
 JOIN silver.proposicao p ON p.id_proposicao = t.id_proposicao
 LEFT JOIN silver.dim_orgao orgao ON orgao.id_orgao = t.id_orgao
@@ -84,8 +137,8 @@ ORDER BY t.id_proposicao, t.sequencia;
 -- ou indireto, quando um item processual (ex. requerimento) referencia o PL de fato
 -- (ep.id_proposicao_relacionada). Este último é o caminho mais comum (ver achados_eventos.txt).
 -- Partido/UF do relator são os ATUAIS via dim_deputado, mesmo princípio do autor principal.
--- status_alerta: a situação oficial do evento vem primeiro (reunião cancelada não é
--- "agendada" nem "encerrada sem votação"); depois a data, no relógio de Brasília (a
+-- status_alerta: a situação oficial do evento vem primeiro (reunião cancelada ou adiada
+-- não é "agendada" nem "encerrada sem votação"); depois a data, no relógio de Brasília (a
 -- sessão é UTC e data_hora_inicio vem sem fuso). Mesma regra nas audiências e no api.
 CREATE OR REPLACE VIEW gold.vw_pautas_monitoradas AS
 SELECT
@@ -105,14 +158,18 @@ SELECT
     ep.situacao_item,
     CASE
         WHEN e.situacao = 'Cancelada' THEN 'Cancelada'
+        WHEN e.situacao = 'Adiada' THEN 'Adiada'
         WHEN e.data_hora_inicio > (now() AT TIME ZONE 'America/Sao_Paulo') THEN 'Agendado'
-        WHEN ep.uri_votacao IS NOT NULL THEN 'Votado'
+        WHEN ep.votado THEN 'Votado'
         ELSE 'Encerrado sem votação'
     END AS status_alerta,
     e.nome_orgao,
     m.id_proposicao,
     m.acompanhada,
-    m.em_radar
+    m.em_radar,
+    ep.votado,
+    e.casa,
+    m.chave_projeto
 FROM silver.evento_pauta ep
 JOIN silver.evento e ON e.id_evento = ep.id_evento
 JOIN gold.vw_monitoramento m
@@ -139,8 +196,10 @@ SELECT
     t.sigla_orgao,
     t.descricao_tramitacao,
     t.despacho,
-    (coalesce(t.descricao_tramitacao, '') ~* '^Designação de Relator') AS eh_relator,
-    t.data_extracao
+    coalesce(t.eh_relator, false) AS eh_relator,
+    t.data_extracao,
+    t.casa,
+    m.chave_projeto
 FROM silver.tramitacao t
 JOIN gold.vw_monitoramento m ON m.id_proposicao = t.id_proposicao
 WHERE t.data_extracao > coalesce(
@@ -165,9 +224,11 @@ SELECT
     e.url_registro,
     CASE
         WHEN e.situacao = 'Cancelada' THEN 'Cancelada'
+        WHEN e.situacao = 'Adiada' THEN 'Adiada'
         WHEN e.data_hora_inicio > (now() AT TIME ZONE 'America/Sao_Paulo') THEN 'Agendada'
         ELSE 'Realizada'
-    END AS status_alerta
+    END AS status_alerta,
+    e.casa
 FROM silver.evento e
 JOIN silver.dim_keyword k
     ON k.ativo
@@ -175,7 +236,7 @@ JOIN silver.dim_keyword k
     AND (k.termo_requerido IS NULL OR e.descricao ~* k.termo_requerido)
 WHERE e.descricao_tipo = 'Audiência Pública'
 GROUP BY e.id_evento, e.data_hora_inicio, e.sigla_orgao, e.nome_orgao,
-         e.situacao, e.descricao, e.url_registro
+         e.situacao, e.descricao, e.url_registro, e.casa
 ORDER BY e.data_hora_inicio DESC;
 
 -- Auditoria: proposições do tema 64 (Agricultura, Pecuária, Pesca e Extrativismo)

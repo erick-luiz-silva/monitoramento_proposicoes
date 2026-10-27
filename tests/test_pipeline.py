@@ -585,20 +585,22 @@ class GoldSqlTests(unittest.TestCase):
     def test_monitoramento_inclui_acompanhadas_e_radar_com_corte(self):
         v = self.view("vw_monitoramento")
         self.assertIn("LEFT JOIN gold.vw_proposicao_keywords kw", v)
-        self.assertIn("LEFT JOIN silver.proposicao_acompanhada a", v)
-        self.assertIn("WHERE kw.id_proposicao IS NOT NULL OR a.id_proposicao IS NOT NULL", v)
-        self.assertIn("p.data_apresentacao >= DATE '2026-09-01'", v)
+        # acompanhada pelo grupo do projeto (as duas casas), calculada em vw_grupo_projeto
+        self.assertIn("WHERE kw.id_proposicao IS NOT NULL OR g.grupo_acompanhado", v)
+        self.assertIn("coalesce(p.data_apresentacao_origem, p.data_apresentacao) >= DATE '2026-09-01'", v)
         self.assertNotIn("UNION", v)
         # colunas novas só no fim (CREATE OR REPLACE VIEW não aceita reordenar)
         select = v.split("FROM silver.proposicao p")[0]
         self.assertLess(select.index("nome_orgao_atual"), select.index("AS acompanhada"))
         self.assertLess(select.index("AS acompanhada"), select.index("AS em_radar"))
-        # depois de em_radar, só colunas acrescentadas no fim (tipo e apresentação, para o BI)
-        self.assertTrue(select.rstrip().endswith("p.data_apresentacao"))
+        # depois de em_radar, só colunas acrescentadas no fim (tipo e apresentação, para o BI;
+        # casa e grupo do projeto, para o Senado)
+        self.assertTrue(select.rstrip().endswith("ids_vinculados"))
 
     def test_pautas_expoem_filtros_no_fim(self):
         select = self.view("vw_pautas_monitoradas").split("FROM silver.evento_pauta")[0]
-        self.assertTrue(select.rstrip().endswith("m.em_radar"))
+        self.assertTrue(select.rstrip().endswith("chave_projeto"))
+        self.assertLess(select.index("m.em_radar"), select.index("casa"))
         self.assertLess(select.index("e.nome_orgao"), select.index("m.id_proposicao"))
 
     def test_movimentacoes_usa_marca_do_alerta_e_limite_de_30_dias(self):
@@ -650,15 +652,17 @@ class GoldSqlTests(unittest.TestCase):
     def test_status_cancelada_primeiro_e_igual_na_gold_e_no_api(self):
         def casos(arquivo):
             sql = re.sub(r"--[^\n]*", "", (self.SQL_DIR / arquivo).read_text(encoding="utf-8"))
-            blocos = re.findall(r"CASE(.*?)END AS status_alerta", sql, re.S)
+            # o CASE mais próximo do alias (há outros CASE antes no arquivo)
+            blocos = re.findall(r"CASE((?:(?!CASE).)*?)END AS status_alerta", sql, re.S)
             # sem alias de tabela e sem espaços, para comparar a regra e não a formatação
-            return [re.sub(r"\s+", " ", re.sub(r"\b(e|ep)\.", "", b)).replace("situacao_evento", "situacao").strip()
+            return [re.sub(r"\s+", " ", re.sub(r"\b(e|ep|m)\.", "", b)).replace("situacao_evento", "situacao").strip()
                     for b in blocos]
         gold, api = casos("schema_gold.sql"), casos("schema_api.sql")
         self.assertEqual(len(gold), 2)
         self.assertEqual(gold, api)
         for bloco in gold:
-            self.assertTrue(bloco.startswith("WHEN situacao = 'Cancelada' THEN 'Cancelada'"), bloco)
+            self.assertTrue(bloco.startswith(
+                "WHEN situacao = 'Cancelada' THEN 'Cancelada' WHEN situacao = 'Adiada' THEN 'Adiada'"), bloco)
 
     def test_refresh_concorrente_numa_transacao(self):
         conn = MagicMock()
@@ -671,7 +675,8 @@ class GoldSqlTests(unittest.TestCase):
         conn.__enter__.return_value.commit.assert_called_once()
 
     def test_destaque_so_para_designacao_de_relator(self):
-        self.assertIn("~* '^Designação de Relator'", self.view("vw_movimentacoes"))
+        # calculado na silver (cada casa escreve a designação de um jeito)
+        self.assertIn("t.eh_relator", self.view("vw_movimentacoes"))
 
     def test_ambiente_exige_tabela_e_view_novas(self):
         self.assertIn("silver.proposicao_acompanhada", check_environment.REQUIRED_RELATIONS)

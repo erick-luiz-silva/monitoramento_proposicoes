@@ -111,5 +111,45 @@ class CamaraIgnoraSenadoTests(unittest.TestCase):
         self.assertEqual(carregar.call_args.args[0], [2229763])
 
 
+class GoldSenadoSqlTests(unittest.TestCase):
+    def test_monitoramento_colunas_no_fim_e_sem_join_que_multiplica(self):
+        v = gold_view("vw_monitoramento")
+        select, resto = v.split("FROM silver.proposicao p")
+        self.assertTrue(select.rstrip().endswith("ids_vinculados"))
+        self.assertLess(select.index("p.data_apresentacao"), select.rindex("casa"))
+        self.assertNotIn("proposicao_vinculo", v)
+        self.assertNotIn("proposicao_acompanhada", v)          # acompanhamento só via g.grupo_acompanhado
+        self.assertEqual(v.count("g.grupo_acompanhado"), 3)    # acompanhada, em_radar, WHERE
+        self.assertIn("coalesce(p.data_apresentacao_origem, p.data_apresentacao) >= DATE '2026-09-01'", v)
+        self.assertIn("autor.uri ~ '/[0-9]+$'", v)
+
+    def test_grupo_recursivo_termina_e_tem_uma_linha_por_id(self):
+        sql = sem_comentarios(ler("schema_gold.sql"))
+        g = gold_view("vw_grupo_projeto")
+        self.assertIn("WITH RECURSIVE", g)
+        self.assertNotIn("UNION ALL", g)
+        self.assertIn("GROUP BY", g)
+        self.assertIn("FROM silver.proposicao_vinculo", g)
+        self.assertIn("OVER (PARTITION BY", g)                  # grupo_acompanhado calculado uma vez
+        self.assertLess(sql.index("VIEW gold.vw_grupo_projeto"), sql.index("VIEW gold.vw_monitoramento"))
+
+    def test_relator_e_votado_vem_da_silver(self):
+        self.assertIn("t.eh_relator", gold_view("vw_movimentacoes"))
+        self.assertNotIn("uri_votacao IS NOT NULL", gold_view("vw_pautas_monitoradas"))
+        self.assertIn("ultima_carga_senado", api_view("vw_ultima_carga"))
+
+    def test_colunas_do_cache_existem_na_gold(self):
+        # Toda coluna lida por uma MV do api_cache precisa sair da view gold de origem
+        # (pego no container: a MV de pautas lia votado, que a gold não expunha).
+        api = sem_comentarios(ler("schema_api.sql"))
+        for nome, colunas, origem in re.findall(
+                r"CREATE MATERIALIZED VIEW api_cache\.(\w+) AS\s+SELECT (.*?)\s+FROM gold\.(\w+)", api, re.S):
+            select_gold = gold_view(origem).split("\nFROM ")[0]
+            colunas = re.sub(r"row_number\(\) OVER \(.*?\) AS _id,", "", colunas, flags=re.S)
+            for coluna in re.split(r",\s*", re.sub(r"\b\w+\.", "", colunas)):
+                coluna = coluna.split(" AS ")[-1].strip()
+                self.assertRegex(select_gold, rf"(\.|AS |\s){coluna}\s*(,|$)", f"{nome}: {coluna}")
+
+
 if __name__ == "__main__":
     unittest.main()
