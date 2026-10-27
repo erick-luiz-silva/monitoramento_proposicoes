@@ -1,6 +1,6 @@
 # Senado Federal no monitoramento — estudo e plano de implementação
 
-Data: 27/10/2026. Status: revisado pelo Fable (rodada 1, correções incorporadas). Aguardando as decisões da seção 8.
+Data: 27/10/2026. Status: revisado pelo Fable, correções incorporadas. As decisões da seção 8 estão tomadas; a 8.5 foi revista em 27/10/2026.
 
 ## 1. Intenção
 
@@ -100,14 +100,14 @@ Base: `https://legis.senado.leg.br/dadosabertos`. Usamos a família `/processo`.
 - **`silver.dim_senador`**: código, nome, partido e UF atuais. Na gold, autor e relator buscam em `dim_deputado` ou `dim_senador` conforme o tipo. Para deputado autor de projeto que veio da Câmara, o partido sai do registro vinculado da Câmara, quando houver.
 
 ### 4.3 Extração e janela (`extract_senado.py`)
-1. **Candidatos do dia**: `numdias` com `codigoClasse` para cada código da subárvore configurada (`CLASSES_SENADO` em `config.py`; os filhos saem de `/processo/classes`). Avaliar o filtro `alteracao` para cortar ruído.
+1. **Candidatos do dia**: `numdias` com `codigoClasse` para cada código da subárvore configurada (`CLASSES_SENADO` em `config.py`; os filhos saem de `/processo/classes`). Avaliar o filtro `alteracao` para cortar ruído. Mais as MPVs (`numdias` com `sigla=MPV`), conforme a fase 0.
 2. **Acompanhadas do Senado** (`id >= 1e9`): recarregadas todo dia. Erro por id não trava a janela, como na Câmara.
 3. **Gêmeos de proposições monitoradas** (4.4): recarregados todo dia.
 4. **Reconciliação** de 90 dias por apresentação e classe, para os ausentes.
 5. Para cada id, `GET /processo/{id}`. A relatoria vem por janela (`/processo/relatoria?dataInicio&dataFim`) mais o id das acompanhadas, evitando uma chamada por processo.
 - **Janela**: `numdias = min(30, dias desde o último sucesso + 14)`. Se o buraco passar de 16 dias, recarregar todos os ids do Senado presentes na gold.
 - **`tipo_carga`**: `incremental_senado`, `eventos_senado`, `reconciliacao_senado`.
-- **Carga inicial**: classes × anos desde 2023-02-01, mais `tramitando=S` filtrado pelas mesmas classes, mais as acompanhadas, mais o mapa de vínculo (4.4).
+- **Carga inicial**: classes e MPVs × anos desde 2023-02-01, mais `tramitando=S` filtrado pelas mesmas classes, mais as acompanhadas, mais o mapa de vínculo (4.4).
 - **Cliente HTTP próprio**: retry com backoff em 429/5xx, ≤ 5 req/s, segue redirects e tolera objeto no lugar de lista. Usa TLS 1.2 se o runner também travar.
 
 ### 4.4 Vínculo entre as casas
@@ -198,7 +198,7 @@ Cada fase é um PR com testes mockados. A produção é atualizada só após o m
 5. Vocabulário de `siglaResultado` (várias semanas) e dos resultados do Plenário: a lista de "votado".
 6. Regra `eh_relator`: informe × `relatoria.dataDesignacao` nos 13 processos da planilha.
 7. Estabilidade de `informe.id` entre duas leituras. Formato da pauta do Plenário em sessão deliberativa.
-8. Quantas identificações colidiriam: MPVs e gêmeos entre os monitorados da Câmara.
+8. Quantas identificações colidiriam: MPVs e gêmeos entre os monitorados da Câmara. O cruzamento das MPVs pela regra `'mpv'` e o PLV.
 
 **Fase 1 — Casa e chave, sem dados do Senado (deploy sem mudança visível)**
 - Funções de chave e constantes.
@@ -233,7 +233,7 @@ Cada fase é um PR com testes mockados. A produção é atualizada só após o m
 - Autor via Câmara.
 
 **Fase 5 — Agenda do Senado**
-- Comissões por parte, Plenário por `codMateria`, audiências por `finalidade`.
+- Comissões por parte, Plenário por `codMateria`, audiências por `finalidade`, CMMPV das MPVs monitoradas (tipo 42, `materiasOriginadoras`).
 - `votado` e situação normalizada.
 - `pipeline_pautas.py`.
 
