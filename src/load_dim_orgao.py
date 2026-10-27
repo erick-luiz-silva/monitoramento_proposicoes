@@ -1,12 +1,13 @@
 import api_client as api
 from db import get_connection
 
+# Só órgãos da Câmara: os colegiados do Senado têm id deslocado e vêm de outra API.
 _SQL_IDS_ORGAO = """
-    SELECT id_orgao_atual FROM silver.proposicao WHERE id_orgao_atual IS NOT NULL
+    SELECT id_orgao_atual FROM silver.proposicao WHERE id_orgao_atual IS NOT NULL AND casa = 'CD'
     UNION
-    SELECT id_orgao FROM silver.tramitacao WHERE id_orgao IS NOT NULL
+    SELECT id_orgao FROM silver.tramitacao WHERE id_orgao IS NOT NULL AND casa = 'CD'
     UNION
-    SELECT id_orgao FROM silver.evento WHERE id_orgao IS NOT NULL;
+    SELECT id_orgao FROM silver.evento WHERE id_orgao IS NOT NULL AND casa = 'CD';
 """
 
 _SQL_UPSERT = """

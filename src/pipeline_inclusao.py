@@ -6,6 +6,7 @@ acompanhadas ainda ausentes, atualiza a silver e as dimensões. Não registra na
 em controle_execucao: a janela incremental continua sendo da carga diária.
 """
 
+from config import eh_camara
 from db import get_connection
 from extract_bronze import carregar_ids, carregar_ids_existentes
 from extract_incremental import carregar_ids_acompanhadas
@@ -19,7 +20,8 @@ def executar_pipeline_inclusao():
     with get_connection() as conn:
         acompanhadas = carregar_ids_acompanhadas(conn)
         existentes = carregar_ids_existentes(conn)
-    ausentes = [id_prop for id_prop in acompanhadas if id_prop not in existentes]
+    # Defesa extra: a carga da Câmara nunca recebe um id do Senado (>= SENADO_OFFSET).
+    ausentes = [id_prop for id_prop in acompanhadas if eh_camara(id_prop) and id_prop not in existentes]
     print(f"{len(acompanhadas)} proposições acompanhadas; {len(ausentes)} ainda fora da bronze")
 
     # Sem levantar erro por id: um id inválido (que continuaria ausente) não pode

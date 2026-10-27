@@ -5,10 +5,12 @@ from tqdm import tqdm
 import api_client as api
 from db import get_connection
 
+# Só autores da Câmara com uri numérica: os do Senado têm uri NULL e código de outro
+# sistema (e o Postgres não garante a ordem do WHERE, então o cast fica protegido).
 _SQL_IDS_DEPUTADOS = """
-    SELECT DISTINCT (regexp_replace(uri, '.*/', ''))::int AS id_deputado
+    SELECT DISTINCT (CASE WHEN uri ~ '/[0-9]+$' THEN regexp_replace(uri, '.*/', '') END)::int AS id_deputado
     FROM silver.proposicoes_proponentes
-    WHERE tipo = 'Deputado(a)'
+    WHERE tipo = 'Deputado(a)' AND uri ~ '/[0-9]+$' AND id_proposicao < 1000000000
     UNION
     SELECT DISTINCT id_deputado_relator
     FROM silver.evento_pauta
@@ -17,9 +19,9 @@ _SQL_IDS_DEPUTADOS = """
 """
 
 _SQL_PROPONENTES = """
-    SELECT DISTINCT (regexp_replace(uri, '.*/', ''))::int AS id_deputado
+    SELECT DISTINCT (CASE WHEN uri ~ '/[0-9]+$' THEN regexp_replace(uri, '.*/', '') END)::int AS id_deputado
     FROM silver.proposicoes_proponentes
-    WHERE tipo = 'Deputado(a)'
+    WHERE tipo = 'Deputado(a)' AND uri ~ '/[0-9]+$' AND id_proposicao < 1000000000
 """
 
 _SQL_RELATORES = """
@@ -53,9 +55,10 @@ _SQL_SELETIVO = """
 
 _SQL_AUTORES_RUN = """
     UNION
-    SELECT (regexp_replace(uri, '.*/', ''))::int
+    SELECT (CASE WHEN uri ~ '/[0-9]+$' THEN regexp_replace(uri, '.*/', '') END)::int
     FROM silver.proposicoes_proponentes
-    WHERE tipo = 'Deputado(a)' AND id_proposicao = ANY(%(ids)s)
+    WHERE tipo = 'Deputado(a)' AND uri ~ '/[0-9]+$' AND id_proposicao < 1000000000
+      AND id_proposicao = ANY(%(ids)s)
 """
 
 REFRESH_DIAS = 7

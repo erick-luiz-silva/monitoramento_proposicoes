@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from tqdm import tqdm
 
 import api_client as api
-from config import TEMAS
+from config import SENADO_OFFSET, TEMAS
 from db import get_connection
 from extract_bronze import carregar_ids, executar_reconciliacao
 from load_bronze import carregar_proposicao_bronze
@@ -59,14 +59,20 @@ def coletar_ids_unicos(data_inicio, data_fim):
     return ids_ordenados
 
 
-def carregar_ids_acompanhadas(conn):
-    """Ids de silver.proposicao_acompanhada (planilha antiga e inclusões manuais).
+def carregar_ids_acompanhadas(conn, casa="CD"):
+    """Ids de silver.proposicao_acompanhada (planilha antiga e inclusões manuais) de uma casa.
 
     São recarregados todo dia, mesmo fora dos temas e sem tramitação recente,
-    para que qualquer movimentação delas chegue ao alerta.
+    para que qualquer movimentação delas chegue ao alerta. Cada casa carrega só os
+    seus: um id do Senado (>= SENADO_OFFSET) nunca vai para a API da Câmara.
     """
+    operador = ">=" if casa == "SF" else "<"
     with conn.cursor() as cur:
-        cur.execute("SELECT id_proposicao FROM silver.proposicao_acompanhada ORDER BY id_proposicao;")
+        cur.execute(
+            f"SELECT id_proposicao FROM silver.proposicao_acompanhada "
+            f"WHERE id_proposicao {operador} %s ORDER BY id_proposicao;",
+            (SENADO_OFFSET,),
+        )
         return [linha[0] for linha in cur.fetchall()]
 
 
