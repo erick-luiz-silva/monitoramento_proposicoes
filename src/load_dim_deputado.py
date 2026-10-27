@@ -14,7 +14,7 @@ _SQL_IDS_DEPUTADOS = """
     UNION
     SELECT DISTINCT id_deputado_relator
     FROM silver.evento_pauta
-    WHERE id_deputado_relator IS NOT NULL
+    WHERE id_deputado_relator IS NOT NULL AND id_evento < 1000000000
     ORDER BY 1;
 """
 
@@ -27,7 +27,7 @@ _SQL_PROPONENTES = """
 _SQL_RELATORES = """
     SELECT DISTINCT id_deputado_relator AS id_deputado
     FROM silver.evento_pauta
-    WHERE id_deputado_relator IS NOT NULL
+    WHERE id_deputado_relator IS NOT NULL AND id_evento < 1000000000
 """
 
 # Seleção do modo seletivo: ausentes da dim, autores das proposições do run e

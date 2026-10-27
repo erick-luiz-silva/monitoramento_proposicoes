@@ -96,6 +96,12 @@ class CamaraIgnoraSenadoTests(unittest.TestCase):
             self.assertIn("id_proposicao < 1000000000", sql)
         self.assertIn("uri ~ '/[0-9]+$'", load_dim_deputado._SQL_IDS_DEPUTADOS)
 
+    def test_guarda_pela_faixa_de_id_mesmo_sem_casa(self):
+        # Se uma linha do Senado cair com o DEFAULT 'CD', a faixa de id ainda segura.
+        self.assertEqual(load_dim_orgao._SQL_IDS_ORGAO.count("< 1000000000"), 3)
+        for sql in (load_dim_deputado._SQL_RELATORES, load_dim_deputado._SQL_IDS_DEPUTADOS):
+            self.assertIn("id_evento < 1000000000", sql)
+
     def test_inclusao_nao_manda_id_do_senado_para_a_camara(self):
         # Mesmo que a lista de acompanhadas traga um id do Senado, a carga da Câmara não o recebe.
         with patch.object(pipeline_inclusao, "get_connection"), patch.object(
@@ -120,7 +126,7 @@ class GoldSenadoSqlTests(unittest.TestCase):
         self.assertNotIn("proposicao_vinculo", v)
         self.assertNotIn("proposicao_acompanhada", v)          # acompanhamento só via g.grupo_acompanhado
         self.assertEqual(v.count("g.grupo_acompanhado"), 3)    # acompanhada, em_radar, WHERE
-        self.assertIn("coalesce(p.data_apresentacao_origem, p.data_apresentacao) >= DATE '2026-09-01'", v)
+        self.assertIn("coalesce(g.data_origem_grupo, p.data_apresentacao) >= DATE '2026-09-01'", v)
         self.assertIn("autor.uri ~ '/[0-9]+$'", v)
 
     def test_grupo_recursivo_termina_e_tem_uma_linha_por_id(self):
@@ -131,6 +137,8 @@ class GoldSenadoSqlTests(unittest.TestCase):
         self.assertIn("GROUP BY", g)
         self.assertIn("FROM silver.proposicao_vinculo", g)
         self.assertIn("OVER (PARTITION BY", g)                  # grupo_acompanhado calculado uma vez
+        # data de origem do projeto = a mais antiga do grupo (defesa se o Senado vier sem a data de origem)
+        self.assertIn("min(coalesce(p.data_apresentacao_origem, p.data_apresentacao)) OVER (PARTITION BY", g)
         self.assertLess(sql.index("VIEW gold.vw_grupo_projeto"), sql.index("VIEW gold.vw_monitoramento"))
 
     def test_relator_e_votado_vem_da_silver(self):

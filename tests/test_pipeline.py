@@ -320,6 +320,8 @@ class EnvironmentTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "ids duplicados em gold.vw_monitoramento: 123"):
                 check_environment.check_environment()
         self.assertIn(check_environment.SQL_DUPLICADAS, [c.args[0] for c in self.cur.execute.call_args_list])
+        # ids da Câmara (menores) vêm primeiro: muitas duplicatas do Senado não escondem uma da Câmara
+        self.assertIn("ORDER BY 1 LIMIT", check_environment.SQL_DUPLICADAS)
 
     def test_duplicata_so_do_senado_avisa_sem_bloquear(self):
         self.cur.fetchone.side_effect = [(name,) for name in check_environment.REQUIRED_RELATIONS] + [(10,)]
@@ -642,7 +644,7 @@ class GoldSqlTests(unittest.TestCase):
         self.assertIn("LEFT JOIN gold.vw_proposicao_keywords kw", v)
         # acompanhada pelo grupo do projeto (as duas casas), calculada em vw_grupo_projeto
         self.assertIn("WHERE kw.id_proposicao IS NOT NULL OR g.grupo_acompanhado", v)
-        self.assertIn("coalesce(p.data_apresentacao_origem, p.data_apresentacao) >= DATE '2026-09-01'", v)
+        self.assertIn("coalesce(g.data_origem_grupo, p.data_apresentacao) >= DATE '2026-09-01'", v)
         self.assertNotIn("UNION", v)
         # colunas novas só no fim (CREATE OR REPLACE VIEW não aceita reordenar)
         select = v.split("FROM silver.proposicao p")[0]

@@ -26,6 +26,8 @@ GROUP BY p.id_proposicao;
 -- grupo_acompanhado: alguma versão do grupo está em silver.proposicao_acompanhada —
 -- acompanhar um projeto vale para as duas casas (decisão de 27/10/2026). Calculado aqui,
 -- uma vez por grupo, para vw_monitoramento não precisar de EXISTS por linha.
+-- data_origem_grupo: a apresentação mais antiga do grupo (casa iniciadora), para o radar não
+-- tratar como novo um projeto antigo mesmo que a versão do Senado venha sem a data de origem.
 -- Uma linha por id de silver.proposicao (a PK de proposicao_acompanhada impede duplicar).
 CREATE OR REPLACE VIEW gold.vw_grupo_projeto AS
 WITH RECURSIVE arestas AS (
@@ -55,7 +57,8 @@ SELECT
     p.id_proposicao,
     coalesce(c.chave, p.id_proposicao) AS chave_projeto,
     o.ids_grupo,
-    bool_or(a.id_proposicao IS NOT NULL) OVER (PARTITION BY coalesce(c.chave, p.id_proposicao)) AS grupo_acompanhado
+    bool_or(a.id_proposicao IS NOT NULL) OVER (PARTITION BY coalesce(c.chave, p.id_proposicao)) AS grupo_acompanhado,
+    min(coalesce(p.data_apresentacao_origem, p.data_apresentacao)) OVER (PARTITION BY coalesce(c.chave, p.id_proposicao)) AS data_origem_grupo
 FROM silver.proposicao p
 LEFT JOIN componentes c ON c.no = p.id_proposicao
 LEFT JOIN outras_versoes o ON o.no = p.id_proposicao
@@ -93,7 +96,7 @@ SELECT
     g.grupo_acompanhado AS acompanhada,
     (g.grupo_acompanhado
      OR (kw.id_proposicao IS NOT NULL
-         AND coalesce(coalesce(p.data_apresentacao_origem, p.data_apresentacao) >= DATE '2026-09-01', false))) AS em_radar,
+         AND coalesce(coalesce(g.data_origem_grupo, p.data_apresentacao) >= DATE '2026-09-01', false))) AS em_radar,
     p.sigla_tipo,
     p.data_apresentacao,
     p.casa,

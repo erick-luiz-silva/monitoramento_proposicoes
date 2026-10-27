@@ -40,7 +40,8 @@ REQUIRED_RELATIONS = (
 # Uma linha por id_proposicao na gold: duplicata faria o REFRESH CONCURRENTLY falhar e
 # congelaria o api inteiro. Consulta a gold (o cache tem índice único e nunca teria
 # duplicata); custa 2–4 s com o papel do pipeline, sem o timeout da anon.
-SQL_DUPLICADAS = "SELECT id_proposicao FROM gold.vw_monitoramento GROUP BY 1 HAVING count(*) > 1 LIMIT 5"
+# ORDER BY: ids da Câmara (menores) vêm primeiro, então duplicatas do Senado não escondem uma da Câmara.
+SQL_DUPLICADAS = "SELECT id_proposicao FROM gold.vw_monitoramento GROUP BY 1 HAVING count(*) > 1 ORDER BY 1 LIMIT 5"
 
 
 def check_environment():
@@ -69,7 +70,8 @@ def check_environment():
                     "ids duplicados em gold.vw_monitoramento: " + ", ".join(map(str, da_camara))
                 )
             if duplicadas:
-                # Só do Senado: não bloqueia a Câmara (o Senado nunca derruba a carga).
+                # Só do Senado: não bloqueia a carga da Câmara aqui, mas o REFRESH CONCURRENTLY do
+                # api ainda falharia no fim. A carga do Senado (fase 3) garante a unicidade antes do refresh.
                 print("::warning::ids do Senado duplicados na gold: " + ", ".join(map(str, duplicadas)))
     print("Conexão, schemas e keywords verificados com sucesso.")
 
