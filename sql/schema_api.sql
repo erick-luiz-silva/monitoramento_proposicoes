@@ -20,7 +20,8 @@ CREATE MATERIALIZED VIEW api_cache.vw_monitoramento AS
 SELECT id_proposicao, identificacao, ementa, autor_principal, tipo_autor_principal,
        partido_autor_principal, uf_autor_principal, situacao_atual, orgao_atual,
        nome_orgao_atual, ultima_movimentacao, data_ultima_movimentacao,
-       keywords_encontradas, link_direto, acompanhada, em_radar, sigla_tipo, data_apresentacao
+       keywords_encontradas, link_direto, acompanhada, em_radar, sigla_tipo, data_apresentacao,
+       casa, chave_projeto, identificacao_casa, ids_vinculados
 FROM gold.vw_monitoramento;
 CREATE UNIQUE INDEX ON api_cache.vw_monitoramento (id_proposicao);
 
@@ -39,7 +40,7 @@ CREATE UNIQUE INDEX ON api_cache.vw_proposicoes_sem_keyword (id_proposicao);
 -- load_api atualiza antes deste na mesma transação.
 CREATE MATERIALIZED VIEW api_cache.vw_tramitacoes AS
 SELECT t.id_proposicao, t.identificacao, t.sequencia, t.data_hora, t.sigla_orgao,
-       t.descricao_situacao, t.descricao_tramitacao, t.despacho, t.nome_orgao
+       t.descricao_situacao, t.descricao_tramitacao, t.despacho, t.nome_orgao, t.casa
 FROM gold.vw_tramitacoes t
 WHERE t.id_proposicao IN (SELECT id_proposicao FROM api_cache.vw_monitoramento);
 CREATE UNIQUE INDEX ON api_cache.vw_tramitacoes (id_proposicao, sequencia);
@@ -50,13 +51,13 @@ CREATE MATERIALIZED VIEW api_cache.vw_pautas_monitoradas AS
 SELECT row_number() OVER (ORDER BY id_evento, id_proposicao, topico, titulo, nome_relator, situacao_item) AS _id,
        id_evento, data_hora_inicio, sigla_orgao, nome_orgao, descricao_tipo, situacao_evento,
        topico, titulo, identificacao, ementa, nome_relator, partido_relator, uf_relator,
-       uri_votacao, situacao_item, id_proposicao, acompanhada, em_radar
+       uri_votacao, situacao_item, votado, id_proposicao, acompanhada, em_radar, casa, chave_projeto
 FROM gold.vw_pautas_monitoradas;
 CREATE UNIQUE INDEX ON api_cache.vw_pautas_monitoradas (_id);
 
 CREATE MATERIALIZED VIEW api_cache.vw_audiencias_de_interesse AS
 SELECT id_evento, data_hora_inicio, sigla_orgao, nome_orgao, situacao_evento, assunto,
-       keywords_encontradas, url_registro
+       keywords_encontradas, url_registro, casa
 FROM gold.vw_audiencias_de_interesse;
 CREATE UNIQUE INDEX ON api_cache.vw_audiencias_de_interesse (id_evento);
 
@@ -70,7 +71,8 @@ SELECT id_proposicao, identificacao, ementa, autor_principal, tipo_autor_princip
        partido_autor_principal, uf_autor_principal, situacao_atual, orgao_atual,
        nome_orgao_atual, ultima_movimentacao, data_ultima_movimentacao,
        ((now() AT TIME ZONE 'America/Sao_Paulo')::date - data_ultima_movimentacao::date) AS dias_sem_movimentacao,
-       keywords_encontradas, link_direto, acompanhada, em_radar, sigla_tipo, data_apresentacao
+       keywords_encontradas, link_direto, acompanhada, em_radar, sigla_tipo, data_apresentacao,
+       casa, chave_projeto, identificacao_casa, ids_vinculados
 FROM api_cache.vw_monitoramento;
 
 CREATE VIEW api.vw_proposicao_keywords AS
@@ -81,7 +83,7 @@ SELECT id_proposicao, identificacao, ementa, link_direto FROM api_cache.vw_propo
 
 CREATE VIEW api.vw_tramitacoes AS
 SELECT id_proposicao, identificacao, sequencia, data_hora, sigla_orgao, descricao_situacao,
-       descricao_tramitacao, despacho, nome_orgao
+       descricao_tramitacao, despacho, nome_orgao, casa
 FROM api_cache.vw_tramitacoes;
 
 CREATE VIEW api.vw_pautas_monitoradas AS
@@ -90,11 +92,12 @@ SELECT _id, id_evento, data_hora_inicio, sigla_orgao, nome_orgao, descricao_tipo
        uri_votacao, situacao_item,
        CASE
            WHEN situacao_evento = 'Cancelada' THEN 'Cancelada'
+           WHEN situacao_evento = 'Adiada' THEN 'Adiada'
            WHEN data_hora_inicio > (now() AT TIME ZONE 'America/Sao_Paulo') THEN 'Agendado'
-           WHEN uri_votacao IS NOT NULL THEN 'Votado'
+           WHEN votado THEN 'Votado'
            ELSE 'Encerrado sem votação'
        END AS status_alerta,
-       id_proposicao, acompanhada, em_radar
+       id_proposicao, acompanhada, em_radar, casa, chave_projeto
 FROM api_cache.vw_pautas_monitoradas;
 
 CREATE VIEW api.vw_audiencias_de_interesse AS
@@ -102,9 +105,11 @@ SELECT id_evento, data_hora_inicio, sigla_orgao, nome_orgao, situacao_evento, as
        keywords_encontradas, url_registro,
        CASE
            WHEN situacao_evento = 'Cancelada' THEN 'Cancelada'
+           WHEN situacao_evento = 'Adiada' THEN 'Adiada'
            WHEN data_hora_inicio > (now() AT TIME ZONE 'America/Sao_Paulo') THEN 'Agendada'
            ELSE 'Realizada'
-       END AS status_alerta
+       END AS status_alerta,
+       casa
 FROM api_cache.vw_audiencias_de_interesse;
 
 -- "Dados atualizados em" do relatório: a última carga que terminou bem, não a hora do
@@ -118,7 +123,11 @@ SELECT
         AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo' AS ultima_carga_diaria,
     (max(executado_em) FILTER (WHERE tipo_carga = 'eventos')
         AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo' AS ultima_carga_pautas,
-    (now() AT TIME ZONE 'America/Sao_Paulo')::date AS data_referencia
+    (now() AT TIME ZONE 'America/Sao_Paulo')::date AS data_referencia,
+    (max(executado_em) FILTER (WHERE tipo_carga = 'incremental_senado')
+        AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo' AS ultima_carga_senado,
+    (max(executado_em) FILTER (WHERE tipo_carga = 'eventos_senado')
+        AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo' AS ultima_carga_pautas_senado
 FROM bronze.controle_execucao;
 
 REVOKE ALL ON SCHEMA api_cache FROM PUBLIC;

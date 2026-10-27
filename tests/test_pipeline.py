@@ -161,6 +161,11 @@ class IncrementalTests(unittest.TestCase):
         self.api = self.stack.enter_context(patch.object(
             extract_incremental, "atualizar_api", side_effect=lambda: self.events.append("api")
         ))
+        self.senado = self.stack.enter_context(patch.object(
+            extract_incremental, "executar_carga_senado", side_effect=lambda: self.events.append("senado")
+        ))
+        self.aviso = self.stack.enter_context(patch.object(extract_incremental, "gravar_aviso_senado"))
+        self.stack.enter_context(patch.object(extract_incremental, "limpar_aviso_senado"))
 
     def tipos_registrados(self):
         return [call.args[1] for call in self.register.call_args_list]
@@ -187,10 +192,32 @@ class IncrementalTests(unittest.TestCase):
         extract_incremental.executar_carga_incremental()
         self.assertEqual(self.events, [
             "executar_carga_eventos", "executar_transformacao_silver", "carregar_dim_deputado",
-            "carregar_dim_orgao", "checkpoint", "checkpoint", "checkpoint", "api"
+            "carregar_dim_orgao", "checkpoint", "checkpoint", "checkpoint", "senado", "api"
         ])
+        self.aviso.assert_not_called()
         self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
         self.assertEqual(self.register.call_args_list[2].args[2:], (date(2026, 7, 8), date(2026, 10, 6), 1))
+
+    def test_falha_do_senado_vira_aviso_sem_falhar_nem_travar_a_camara(self):
+        self.senado.side_effect = RuntimeError("HTTP 503")
+        extract_incremental.executar_carga_incremental()           # não levanta
+        self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
+        self.assertEqual(self.events[-1], "api")
+        self.api.assert_called_once()
+        self.assertIn("HTTP 503", self.aviso.call_args.args[0])
+
+    def test_falha_da_camara_nao_roda_senado_e_derruba(self):
+        self.bronze.return_value = {"proposicoes_json": "erro: timeout"}
+        with self.assertRaisesRegex(RuntimeError, "incompleta"):
+            extract_incremental.executar_carga_incremental()
+        self.senado.assert_not_called()
+
+    def test_erro_nao_bloqueante_da_camara_ainda_roda_o_senado(self):
+        self.reconciliacao.side_effect = RuntimeError("API fora do ar")
+        with self.assertRaisesRegex(RuntimeError, "conciliação"):
+            extract_incremental.executar_carga_incremental()
+        self.senado.assert_called_once()
+        self.api.assert_called_once()
 
     def test_falha_no_schema_api_nao_trava_janela_e_falha_no_fim(self):
         self.api.side_effect = RuntimeError("lock timeout")
@@ -281,9 +308,30 @@ class EnvironmentTests(unittest.TestCase):
 
     def test_initialized_database_passes(self):
         self.cur.fetchone.side_effect = [(name,) for name in check_environment.REQUIRED_RELATIONS] + [(10,)]
+        self.cur.fetchall.return_value = []          # sem ids duplicados na gold
         with patch.object(check_environment, "get_connection", return_value=self.conn):
             check_environment.check_environment()
         self.conn.__enter__.return_value.commit.assert_not_called()
+
+    def test_id_duplicado_da_camara_bloqueia(self):
+        self.cur.fetchone.side_effect = [(name,) for name in check_environment.REQUIRED_RELATIONS] + [(10,)]
+        self.cur.fetchall.return_value = [(123,)]
+        with patch.object(check_environment, "get_connection", return_value=self.conn):
+            with self.assertRaisesRegex(RuntimeError, "ids duplicados em gold.vw_monitoramento: 123"):
+                check_environment.check_environment()
+        self.assertIn(check_environment.SQL_DUPLICADAS, [c.args[0] for c in self.cur.execute.call_args_list])
+        # ids da Câmara (menores) vêm primeiro: muitas duplicatas do Senado não escondem uma da Câmara
+        self.assertIn("ORDER BY 1 LIMIT", check_environment.SQL_DUPLICADAS)
+
+    def test_duplicata_so_do_senado_avisa_sem_bloquear(self):
+        self.cur.fetchone.side_effect = [(name,) for name in check_environment.REQUIRED_RELATIONS] + [(10,)]
+        self.cur.fetchall.return_value = [(1008152618,)]
+        with patch.object(check_environment, "get_connection", return_value=self.conn), patch(
+            "builtins.print"
+        ) as saida:
+            check_environment.check_environment()
+        self.assertTrue(any("::warning::" in str(c.args[0]) and "1008152618" in str(c.args[0])
+                            for c in saida.call_args_list))
 
 
 class BackfillTests(unittest.TestCase):
@@ -476,11 +524,13 @@ class PautaTests(unittest.TestCase):
         self.calls = MagicMock()
         self.stages = {}
         for name in ["executar_carga_eventos", "executar_transformacao_eventos", "carregar_dim_deputado",
-                     "carregar_dim_orgao", "registrar_execucao", "atualizar_api"]:
+                     "carregar_dim_orgao", "registrar_execucao", "executar_pautas_senado", "atualizar_api"]:
             mock = self.stack.enter_context(patch.object(pipeline_pautas, name))
             self.calls.attach_mock(mock, name)
             self.stages[name] = mock
         self.stages["executar_carga_eventos"].return_value = 12
+        self.aviso = self.stack.enter_context(patch.object(pipeline_pautas, "gravar_aviso_senado"))
+        self.stack.enter_context(patch.object(pipeline_pautas, "limpar_aviso_senado"))
 
     def test_refreshes_events_and_relatores_without_advancing_propositions(self):
         pipeline_pautas.executar_pipeline_pautas()
@@ -491,8 +541,15 @@ class PautaTests(unittest.TestCase):
         self.assertEqual(register.call_args.args[1:], ("eventos", date(2026, 9, 29), date(2026, 10, 20), 12))
         self.assertEqual([c[0] for c in self.calls.mock_calls], [
             "executar_carga_eventos", "executar_transformacao_eventos", "carregar_dim_deputado",
-            "carregar_dim_orgao", "registrar_execucao", "atualizar_api"
+            "carregar_dim_orgao", "registrar_execucao", "executar_pautas_senado", "atualizar_api"
         ])
+
+    def test_falha_do_senado_nas_pautas_vira_aviso(self):
+        self.stages["executar_pautas_senado"].side_effect = RuntimeError("HTTP 503")
+        pipeline_pautas.executar_pipeline_pautas()                  # não levanta
+        self.assertEqual([c.args[1] for c in self.stages["registrar_execucao"].call_args_list], ["eventos"])
+        self.stages["atualizar_api"].assert_called_once()
+        self.assertIn("HTTP 503", self.aviso.call_args.args[0])
 
     def test_falha_no_schema_api_nao_registra_incremental(self):
         self.stages["atualizar_api"].side_effect = RuntimeError("lock timeout")
@@ -585,20 +642,22 @@ class GoldSqlTests(unittest.TestCase):
     def test_monitoramento_inclui_acompanhadas_e_radar_com_corte(self):
         v = self.view("vw_monitoramento")
         self.assertIn("LEFT JOIN gold.vw_proposicao_keywords kw", v)
-        self.assertIn("LEFT JOIN silver.proposicao_acompanhada a", v)
-        self.assertIn("WHERE kw.id_proposicao IS NOT NULL OR a.id_proposicao IS NOT NULL", v)
-        self.assertIn("p.data_apresentacao >= DATE '2026-09-01'", v)
+        # acompanhada pelo grupo do projeto (as duas casas), calculada em vw_grupo_projeto
+        self.assertIn("WHERE kw.id_proposicao IS NOT NULL OR g.grupo_acompanhado", v)
+        self.assertIn("coalesce(g.data_origem_grupo, p.data_apresentacao) >= DATE '2026-09-01'", v)
         self.assertNotIn("UNION", v)
         # colunas novas só no fim (CREATE OR REPLACE VIEW não aceita reordenar)
         select = v.split("FROM silver.proposicao p")[0]
         self.assertLess(select.index("nome_orgao_atual"), select.index("AS acompanhada"))
         self.assertLess(select.index("AS acompanhada"), select.index("AS em_radar"))
-        # depois de em_radar, só colunas acrescentadas no fim (tipo e apresentação, para o BI)
-        self.assertTrue(select.rstrip().endswith("p.data_apresentacao"))
+        # depois de em_radar, só colunas acrescentadas no fim (tipo e apresentação, para o BI;
+        # casa e grupo do projeto, para o Senado)
+        self.assertTrue(select.rstrip().endswith("ids_vinculados"))
 
     def test_pautas_expoem_filtros_no_fim(self):
         select = self.view("vw_pautas_monitoradas").split("FROM silver.evento_pauta")[0]
-        self.assertTrue(select.rstrip().endswith("m.em_radar"))
+        self.assertTrue(select.rstrip().endswith("chave_projeto"))
+        self.assertLess(select.index("m.em_radar"), select.index("casa"))
         self.assertLess(select.index("e.nome_orgao"), select.index("m.id_proposicao"))
 
     def test_movimentacoes_usa_marca_do_alerta_e_limite_de_30_dias(self):
@@ -650,15 +709,17 @@ class GoldSqlTests(unittest.TestCase):
     def test_status_cancelada_primeiro_e_igual_na_gold_e_no_api(self):
         def casos(arquivo):
             sql = re.sub(r"--[^\n]*", "", (self.SQL_DIR / arquivo).read_text(encoding="utf-8"))
-            blocos = re.findall(r"CASE(.*?)END AS status_alerta", sql, re.S)
+            # o CASE mais próximo do alias (há outros CASE antes no arquivo)
+            blocos = re.findall(r"CASE((?:(?!CASE).)*?)END AS status_alerta", sql, re.S)
             # sem alias de tabela e sem espaços, para comparar a regra e não a formatação
-            return [re.sub(r"\s+", " ", re.sub(r"\b(e|ep)\.", "", b)).replace("situacao_evento", "situacao").strip()
+            return [re.sub(r"\s+", " ", re.sub(r"\b(e|ep|m)\.", "", b)).replace("situacao_evento", "situacao").strip()
                     for b in blocos]
         gold, api = casos("schema_gold.sql"), casos("schema_api.sql")
         self.assertEqual(len(gold), 2)
         self.assertEqual(gold, api)
         for bloco in gold:
-            self.assertTrue(bloco.startswith("WHEN situacao = 'Cancelada' THEN 'Cancelada'"), bloco)
+            self.assertTrue(bloco.startswith(
+                "WHEN situacao = 'Cancelada' THEN 'Cancelada' WHEN situacao = 'Adiada' THEN 'Adiada'"), bloco)
 
     def test_refresh_concorrente_numa_transacao(self):
         conn = MagicMock()
@@ -671,12 +732,15 @@ class GoldSqlTests(unittest.TestCase):
         conn.__enter__.return_value.commit.assert_called_once()
 
     def test_destaque_so_para_designacao_de_relator(self):
-        self.assertIn("~* '^Designação de Relator'", self.view("vw_movimentacoes"))
+        # calculado na silver (cada casa escreve a designação de um jeito)
+        self.assertIn("t.eh_relator", self.view("vw_movimentacoes"))
 
     def test_ambiente_exige_tabela_e_view_novas(self):
         self.assertIn("silver.proposicao_acompanhada", check_environment.REQUIRED_RELATIONS)
         self.assertIn("gold.vw_movimentacoes", check_environment.REQUIRED_RELATIONS)
         self.assertIn("api.vw_tramitacoes", check_environment.REQUIRED_RELATIONS)
+        self.assertIn("silver.proposicao_vinculo", check_environment.REQUIRED_RELATIONS)
+        self.assertIn("gold.vw_grupo_projeto", check_environment.REQUIRED_RELATIONS)
 
 
 class WorkflowYamlTests(unittest.TestCase):

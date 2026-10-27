@@ -77,11 +77,19 @@ table 'gold vw_audiencias_de_interesse'
 
 		annotation SummarizationSetBy = Automatic
 
+	column casa
+		dataType: string
+		lineageTag: 773532eb-f7a9-459b-b62c-eefc650cef95
+		summarizeBy: none
+		sourceColumn: casa
+
+		annotation SummarizationSetBy = Automatic
+
 	partition vw_audiencias_de_interesse = m
 		mode: import
 		source =
 				let
-				    Fonte = fnSupabaseGold("vw_audiencias_de_interesse", "id_evento", {{"id_evento", Int64.Type}, {"data_hora_inicio", type datetime}, {"sigla_orgao", type text}, {"nome_orgao", type text}, {"situacao_evento", type text}, {"assunto", type text}, {"keywords_encontradas", type text}, {"url_registro", type text}, {"status_alerta", type text}})
+				    Fonte = fnSupabaseGold("vw_audiencias_de_interesse", "id_evento", {{"id_evento", Int64.Type}, {"data_hora_inicio", type datetime}, {"sigla_orgao", type text}, {"nome_orgao", type text}, {"situacao_evento", type text}, {"assunto", type text}, {"keywords_encontradas", type text}, {"url_registro", type text}, {"status_alerta", type text}, {"casa", type text}})
 				in
 				    Fonte
 

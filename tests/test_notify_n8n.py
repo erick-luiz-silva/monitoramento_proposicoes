@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
@@ -19,6 +20,12 @@ class WebhookTests(unittest.TestCase):
         })
         self.env.start()
         self.addCleanup(self.env.stop)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.arquivo = Path(self.tmp.name) / "logs" / "aviso_senado.txt"
+        aviso = patch.object(notify_n8n, "ARQUIVO_AVISO", self.arquivo)
+        aviso.start()
+        self.addCleanup(aviso.stop)
 
     def test_posts_to_production_with_token_and_run_metadata(self):
         with patch.object(notify_n8n.requests, "post", return_value=Mock(status_code=200)) as post:
@@ -42,6 +49,26 @@ class WebhookTests(unittest.TestCase):
         with patch.object(notify_n8n.requests, "post", return_value=Mock(status_code=200)) as post:
             notify_n8n.notify_n8n("completo")
         self.assertEqual(post.call_args.kwargs["json"]["status"], "sucesso")
+
+    def test_payload_leva_aviso_do_senado(self):
+        notify_n8n.gravar_aviso_senado("Senado não atualizado: HTTP 503")
+        with patch.object(notify_n8n.requests, "post", return_value=Mock(status_code=200)) as post:
+            notify_n8n.notify_n8n("completo")
+        self.assertEqual(post.call_args.kwargs["json"]["aviso_senado"], "Senado não atualizado: HTTP 503")
+        notify_n8n.limpar_aviso_senado()
+        self.assertIsNone(notify_n8n.ler_aviso_senado())
+
+    def test_sem_aviso_payload_leva_none(self):
+        with patch.object(notify_n8n.requests, "post", return_value=Mock(status_code=200)) as post:
+            notify_n8n.notify_n8n("pautas")
+        self.assertIsNone(post.call_args.kwargs["json"]["aviso_senado"])
+
+    def test_gravar_aviso_cria_pasta_e_nunca_levanta(self):
+        self.assertFalse(self.arquivo.parent.exists())
+        notify_n8n.gravar_aviso_senado("x")
+        self.assertEqual(self.arquivo.read_text(encoding="utf-8"), "x")
+        with patch.object(Path, "write_text", side_effect=OSError("disco cheio")):
+            notify_n8n.gravar_aviso_senado("y")                     # não levanta
 
     def test_http_errors_and_redirects_fail(self):
         for status in [301, 401, 404, 500]:

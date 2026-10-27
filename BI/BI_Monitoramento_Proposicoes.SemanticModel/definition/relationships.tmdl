@@ -20,11 +20,10 @@ relationship 'gold vw_tramitacoes_data_hora_gold_vw_dim_calendario_Date'
 	fromColumn: 'gold vw_tramitacoes'.data_hora
 	toColumn: gold_vw_dim_calendario.Date
 
-relationship AutoDetected_025c4d25-da3f-4186-a5c3-28dd36e95ebd
+relationship posicionamento_grupo_projeto
 	crossFilteringBehavior: bothDirections
-	fromCardinality: one
-	fromColumn: 'gold dim_posicionamento_abcs'.identificacao
-	toColumn: 'gold vw_monitoramento'.identificacao
+	fromColumn: 'gold vw_monitoramento'.chave_projeto
+	toColumn: 'gold dim_posicionamento_abcs'.chave_projeto
 
 relationship AutoDetected_368ea4b6-63a8-4e94-ad33-2b9aa73b066d
 	crossFilteringBehavior: bothDirections

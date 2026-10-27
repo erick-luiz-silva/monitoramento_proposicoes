@@ -3,15 +3,17 @@ from datetime import date, timedelta
 from tqdm import tqdm
 
 import api_client as api
-from config import TEMAS
+from config import SENADO_OFFSET, TEMAS
 from db import get_connection
 from extract_bronze import carregar_ids, executar_reconciliacao
+from extract_senado import executar_carga_senado
 from load_bronze import carregar_proposicao_bronze
 from load_api import atualizar_api
 from load_dim_deputado import carregar_dim_deputado
 from load_dim_orgao import carregar_dim_orgao
 from load_eventos import executar_carga_eventos
 from load_silver import executar_transformacao_silver
+from notify_n8n import gravar_aviso_senado, limpar_aviso_senado
 
 JANELA_SEGURANCA_DIAS = 14
 RECONCILIACAO_DIAS = 90
@@ -59,14 +61,20 @@ def coletar_ids_unicos(data_inicio, data_fim):
     return ids_ordenados
 
 
-def carregar_ids_acompanhadas(conn):
-    """Ids de silver.proposicao_acompanhada (planilha antiga e inclusões manuais).
+def carregar_ids_acompanhadas(conn, casa="CD"):
+    """Ids de silver.proposicao_acompanhada (planilha antiga e inclusões manuais) de uma casa.
 
     São recarregados todo dia, mesmo fora dos temas e sem tramitação recente,
-    para que qualquer movimentação delas chegue ao alerta.
+    para que qualquer movimentação delas chegue ao alerta. Cada casa carrega só os
+    seus: um id do Senado (>= SENADO_OFFSET) nunca vai para a API da Câmara.
     """
+    operador = ">=" if casa == "SF" else "<"
     with conn.cursor() as cur:
-        cur.execute("SELECT id_proposicao FROM silver.proposicao_acompanhada ORDER BY id_proposicao;")
+        cur.execute(
+            f"SELECT id_proposicao FROM silver.proposicao_acompanhada "
+            f"WHERE id_proposicao {operador} %s ORDER BY id_proposicao;",
+            (SENADO_OFFSET,),
+        )
         return [linha[0] for linha in cur.fetchall()]
 
 
@@ -100,13 +108,14 @@ def registrar_execucao(conn, tipo_carga, data_inicio, data_fim, qtd):
     conn.commit()
 
 
-def executar_carga_incremental():
+def executar_carga_camara():
     """Bronze D-14 + acompanhadas, reconciliação, eventos, silver e dims; depois registra as janelas.
 
     Falha na D-14, nos eventos, na silver ou nas dims: levanta erro sem registrar nada.
     Falha nas acompanhadas ou na reconciliação: o resto segue e `incremental`/`eventos`
     são registrados (um id com erro crônico não pode travar a janela), `reconciliacao`
-    só é registrada se ela completou, e o run levanta erro no fim para o job falhar.
+    só é registrada se ela completou, e esses erros voltam na lista (o orquestrador
+    faz o job falhar no fim).
     """
     with get_connection() as conn:
         data_inicio, data_fim = calcular_janela(conn)
@@ -166,10 +175,28 @@ def executar_carga_incremental():
         if reconciliacao:
             registrar_execucao(conn, *reconciliacao)
 
-    erros = [erro for erro in (erro_acompanhadas, erro_reconciliacao) if erro]
+    return [erro for erro in (erro_acompanhadas, erro_reconciliacao) if erro]
+
+
+def executar_carga_incremental():
+    """Câmara, depois Senado, depois o schema api.
+
+    Falha da Câmara que bloqueia a janela: levanta na hora, o Senado nem roda.
+    Falha do Senado: vira aviso (e-mail com aviso no topo), nunca falha o job nem
+    toca as janelas da Câmara. Erros não bloqueantes da Câmara e do schema api fazem
+    o job falhar no fim, como antes.
+    """
+    limpar_aviso_senado()
+    erros = executar_carga_camara()
+
+    print("\nCarga do Senado...")
+    try:
+        executar_carga_senado()
+    except Exception as exc:
+        gravar_aviso_senado(f"Senado não atualizado: {exc}")
 
     # Depois das janelas: é derivado (o próximo run recalcula) e não pode travar o
-    # incremental, mas roda mesmo quando acompanhadas/reconciliação falharam.
+    # incremental, mas roda mesmo quando acompanhadas/reconciliação/Senado falharam.
     print("\nAtualizando schema api (Power BI)...")
     try:
         atualizar_api()

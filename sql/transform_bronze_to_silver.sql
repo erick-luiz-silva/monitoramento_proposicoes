@@ -16,7 +16,8 @@ WITH ultimo_bronze AS (
 INSERT INTO silver.proposicao (
     id_proposicao, sigla_tipo, descricao_tipo, numero, ano, ementa,
     data_apresentacao, sigla_orgao_atual, id_orgao_atual, descricao_situacao, descricao_tramitacao,
-    despacho, data_ultima_movimentacao, cod_situacao, link_direto, keywords_camara, data_extracao
+    despacho, data_ultima_movimentacao, cod_situacao, link_direto, keywords_camara, data_extracao,
+    id_origem, data_apresentacao_origem
 )
 SELECT
     b.id_proposicao,
@@ -35,7 +36,9 @@ SELECT
     (b.payload#>>'{statusProposicao,codSituacao}')::int,
     'https://www.camara.leg.br/proposicoesWeb/fichadetramitacao?idProposicao=' || b.id_proposicao,
     b.payload->>'keywords',
-    b.data_extracao
+    b.data_extracao,
+    b.id_proposicao,
+    (b.payload->>'dataApresentacao')::timestamp
 FROM ultimo_bronze b
 ON CONFLICT (id_proposicao) DO UPDATE SET
     sigla_tipo = EXCLUDED.sigla_tipo,
@@ -53,7 +56,9 @@ ON CONFLICT (id_proposicao) DO UPDATE SET
     data_ultima_movimentacao = EXCLUDED.data_ultima_movimentacao,
     cod_situacao = EXCLUDED.cod_situacao,
     link_direto = EXCLUDED.link_direto,
-    data_extracao = EXCLUDED.data_extracao;
+    data_extracao = EXCLUDED.data_extracao,
+    id_origem = EXCLUDED.id_origem,
+    data_apresentacao_origem = EXCLUDED.data_apresentacao_origem;
 
 -- 2) silver.proposicoes_proponentes
 WITH ultimo_bronze AS (
@@ -106,7 +111,7 @@ ON CONFLICT (id_proposicao, cod_tema) DO UPDATE SET
 -- 4) silver.tramitacao (histórica: acumula de todas as linhas de bronze já vistas)
 INSERT INTO silver.tramitacao (
     id_proposicao, sequencia, data_hora, sigla_orgao, uri_orgao, id_orgao, cod_situacao,
-    descricao_situacao, descricao_tramitacao, despacho, url, cod_tipo_tramitacao, data_extracao
+    descricao_situacao, descricao_tramitacao, despacho, url, cod_tipo_tramitacao, data_extracao, eh_relator
 )
 SELECT
     b.id_proposicao,
@@ -121,7 +126,8 @@ SELECT
     elem->>'despacho',
     elem->>'url',
     elem->>'codTipoTramitacao',
-    b.data_extracao
+    b.data_extracao,
+    coalesce(elem->>'descricaoTramitacao', '') ~* '^Designação de Relator'
 FROM bronze.tramitacoes_json b, jsonb_array_elements(b.payload) elem
 WHERE EXISTS (SELECT 1 FROM silver.proposicao p WHERE p.id_proposicao = b.id_proposicao)
 ON CONFLICT (id_proposicao, sequencia) DO NOTHING;

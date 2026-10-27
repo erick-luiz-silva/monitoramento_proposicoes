@@ -291,11 +291,48 @@ table 'gold vw_monitoramento'
 
 		annotation SummarizationSetBy = Automatic
 
+	/// Casa de origem do registro: CD (Câmara) ou SF (Senado)
+	column casa
+		dataType: string
+		lineageTag: 95b3b648-df60-494d-b67f-8b0e61c3416a
+		summarizeBy: none
+		sourceColumn: casa
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Grupo do projeto nas duas casas (menor id do grupo); liga a posição da ABCS
+	column chave_projeto
+		dataType: int64
+		formatString: 0
+		lineageTag: 49d13258-17b4-4494-a626-a5ae773162e5
+		summarizeBy: none
+		sourceColumn: chave_projeto
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Identificação com a casa, ex. "PL 6028/2019 (Senado)"
+	column identificacao_casa
+		dataType: string
+		lineageTag: 35d60f01-e353-4ce3-9963-7c6efa9d89ad
+		summarizeBy: none
+		sourceColumn: identificacao_casa
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Outras versões do mesmo projeto na outra casa
+	column ids_vinculados
+		dataType: string
+		lineageTag: 2241b838-dad9-4598-b896-62416b9e27e3
+		summarizeBy: none
+		sourceColumn: ids_vinculados
+
+		annotation SummarizationSetBy = Automatic
+
 	partition vw_monitoramento = m
 		mode: import
 		source =
 				let
-				    Fonte = fnSupabaseGold("vw_monitoramento", "id_proposicao", {{"id_proposicao", Int64.Type}, {"identificacao", type text}, {"ementa", type text}, {"autor_principal", type text}, {"tipo_autor_principal", type text}, {"partido_autor_principal", type text}, {"uf_autor_principal", type text}, {"situacao_atual", type text}, {"orgao_atual", type text}, {"nome_orgao_atual", type text}, {"ultima_movimentacao", type text}, {"data_ultima_movimentacao", type datetime}, {"dias_sem_movimentacao", Int64.Type}, {"keywords_encontradas", type text}, {"link_direto", type text}, {"acompanhada", type logical}, {"em_radar", type logical}, {"sigla_tipo", type text}, {"data_apresentacao", type datetime}}),
+				    Fonte = fnSupabaseGold("vw_monitoramento", "id_proposicao", {{"id_proposicao", Int64.Type}, {"identificacao", type text}, {"ementa", type text}, {"autor_principal", type text}, {"tipo_autor_principal", type text}, {"partido_autor_principal", type text}, {"uf_autor_principal", type text}, {"situacao_atual", type text}, {"orgao_atual", type text}, {"nome_orgao_atual", type text}, {"ultima_movimentacao", type text}, {"data_ultima_movimentacao", type datetime}, {"dias_sem_movimentacao", Int64.Type}, {"keywords_encontradas", type text}, {"link_direto", type text}, {"acompanhada", type logical}, {"em_radar", type logical}, {"sigla_tipo", type text}, {"data_apresentacao", type datetime}, {"casa", type text}, {"chave_projeto", Int64.Type}, {"identificacao_casa", type text}, {"ids_vinculados", type text}}),
 				    NomePartidoUF = Table.AddColumn(Fonte, "Nome_Partido_UF", each [autor_principal] & " " & [partido_autor_principal] & "/" & [uf_autor_principal], type text)
 				in
 				    NomePartidoUF

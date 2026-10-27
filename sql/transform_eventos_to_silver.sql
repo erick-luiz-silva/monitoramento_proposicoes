@@ -44,8 +44,10 @@ ON CONFLICT (id_evento) DO UPDATE SET
 -- proposicao_/proposicaoRelacionada_/relator vêm como número ou string
 -- dependendo do item na API — #>>'{...}' sempre retorna texto, então o cast
 -- funciona nos dois casos.
+-- Só eventos da Câmara (id < 1e9): a pauta do Senado é escrita pela transformação do Senado.
 DELETE FROM silver.evento_pauta
-WHERE id_evento IN (SELECT DISTINCT id_evento FROM bronze.eventos_pauta_json);
+WHERE id_evento IN (SELECT DISTINCT id_evento FROM bronze.eventos_pauta_json)
+  AND id_evento < 1000000000;
 
 WITH ultimo_bronze AS (
     SELECT DISTINCT ON (id_evento) id_evento, payload, data_extracao
@@ -54,7 +56,7 @@ WITH ultimo_bronze AS (
 )
 INSERT INTO silver.evento_pauta (
     id_evento, ordem, topico, regime, titulo, id_proposicao, id_proposicao_relacionada,
-    id_deputado_relator, nome_relator, uri_votacao, situacao_item, data_extracao
+    id_deputado_relator, nome_relator, uri_votacao, situacao_item, data_extracao, votado
 )
 SELECT
     b.id_evento,
@@ -68,5 +70,6 @@ SELECT
     elem#>>'{relator,nome}',
     elem->>'uriVotacao',
     elem->>'situacaoItem',
-    b.data_extracao
+    b.data_extracao,
+    (elem->>'uriVotacao') IS NOT NULL
 FROM ultimo_bronze b, jsonb_array_elements(b.payload) elem;

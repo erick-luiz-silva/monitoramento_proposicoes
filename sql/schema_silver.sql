@@ -171,3 +171,57 @@ CREATE TABLE IF NOT EXISTS silver.proposicao_acompanhada (
     incluida_em   TIMESTAMP NOT NULL DEFAULT now(),
     confirmada_em TIMESTAMP
 );
+
+-- Senado no mesmo banco (docs/superpowers/specs/2026-10-27-senado-design.md, §4.1–4.2).
+-- As chaves do Senado são 1_000_000_000 + id nativo (config.SENADO_OFFSET), então uma
+-- proposição com id >= 1e9 é sempre do Senado. 'casa' é a API de origem ('CD'/'SF');
+-- 'CN' (MPV, comissões mistas) só vale em proposicao.casa_iniciadora e dim_orgao.casa.
+-- ADD COLUMN ... NOT NULL DEFAULT preenche as linhas que já existem (todas da Câmara).
+ALTER TABLE silver.proposicao ADD COLUMN IF NOT EXISTS casa VARCHAR(2) NOT NULL DEFAULT 'CD';
+ALTER TABLE silver.proposicao ADD COLUMN IF NOT EXISTS id_origem BIGINT;
+ALTER TABLE silver.proposicao ADD COLUMN IF NOT EXISTS codigo_materia INT;
+ALTER TABLE silver.proposicao ADD COLUMN IF NOT EXISTS casa_iniciadora VARCHAR(2);
+-- Data de apresentação na casa iniciadora: no Senado, a data de apresentação é a da
+-- chegada (projeto antigo da Câmara pareceria novo no radar).
+ALTER TABLE silver.proposicao ADD COLUMN IF NOT EXISTS data_apresentacao_origem TIMESTAMP;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_proposicao_casa') THEN
+        ALTER TABLE silver.proposicao
+            ADD CONSTRAINT ck_proposicao_casa CHECK ((casa = 'SF') = (id_proposicao >= 1000000000));
+    END IF;
+END $$;
+
+ALTER TABLE silver.tramitacao ADD COLUMN IF NOT EXISTS casa VARCHAR(2) NOT NULL DEFAULT 'CD';
+-- "Novo relator" calculado na silver (cada casa escreve a designação de um jeito).
+ALTER TABLE silver.tramitacao ADD COLUMN IF NOT EXISTS eh_relator BOOLEAN;
+ALTER TABLE silver.evento ADD COLUMN IF NOT EXISTS casa VARCHAR(2) NOT NULL DEFAULT 'CD';
+-- votado normalizado (Câmara: uri_votacao; Senado: resultado do item). Relator do Senado
+-- em colunas próprias, nunca em id_deputado_relator (código de outro sistema).
+ALTER TABLE silver.evento_pauta ADD COLUMN IF NOT EXISTS votado BOOLEAN;
+ALTER TABLE silver.evento_pauta ADD COLUMN IF NOT EXISTS codigo_parlamentar_relator INT;
+ALTER TABLE silver.evento_pauta ADD COLUMN IF NOT EXISTS partido_relator VARCHAR(20);
+ALTER TABLE silver.evento_pauta ADD COLUMN IF NOT EXISTS uf_relator VARCHAR(5);
+ALTER TABLE silver.dim_orgao ADD COLUMN IF NOT EXISTS casa VARCHAR(2) NOT NULL DEFAULT 'CD';
+
+-- Versões do mesmo projeto nas duas casas (N:M: um processo do Senado pode citar dois
+-- números da Câmara). Só é lida agregada, em gold.vw_grupo_projeto — um JOIN direto
+-- multiplicaria linhas. origem: 'revisora', 'identificacao', 'mpv', 'manual'.
+CREATE TABLE IF NOT EXISTS silver.proposicao_vinculo (
+    id_proposicao_cd BIGINT NOT NULL CHECK (id_proposicao_cd < 1000000000),
+    id_proposicao_sf BIGINT NOT NULL CHECK (id_proposicao_sf >= 1000000000),
+    origem           VARCHAR(30) NOT NULL,
+    data_extracao    TIMESTAMP NOT NULL DEFAULT now(),
+    PRIMARY KEY (id_proposicao_cd, id_proposicao_sf)
+);
+CREATE INDEX IF NOT EXISTS ix_proposicao_vinculo_sf ON silver.proposicao_vinculo (id_proposicao_sf);
+
+-- Preenchimento das colunas novas nas linhas da Câmara que já existiam. Idempotente
+-- (só nulos) e restrito à Câmara: roda a cada setup_db e nunca toca linhas do Senado.
+UPDATE silver.proposicao SET id_origem = id_proposicao WHERE id_origem IS NULL AND casa = 'CD';
+UPDATE silver.proposicao SET data_apresentacao_origem = data_apresentacao
+ WHERE data_apresentacao_origem IS NULL AND casa = 'CD';
+UPDATE silver.tramitacao SET eh_relator = coalesce(descricao_tramitacao, '') ~* '^Designação de Relator'
+ WHERE eh_relator IS NULL AND id_proposicao < 1000000000;
+UPDATE silver.evento_pauta SET votado = (uri_votacao IS NOT NULL)
+ WHERE votado IS NULL AND id_evento < 1000000000;

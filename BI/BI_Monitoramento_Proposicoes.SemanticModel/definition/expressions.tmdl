@@ -52,3 +52,26 @@ expression fnSupabaseGold =
 		    Tipada
 	lineageTag: c09c0ee2-b8c3-440c-a1d1-2d7eb11fc60c
 
+
+/// Aba "Posicionamento ABCS" lida e limpa, sem carga (staging de 'gold dim_posicionamento_abcs')
+expression stg_posicionamento =
+		let
+		  Origem = GoogleSheets.Contents("https://docs.google.com/spreadsheets/d/ID-DA-PLANILHA/edit?usp=sharing"),
+		    #"Posicionamento ABCS_Table" = Origem{[name="Posicionamento ABCS",ItemKind="Table"]}[Data],
+		    #"Cabeçalhos Promovidos" = Table.PromoteHeaders(#"Posicionamento ABCS_Table", [PromoteAllScalars=true]),
+		    #"Tipo Alterado" = Table.TransformColumnTypes(#"Cabeçalhos Promovidos",{{"identificacao", type text}, {"ementa", type any}, {"posicao_abcs", type any}, {"acao", type any}, {"parecer_abcs", type any}, {"prioridade", type any}, {"observacoes", type any}}),
+		    // Planilha editada à mão: sem espaços sobrando e com prioridade/posição em caixa única,
+		    // senão "Sim " e "sim" viram categorias diferentes e as regras de cor falham.
+		    Limpo = Table.TransformColumns(#"Tipo Alterado", {
+		        {"identificacao", each if _ = null then null else Text.Trim(Text.From(_)), type text},
+		        {"prioridade", each if _ = null or Text.Trim(Text.From(_)) = "" then null else Text.Lower(Text.Trim(Text.From(_))), type text},
+		        {"posicao_abcs", each if _ = null or Text.Trim(Text.From(_)) = "" then null else Text.Trim(Text.From(_)), type text}
+		    }),
+		    ComId = Table.SelectRows(Limpo, each [identificacao] <> null and [identificacao] <> "")
+		in
+		    ComId
+	lineageTag: 0b8f13a9-d6d6-4ac0-b787-445439db7a38
+
+	annotation PBI_NavigationStepName = Navegação
+
+	annotation PBI_ResultType = Table

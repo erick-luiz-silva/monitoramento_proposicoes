@@ -1,12 +1,14 @@
 import api_client as api
 from db import get_connection
 
+# Só órgãos da Câmara: os colegiados do Senado têm id deslocado e vêm de outra API. A faixa
+# de id também é conferida, caso uma linha do Senado tenha ficado com o DEFAULT 'CD'.
 _SQL_IDS_ORGAO = """
-    SELECT id_orgao_atual FROM silver.proposicao WHERE id_orgao_atual IS NOT NULL
+    SELECT id_orgao_atual FROM silver.proposicao WHERE id_orgao_atual IS NOT NULL AND casa = 'CD' AND id_orgao_atual < 1000000000
     UNION
-    SELECT id_orgao FROM silver.tramitacao WHERE id_orgao IS NOT NULL
+    SELECT id_orgao FROM silver.tramitacao WHERE id_orgao IS NOT NULL AND casa = 'CD' AND id_orgao < 1000000000
     UNION
-    SELECT id_orgao FROM silver.evento WHERE id_orgao IS NOT NULL;
+    SELECT id_orgao FROM silver.evento WHERE id_orgao IS NOT NULL AND casa = 'CD' AND id_orgao < 1000000000;
 """
 
 _SQL_UPSERT = """

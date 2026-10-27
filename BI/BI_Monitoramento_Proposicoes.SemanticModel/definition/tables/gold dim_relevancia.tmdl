@@ -94,9 +94,11 @@ table 'gold dim_relevancia'
 				  #"Linhas em branco removidas" = Table.SelectRows(#"Tipo Alterado", each not List.IsEmpty(List.RemoveMatchingItems(Record.FieldValues(_), {"", null}))),
 				  #"Linhas sem id removidas" = Table.SelectRows(#"Linhas em branco removidas", each [id_proposicao] <> null),
 				  // id repetido na planilha derrubaria a atualização (relação 1:1): fica a primeira linha
-				  #"Sem ids repetidos" = Table.Distinct(#"Linhas sem id removidas", {"id_proposicao"})
+				  #"Sem ids repetidos" = Table.Distinct(#"Linhas sem id removidas", {"id_proposicao"}),
+				  // Só as colunas do modelo: colunas novas da aba (ex.: "casa") não entram sem querer
+				  Colunas = Table.SelectColumns(#"Sem ids repetidos", {"id_proposicao", "identificacao", "ementa", "ultima_movimentacao", "data_ultima_movimentacao", "keywords_encontradas", "link_direto", "relevancia", "acompanhada", "status_inclusao"}, MissingField.UseNull)
 				in
-				  #"Sem ids repetidos"
+				  Colunas
 
 	annotation PBI_NavigationStepName = Navegação
 
