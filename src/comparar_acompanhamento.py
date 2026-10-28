@@ -113,8 +113,17 @@ def rotulos_do_silver(cur, candidatas):
         FROM silver.proposicao p
         JOIN {origem}
           ON {ativo}
-         AND (p.ementa ~* k.termo OR p.keywords_camara ~* k.termo)
-         AND (k.termo_requerido IS NULL OR p.ementa ~* k.termo_requerido OR p.keywords_camara ~* k.termo_requerido)
+         -- mesma regra da gold.vw_proposicao_keywords: sem acento nas linhas do Senado
+         AND CASE WHEN p.casa = 'SF' THEN
+                 (extensions.unaccent(coalesce(p.ementa, '')) ~* extensions.unaccent(k.termo)
+                  OR extensions.unaccent(coalesce(p.keywords_camara, '')) ~* extensions.unaccent(k.termo))
+                 AND (k.termo_requerido IS NULL
+                      OR extensions.unaccent(coalesce(p.ementa, '')) ~* extensions.unaccent(k.termo_requerido)
+                      OR extensions.unaccent(coalesce(p.keywords_camara, '')) ~* extensions.unaccent(k.termo_requerido))
+             ELSE
+                 (p.ementa ~* k.termo OR p.keywords_camara ~* k.termo)
+                 AND (k.termo_requerido IS NULL OR p.ementa ~* k.termo_requerido OR p.keywords_camara ~* k.termo_requerido)
+             END
         GROUP BY p.id_proposicao;
         """,
         params,

@@ -11,6 +11,8 @@ REQUIRED_RELATIONS = (
     "bronze.eventos_json",
     "bronze.eventos_pauta_json",
     "bronze.controle_execucao",
+    "bronze.sf_processo_json",
+    "bronze.sf_mapa_revisora",
     "silver.proposicao",
     "silver.proposicoes_proponentes",
     "silver.proposicao_tema",
@@ -22,6 +24,7 @@ REQUIRED_RELATIONS = (
     "silver.dim_keyword",
     "silver.proposicao_acompanhada",
     "silver.proposicao_vinculo",
+    "silver.dim_senador",
     "gold.vw_grupo_projeto",
     "gold.vw_monitoramento",
     "gold.vw_tramitacoes",
@@ -62,6 +65,10 @@ def check_environment():
                 raise RuntimeError(
                     "Nenhuma keyword ativa. Configure a dimensão antes de ativar o pipeline."
                 )
+            # Keywords do Senado casam sem acento (gold.vw_proposicao_keywords).
+            cur.execute("SELECT to_regprocedure('extensions.unaccent(text)');")
+            if cur.fetchone()[0] is None:
+                raise RuntimeError("Função extensions.unaccent ausente. Execute setup_db.py (CREATE EXTENSION unaccent).")
             cur.execute(SQL_DUPLICADAS)
             duplicadas = [linha[0] for linha in cur.fetchall()]
             da_camara = [id_prop for id_prop in duplicadas if id_prop < SENADO_OFFSET]

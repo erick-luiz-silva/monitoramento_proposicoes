@@ -6,7 +6,7 @@ import api_client as api
 from config import SENADO_OFFSET, TEMAS
 from db import get_connection
 from extract_bronze import carregar_ids, executar_reconciliacao
-from extract_senado import executar_carga_senado
+from extract_senado import SenadoComPendencias, executar_carga_senado
 from load_bronze import carregar_proposicao_bronze
 from load_api import atualizar_api
 from load_dim_deputado import carregar_dim_deputado
@@ -192,6 +192,9 @@ def executar_carga_incremental():
     print("\nCarga do Senado...")
     try:
         executar_carga_senado()
+    except SenadoComPendencias as exc:
+        # Dados do Senado gravados; algo não bloqueante falhou (acompanhada, gêmeo, mapa...).
+        gravar_aviso_senado(f"Senado atualizado com pendências: {exc}")
     except Exception as exc:
         gravar_aviso_senado(f"Senado não atualizado: {exc}")
 
