@@ -141,9 +141,28 @@ def atualizar_mapa_revisora(conn, completo, numdias=None):
     return len(novos)
 
 
+# Gêmeos (ids nativos do Senado) de proposições monitoradas da Câmara: (a) pelo mapa dos
+# "Revisora", inclusive os que mudaram de número; (b) os já ligados, para mantê-los em dia;
+# (c) os vínculos manuais (PLC 10/2018, PLS 302/2018).
+_SQL_GEMEOS = """
+    WITH monitoradas_cd AS (SELECT id_proposicao FROM gold.vw_monitoramento WHERE casa = 'CD')
+    SELECT m.id_processo
+    FROM bronze.sf_mapa_revisora m
+    JOIN silver.proposicao p ON p.casa = 'CD' AND p.sigla_tipo = m.sigla AND p.numero = m.numero AND p.ano = m.ano
+    WHERE p.id_proposicao IN (SELECT id_proposicao FROM monitoradas_cd)
+    UNION ALL
+    SELECT v.id_proposicao_sf - 1000000000 FROM silver.proposicao_vinculo v
+    WHERE v.id_proposicao_cd IN (SELECT id_proposicao FROM monitoradas_cd)
+    UNION ALL
+    SELECT id_proposicao_sf - 1000000000 FROM silver.proposicao_vinculo WHERE origem = 'manual';
+"""
+
+
 def ids_gemeos(conn):
-    """Processos do Senado gêmeos de proposições monitoradas da Câmara. Ver Tarefa 4.2."""
-    return []
+    """Processos do Senado gêmeos de proposições monitoradas da Câmara (ids nativos)."""
+    with conn.cursor() as cur:
+        cur.execute(_SQL_GEMEOS)
+        return _sem_repetir(int(linha[0]) for linha in cur.fetchall())
 
 
 def _carregar(conn, ids, prazo_fim):
@@ -248,5 +267,53 @@ def executar_carga_senado():
         raise SenadoComPendencias("; ".join(pendencias))
 
 
+def _janelas_de_um_ano(desde, ate):
+    """Intervalos de apresentação de no máximo 1 ano (limite da API), de desde até ate."""
+    inicio = desde
+    while inicio <= ate:
+        fim = min(date(inicio.year + 1, inicio.month, 1) - timedelta(days=1), ate)
+        yield inicio, fim
+        inicio = fim + timedelta(days=1)
+
+
+def executar_bootstrap(desde, hoje=None):
+    """Carga inicial: classes por ano de apresentação desde `desde`, classes em tramitação,
+    todas as MPVs, acompanhadas, mapa completo dos "Revisora" e gêmeos; depois transforma
+    (com a conferência de unicidade) e carrega os senadores. Não registra janela: a primeira
+    carga diária usa 30 dias."""
+    hoje = hoje or date.today()
+    ids = []
+    for classe in api.expandir_classes(CLASSES_SENADO):
+        for inicio, fim in _janelas_de_um_ano(desde, hoje):
+            ids += _ids(api.listar_processos(codigo_classe=classe, data_inicio=inicio, data_fim=fim))
+        ids += _ids(api.listar_processos(codigo_classe=classe, tramitando=True))
+    for inicio, fim in _janelas_de_um_ano(desde, hoje):
+        ids += _ids(api.listar_processos(sigla="MPV", data_inicio=inicio, data_fim=fim))
+    with get_connection() as conn:
+        ids += carregar_acompanhadas_sf(conn)
+        atualizar_mapa_revisora(conn, completo=True)
+        ids += ids_gemeos(conn)
+    ids = _sem_repetir(ids)
+    print(f"Senado (carga inicial): {len(ids)} processos")
+    with get_connection() as conn:
+        erros = _carregar(conn, ids, time.monotonic() + 6 * 3600)
+    transformar_com_unicidade()
+    carregar_dim_senador()
+    if erros:
+        raise RuntimeError(f"{len(erros)} processos com erro na carga inicial (ex.: {erros[0][0]}: {erros[0][1]}); rode de novo")
+    print("Carga inicial do Senado concluída.")
+
+
 def executar_pautas_senado():
     print("Senado: carga de pautas ainda não habilitada.")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Carga do Senado (diária ou inicial).")
+    parser.add_argument("--bootstrap", action="store_true", help="carga inicial (não registra janela)")
+    parser.add_argument("--desde", type=date.fromisoformat, default=date(2023, 2, 1))
+    args = parser.parse_args()
+    if args.bootstrap:
+        executar_bootstrap(args.desde)
+    else:
+        executar_carga_senado()

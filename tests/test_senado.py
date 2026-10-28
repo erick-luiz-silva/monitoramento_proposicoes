@@ -525,5 +525,43 @@ class VinculoSenadoTests(unittest.TestCase):
         listar.assert_called_once_with(tramitando=True)
 
 
+class GemeosTests(unittest.TestCase):
+    def test_ids_gemeos_das_tres_origens(self):
+        cur = MagicMock(); cur.fetchall.return_value = [(8152618,), (7364805,), (8152618,)]
+        conn = MagicMock(); conn.cursor.return_value.__enter__.return_value = cur
+        self.assertEqual(extract_senado.ids_gemeos(conn), [8152618, 7364805])
+        sql = cur.execute.call_args.args[0]
+        self.assertIn("bronze.sf_mapa_revisora", sql)                      # (a) mapa × monitorados da Câmara
+        self.assertIn("silver.proposicao_vinculo", sql)                    # (b) já ligados
+        self.assertIn("origem = 'manual'", sql)                            # (c) manuais
+        self.assertIn("gold.vw_monitoramento", sql)
+
+
+class BootstrapSenadoTests(unittest.TestCase):
+    def test_ordem_e_sem_janela(self):
+        eventos = []
+        conn = MagicMock(); conn.__enter__.return_value = conn
+        with patch.object(extract_senado, "get_connection", return_value=conn), patch.object(
+                extract_senado.api, "expandir_classes", return_value=[1]), patch.object(
+                extract_senado.api, "listar_processos", side_effect=lambda **kw: [{"id": 10 if "codigo_classe" in kw else 20}]) as listar, patch.object(
+                extract_senado, "carregar_acompanhadas_sf", return_value=[30]), patch.object(
+                extract_senado, "atualizar_mapa_revisora", side_effect=lambda c, completo, numdias=None: eventos.append(("mapa", completo))), patch.object(
+                extract_senado, "ids_gemeos", side_effect=lambda c: eventos.append("gemeos") or [40]), patch.object(
+                extract_senado, "carregar_processo", side_effect=lambda c, i: eventos.append(("bronze", i)) or "ok"), patch.object(
+                extract_senado, "transformar_com_unicidade", side_effect=lambda: eventos.append("silver")), patch.object(
+                extract_senado, "carregar_dim_senador", side_effect=lambda: eventos.append("dim")), patch.object(
+                extract_senado, "registrar_execucao") as registrar:
+            extract_senado.executar_bootstrap(date(2025, 6, 1), hoje=date(2026, 10, 28))
+        registrar.assert_not_called()
+        self.assertEqual(sorted(e[1] for e in eventos if isinstance(e, tuple) and e[0] == "bronze"), [10, 20, 30, 40])
+        self.assertLess(eventos.index(("mapa", True)), eventos.index("gemeos"))
+        self.assertEqual(eventos[-2:], ["silver", "dim"])
+        # janelas de apresentação de no máximo 1 ano, cobrindo de 2025-06-01 até hoje
+        janelas = sorted({(c.kwargs["data_inicio"], c.kwargs["data_fim"]) for c in listar.call_args_list if "data_inicio" in c.kwargs})
+        self.assertEqual(janelas[0][0], date(2025, 6, 1))
+        self.assertEqual(janelas[-1][1], date(2026, 10, 28))
+        self.assertTrue(all((fim - ini).days < 366 for ini, fim in janelas))
+
+
 if __name__ == "__main__":
     unittest.main()
