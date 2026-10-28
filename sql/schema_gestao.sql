@@ -38,8 +38,13 @@ CREATE TABLE IF NOT EXISTS gestao.decisao_projeto (
     atualizado_em        TIMESTAMPTZ NOT NULL DEFAULT now(),
     atualizado_por_id    UUID,
     atualizado_por_nome  TEXT,
-    CONSTRAINT ck_decisao_prioridade_exige_sim CHECK (prioridade IS NOT TRUE OR relevancia = 'SIM')
+    CONSTRAINT ck_decisao_prioridade_exige_sim CHECK (prioridade IS NOT TRUE OR relevancia IS NOT DISTINCT FROM 'SIM')
 );
+-- CREATE TABLE IF NOT EXISTS não altera tabela existente: recria a constraint (idempotente) para
+-- que prioridade=true com relevância NULL (pendente) também seja barrada.
+ALTER TABLE gestao.decisao_projeto DROP CONSTRAINT IF EXISTS ck_decisao_prioridade_exige_sim;
+ALTER TABLE gestao.decisao_projeto ADD CONSTRAINT ck_decisao_prioridade_exige_sim
+    CHECK (prioridade IS NOT TRUE OR relevancia IS NOT DISTINCT FROM 'SIM');
 
 -- Auditoria imutável.
 CREATE TABLE IF NOT EXISTS gestao.historico_alteracao (
@@ -116,7 +121,8 @@ INSERT INTO gestao.situacao_encerramento (casa, cod_situacao, texto_situacao, ti
     ('SF', NULL, 'REMETIDA À CÂMARA DOS DEPUTADOS',    'remessa')
 ON CONFLICT DO NOTHING;
 
--- Sem acesso para a Data API.
+-- Sem acesso para a Data API. Mantido como último comando do arquivo. Os ALTER DEFAULT PRIVILEGES
+-- valem para objetos criados pelo papel que aplica o setup; o REVOKE em massa cobre o restante.
 REVOKE ALL ON SCHEMA gestao FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON ALL TABLES IN SCHEMA gestao FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA gestao FROM PUBLIC, anon, authenticated;

@@ -99,6 +99,9 @@ class BancoLimpoTests(unittest.TestCase):
         with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
             self.cur.execute("SELECT * FROM gestao.projeto")
         self.conn.rollback()
+        for papel in ("anon", "authenticated"):
+            self.cur.execute("SELECT has_table_privilege(%s, 'gestao.projeto', 'SELECT')", (papel,))
+            self.assertFalse(self.cur.fetchone()[0], papel)
 
     def test_prioridade_exige_relevancia_sim(self):
         import psycopg2
@@ -106,6 +109,10 @@ class BancoLimpoTests(unittest.TestCase):
         self.cur.execute("INSERT INTO gestao.projeto (uuid) VALUES ('00000000-0000-0000-0000-000000000001')")
         with self.assertRaises(psycopg2.errors.CheckViolation):
             self.cur.execute("INSERT INTO gestao.decisao_projeto (uuid_projeto, relevancia, prioridade) VALUES ('00000000-0000-0000-0000-000000000001', 'NAO', true)")
+        self.conn.rollback()
+        # relevância pendente (NULL) também não admite prioridade
+        with self.assertRaises(psycopg2.errors.CheckViolation):
+            self.cur.execute("INSERT INTO gestao.decisao_projeto (uuid_projeto, relevancia, prioridade) VALUES ('00000000-0000-0000-0000-000000000001', NULL, true)")
         self.conn.rollback()
 
     def test_unaccent_disponivel(self):
