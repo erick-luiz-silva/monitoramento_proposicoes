@@ -225,3 +225,26 @@ UPDATE silver.tramitacao SET eh_relator = coalesce(descricao_tramitacao, '') ~* 
  WHERE eh_relator IS NULL AND id_proposicao < 1000000000;
 UPDATE silver.evento_pauta SET votado = (uri_votacao IS NOT NULL)
  WHERE votado IS NULL AND id_evento < 1000000000;
+
+-- Senado, fase 3 (docs/superpowers/plans/2026-10-28-senado-fases-3-4.md).
+-- Autor do Senado: código do parlamentar no sistema do Senado (nunca o id da Câmara) e o
+-- partido/UF da época, de reserva quando o senador não está na dim.
+ALTER TABLE silver.proposicoes_proponentes ADD COLUMN IF NOT EXISTS codigo_parlamentar_senado INT;
+ALTER TABLE silver.proposicoes_proponentes ADD COLUMN IF NOT EXISTS partido_autor_epoca VARCHAR(20);
+ALTER TABLE silver.proposicoes_proponentes ADD COLUMN IF NOT EXISTS uf_autor_epoca VARCHAR(5);
+
+-- Senadores: partido/UF atuais (/senador/lista/atual e /senador/{codigo} para ex-senadores).
+-- Tipos iguais aos de dim_deputado: a gold faz coalesce entre as duas.
+CREATE TABLE IF NOT EXISTS silver.dim_senador (
+    codigo        INT PRIMARY KEY,
+    nome          VARCHAR(255),
+    sigla_partido VARCHAR(20),
+    sigla_uf      VARCHAR(5),
+    em_exercicio  BOOLEAN,
+    data_extracao TIMESTAMP
+);
+
+-- Keywords sem acento nas linhas do Senado (a indexação do Senado às vezes vem sem acento).
+-- Sempre qualificado como extensions.unaccent na gold.
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA extensions;

@@ -29,6 +29,15 @@ def executar_transformacao_silver():
                 print(f"{nome}: {cur.fetchone()[0]} linhas")
 
 
+def executar_transformacao_senado(cur):
+    """Transforma a bronze do Senado no cursor recebido, sem commit.
+
+    Quem chama (extract_senado) confere a unicidade da gold antes do commit e desfaz a
+    transformação inteira se houver duplicata, para o refresh do api não quebrar.
+    """
+    cur.execute((SQL_DIR / "transform_senado_to_silver.sql").read_text(encoding="utf-8"))
+
+
 def executar_transformacao_eventos():
     """Atualiza somente eventos e pautas, sem reprocessar proposições."""
     sql = (SQL_DIR / "transform_eventos_to_silver.sql").read_text(encoding="utf-8")

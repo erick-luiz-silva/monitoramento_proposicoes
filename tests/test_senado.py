@@ -16,6 +16,7 @@ import extract_incremental
 import load_bronze_senado
 import load_dim_deputado
 import load_dim_orgao
+import load_silver
 import pipeline_inclusao
 
 SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
@@ -272,6 +273,43 @@ class BronzeSenadoTests(unittest.TestCase):
         self.assertIn("CREATE TABLE IF NOT EXISTS bronze.sf_processo_json", sql)
         self.assertIn("hash_payload", sql)
         self.assertIn("CREATE TABLE IF NOT EXISTS bronze.sf_mapa_revisora", sql)
+
+
+class TransformacaoSenadoSqlTests(unittest.TestCase):
+    def comandos(self):
+        sql = sem_comentarios(ler("transform_senado_to_silver.sql"))
+        return [c.strip() for c in sql.split(";") if c.strip()]
+
+    def test_proposicao_e_tramitacao_gravam_sf(self):
+        cmds = self.comandos()
+        for tabela in ("silver.proposicao (", "silver.tramitacao ("):
+            insert = next(c for c in cmds if c.startswith(("INSERT INTO " + tabela, "WITH")) and ("INSERT INTO " + tabela) in c)
+            self.assertIn("'SF'", insert, tabela)
+        tram = next(c for c in cmds if "INSERT INTO silver.tramitacao" in c)
+        self.assertIn("ON CONFLICT (id_proposicao, sequencia) DO NOTHING", tram)
+
+    def test_deletes_so_na_faixa_do_senado(self):
+        for c in self.comandos():
+            if c.upper().startswith("DELETE FROM SILVER."):
+                self.assertTrue("1000000000" in c or "origem <> 'manual'" in c, c)
+
+    def test_exclui_substitutivo_e_emenda_e_colegiado_vazio(self):
+        sql = sem_comentarios(ler("transform_senado_to_silver.sql"))
+        self.assertIn("'Substitutivo'", sql)
+        self.assertIn("'Emenda'", sql)
+        self.assertIn("? 'codigo'", sql)
+        self.assertIn("DISTINCT ON (codigo)", sql)
+
+    def test_situacao_deterministica(self):
+        sql = sem_comentarios(ler("transform_senado_to_silver.sql"))
+        self.assertIn("WITH ORDINALITY", sql)
+        self.assertIn("situacaoAtual", sql)
+
+    def test_transformacao_no_cursor_sem_commit(self):
+        cur = MagicMock()
+        load_silver.executar_transformacao_senado(cur)
+        self.assertIn("silver.proposicao", cur.execute.call_args.args[0])
+        self.assertFalse(hasattr(cur, "commit") and cur.commit.called)
 
 
 if __name__ == "__main__":
