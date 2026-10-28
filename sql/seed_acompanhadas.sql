@@ -1,8 +1,8 @@
 -- Fotografia única (15/10/2026) da planilha antiga de acompanhamento ("Acompanhamento manual"),
 -- resolvida para ids da Câmara pelo comparar_acompanhamento.py. A planilha antiga fica só
 -- para auditoria e não é lida por nenhuma automação. Idempotente: aplicada pelo setup_db.py.
--- Fora desta lista: PL 347/2003 (não localizada na API da Câmara; aguardando confirmação)
--- e as proposições do Senado (fase seguinte do projeto).
+-- Fora desta lista: PL 347/2003 (não localizada na API da Câmara; aguardando confirmação).
+-- As proposições só do Senado da planilha antiga estão no fim (chave 1000000000 + id do Senado).
 INSERT INTO silver.proposicao_acompanhada (id_proposicao, origem, observacao) VALUES
     (251853, 'planilha_antiga', 'PL 3479/2004'),
     (257161, 'planilha_antiga', 'PL 2159/2021'),
@@ -59,3 +59,25 @@ INSERT INTO silver.proposicao_acompanhada (id_proposicao, origem, observacao) VA
     (2641610, 'planilha_antiga', 'PL 4795/2026'),
     (2646587, 'planilha_antiga', 'PL 4262/2025')
 ON CONFLICT (id_proposicao) DO NOTHING;
+
+-- Proposições só do Senado da planilha antiga (chave = 1000000000 + id do processo no Senado,
+-- config.SENADO_OFFSET). A MPV é acompanhada pelo Senado (decisão de 27/10/2026).
+INSERT INTO silver.proposicao_acompanhada (id_proposicao, origem, observacao) VALUES
+    (1008283772, 'planilha_antiga', 'PL 1879/2022 (Senado)'),
+    (1008992504, 'planilha_antiga', 'PL 433/2026 (Senado)'),
+    (1008900340, 'planilha_antiga', 'PL 4363/2025 (Senado)'),
+    (1007376720, 'planilha_antiga', 'PLS 168/2018 (Senado)'),
+    (1007403160, 'planilha_antiga', 'PLS 302/2018 (Senado)'),
+    (1002913579, 'planilha_antiga', 'PLS 326/2016 (Senado)'),
+    (1002916834, 'planilha_antiga', 'PLS 631/2015 (Senado)'),
+    (1002916662, 'planilha_antiga', 'PLS 650/2015 (Senado)'),
+    (1008537155, 'planilha_antiga', 'MPV 1186/2023 (Senado)')
+ON CONFLICT (id_proposicao) DO NOTHING;
+
+-- Versões do mesmo projeto que a API não liga (anotadas na planilha antiga):
+-- PL 5851/2016 (Câmara) = PLC 10/2018 (Senado); PL 3047/2022 (Câmara) = PLS 302/2018 (Senado).
+-- Sem FK: o processo do Senado pode ainda não estar na silver.
+INSERT INTO silver.proposicao_vinculo (id_proposicao_cd, id_proposicao_sf, origem) VALUES
+    (2092191, 1007364805, 'manual'),
+    (2344901, 1007403160, 'manual')
+ON CONFLICT (id_proposicao_cd, id_proposicao_sf) DO NOTHING;

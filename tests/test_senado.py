@@ -472,5 +472,17 @@ class OrquestradorPendenciasTests(unittest.TestCase):
         self.assertTrue(aviso.call_args.args[0].startswith("Senado atualizado com pendências: "))
 
 
+class SeedSenadoTests(unittest.TestCase):
+    def test_acompanhadas_do_senado_e_vinculos_manuais(self):
+        seed = sem_comentarios(ler("seed_acompanhadas.sql"))
+        ids = [int(i) for i in re.findall(r"\((\d{10}), 'planilha_antiga'", seed)]
+        self.assertEqual(sorted(ids), sorted(config.SENADO_OFFSET + i for i in (
+            8283772, 8992504, 8900340, 7376720, 7403160, 2913579, 2916834, 2916662, 8537155)))
+        self.assertIn("INSERT INTO silver.proposicao_vinculo", seed)
+        self.assertIn("(2092191, 1007364805, 'manual')", seed)
+        self.assertIn("(2344901, 1007403160, 'manual')", seed)
+        self.assertEqual(seed.count("ON CONFLICT"), 3)
+
+
 if __name__ == "__main__":
     unittest.main()
