@@ -376,7 +376,13 @@ Os ids entram como não bloqueantes, na etapa 3 da 3.6.
 - Fix pass com RED → GREEN, como na fase 1.
 
 ### Tarefa D: Deploy em produção (cada passo autorizado pelo Erick)
-0. **Pré-condição [Fable lacuna 1]:** refinar a keyword "produtor rural", que responde por 41 dos 48 casamentos do Senado, ou registrar a dispensa do Erick. É decisão de negócio.
+0. **Pré-condição [Fable lacuna 1] — dispensada pelo Erick em 28/10/2026.** Nenhum contexto de texto separa as SIM das NÃO de "produtor rural":
+   - os temas coincidem (crédito rural, recuperação judicial, leite);
+   - o melhor contexto mantém 11/11 SIM com precisão de 8%, e o mais restrito perde 3 SIM;
+   - apagar a keyword tiraria 10 das 11 SIM do monitoramento;
+   - o efeito no painel é nulo, porque `em_painel` usa só acompanhadas e SIM, e no radar é de cerca de 1 por mês.
+
+   A pergunta sobre manter "produtor rural" no radar vai para a Ana.
 1. Anotar o "antes": as mesmas contagens da 1.8 (banco e DAX), mais o tempo da `gold.vw_monitoramento` e **os pendentes da Câmara**.
    - Conferir onde a extensão está: `SELECT extnamespace::regnamespace FROM pg_extension WHERE extname = 'unaccent'`. Se estiver fora de `extensions`, ajustar antes do `setup_db`. **[Fable E7]**
 2. Desativar o Agendador do n8n.
