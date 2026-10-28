@@ -13,10 +13,19 @@ SELECT
 FROM silver.proposicao p
 JOIN silver.dim_keyword k
     ON k.ativo
-    AND (p.ementa ~* k.termo OR p.keywords_camara ~* k.termo)
-    AND (k.termo_requerido IS NULL
-         OR p.ementa ~* k.termo_requerido
-         OR p.keywords_camara ~* k.termo_requerido)
+    AND CASE WHEN p.casa = 'SF' THEN
+            -- Senado: sem acento dos dois lados (a indexação do Senado às vezes vem sem acento)
+            (extensions.unaccent(coalesce(p.ementa, '')) ~* extensions.unaccent(k.termo)
+             OR extensions.unaccent(coalesce(p.keywords_camara, '')) ~* extensions.unaccent(k.termo))
+            AND (k.termo_requerido IS NULL
+                 OR extensions.unaccent(coalesce(p.ementa, '')) ~* extensions.unaccent(k.termo_requerido)
+                 OR extensions.unaccent(coalesce(p.keywords_camara, '')) ~* extensions.unaccent(k.termo_requerido))
+        ELSE
+            (p.ementa ~* k.termo OR p.keywords_camara ~* k.termo)
+            AND (k.termo_requerido IS NULL
+                 OR p.ementa ~* k.termo_requerido
+                 OR p.keywords_camara ~* k.termo_requerido)
+        END
 GROUP BY p.id_proposicao;
 
 -- Grupo do projeto: as versões do mesmo projeto nas duas casas (silver.proposicao_vinculo,
@@ -83,8 +92,10 @@ SELECT
     p.ementa,
     autor.nome AS autor_principal,
     autor.tipo AS tipo_autor_principal,
-    dep.sigla_partido AS partido_autor_principal,
-    dep.sigla_uf AS uf_autor_principal,
+    -- Partido/UF atuais: deputado (Câmara), senador (Senado) ou, para a versão do Senado de um
+    -- projeto da Câmara, o deputado autor da versão da Câmara do grupo; por último, o da época.
+    coalesce(dep.sigla_partido, sen.sigla_partido, dep_grupo.sigla_partido, autor.partido_autor_epoca) AS partido_autor_principal,
+    coalesce(dep.sigla_uf, sen.sigla_uf, dep_grupo.sigla_uf, autor.uf_autor_epoca) AS uf_autor_principal,
     p.descricao_situacao AS situacao_atual,
     p.sigla_orgao_atual AS orgao_atual,
     COALESCE(p.descricao_tramitacao, p.despacho) AS ultima_movimentacao,
@@ -114,6 +125,17 @@ LEFT JOIN silver.dim_deputado dep
     ON autor.tipo = 'Deputado(a)'
     AND autor.uri ~ '/[0-9]+$'
     AND dep.id_deputado = (CASE WHEN autor.uri ~ '/[0-9]+$' THEN regexp_replace(autor.uri, '.*/', '') END)::int
+LEFT JOIN silver.dim_senador sen
+    ON autor.tipo = 'Senador(a)' AND sen.codigo = autor.codigo_parlamentar_senado
+-- Uma linha só: o autor de ordem 1 da proposição-chave do grupo (a versão da Câmara, quando existe).
+LEFT JOIN silver.proposicoes_proponentes autor_cd
+    ON p.casa = 'SF' AND autor.tipo = 'Deputado(a) – via Senado'
+    AND g.chave_projeto < 1000000000
+    AND autor_cd.id_proposicao = g.chave_projeto AND autor_cd.ordem_assinatura = 1
+LEFT JOIN silver.dim_deputado dep_grupo
+    ON autor_cd.tipo = 'Deputado(a)'
+    AND autor_cd.uri ~ '/[0-9]+$'
+    AND dep_grupo.id_deputado = (CASE WHEN autor_cd.uri ~ '/[0-9]+$' THEN regexp_replace(autor_cd.uri, '.*/', '') END)::int
 LEFT JOIN silver.dim_orgao orgao ON orgao.id_orgao = p.id_orgao_atual
 WHERE kw.id_proposicao IS NOT NULL OR g.grupo_acompanhado
 ORDER BY p.data_ultima_movimentacao DESC;

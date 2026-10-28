@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import api_client_senado
+import comparar_acompanhamento
 import config
 import extract_incremental
 import load_bronze_senado
@@ -310,6 +311,30 @@ class TransformacaoSenadoSqlTests(unittest.TestCase):
         load_silver.executar_transformacao_senado(cur)
         self.assertIn("silver.proposicao", cur.execute.call_args.args[0])
         self.assertFalse(hasattr(cur, "commit") and cur.commit.called)
+
+
+class GoldSenadoFase3Tests(unittest.TestCase):
+    def test_keywords_sem_acento_so_no_senado(self):
+        v = gold_view("vw_proposicao_keywords")
+        self.assertIn("CASE WHEN p.casa = 'SF' THEN", v)
+        self.assertIn("extensions.unaccent(", v)
+        # o ramo da Câmara continua sem unaccent
+        camara = v.split("ELSE", 1)[1]
+        self.assertNotIn("unaccent", camara.split("END", 1)[0])
+
+    def test_autor_do_senado_e_do_grupo(self):
+        v = gold_view("vw_monitoramento")
+        self.assertIn("LEFT JOIN silver.dim_senador sen", v)
+        self.assertIn("sen.codigo = autor.codigo_parlamentar_senado", v)
+        self.assertIn("autor.partido_autor_epoca", v)
+        self.assertIn("dep_grupo", v)
+
+    def test_comparador_espelha_a_regra_por_casa(self):
+        cur = MagicMock(); cur.fetchall.return_value = []
+        comparar_acompanhamento.rotulos_do_silver(cur, False)
+        sql = cur.execute.call_args.args[0]
+        self.assertIn("CASE WHEN p.casa = 'SF' THEN", sql)
+        self.assertIn("extensions.unaccent(", sql)
 
 
 if __name__ == "__main__":
