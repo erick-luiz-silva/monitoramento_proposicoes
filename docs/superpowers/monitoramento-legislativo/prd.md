@@ -45,7 +45,7 @@ Levantamento de 28/10/2026: API Google Sheets, MCP do n8n, código do pipeline e
 | Fonte | Constatação |
 |---|---|
 | Proposições | 350 registros: 81 SIM, 268 NÃO, um pendente; 54 acompanhadas |
-| Posicionamento ABCS | 81 linhas, todas correspondentes. A aba não tem coluna de id: as colunas são `identificacao, ementa, posicao_abcs, acao, parecer_abcs, prioridade, observacoes`. O Power BI resolve identificação → `chave_projeto` com sufixo de casa e deixa sem ligação (chave negativa) as identificações ambíguas entre casas (`dim_posicionamento_abcs.tmdl`). Posição em 68, ação em 39, parecer em 27, observações em 38 |
+| Posicionamento ABCS | 81 linhas, todas correspondentes. Em 28/10/2026 a aba passou a ter a coluna `id_proposicao` (preenchida nas 81 linhas): as colunas são `id_proposicao, identificacao, ementa, posicao_abcs, acao, parecer_abcs, prioridade, observacoes`. A migração usa o id primeiro; o Power BI ainda resolve identificação → `chave_projeto` com sufixo de casa e deixa sem ligação (chave negativa) as identificações ambíguas entre casas (`dim_posicionamento_abcs.tmdl`). Posição em 68, ação em 39, parecer em 27, observações em 38 |
 | Prioridade | 16 SIM, 12 NÃO, 53 vazios |
 | Legado | 151 linhas históricas e backup de posicionamento de 20/10/2026 |
 | n8n | Três fluxos legislativos publicados: agendamento, atualização/alertas e inclusão manual |
@@ -269,7 +269,7 @@ Quando a regra resolve sozinha e quando ela vai para a Ana (esclarecimento):
 
 Usar as abas atuais como fonte; legado/backup são evidência de conferência. Ensaiar importação idempotente, verificar totais por campo e preservar vazios. Snapshots privados e conteúdo político não entram no repositório público.
 
-A migração liga cada linha da aba Posicionamento pela `identificacao`, porque não há coluna de id. Ela reaproveita a regra do Power BI, com sufixo de casa, e toda identificação ambígua entre casas vira conflito.
+A migração liga cada linha da aba Posicionamento pelo `id_proposicao` quando preenchido (validado no banco); um id que discorda da identificação vira conflito. Sem id, usa a `identificacao` pela regra do Power BI, com sufixo de casa, e toda identificação ambígua entre casas vira conflito. Linhas da aba Proposições cujo id não está no monitoramento atual não são conflito: a decisão é importada e a linha vai para uma lista do mantenedor.
 
 Conflitos são casos em que a planilha diz coisas diferentes para o mesmo projeto. Exemplos: versões com relevância ou posição diferentes, prioridade SIM em proposição NÃO, textos divergentes para o mesmo projeto. São resolvidos na planilha, antes do congelamento, a partir de uma lista preparada pelo mantenedor. A Ana decide cada caso (decisão do Erick, 28/10/2026). A importação final, no congelamento, repete a detecção de conflitos, porque a planilha continua sendo editada depois do ensaio. Com um conflito em aberto, a virada não acontece. A seed atual já inclui 9 acompanhadas do Senado (ids ≥ 1e9) e 2 vínculos manuais, e a importação agrupa pelas versões das duas casas.
 
