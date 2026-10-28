@@ -97,6 +97,12 @@ CREATE TABLE IF NOT EXISTS gestao.inclusao_manual (
     criado_em             TIMESTAMPTZ NOT NULL DEFAULT now(),
     atualizado_em         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Proposição já monitorada quando o pedido foi resolvido (concluído sem reativar nada, RF08) e
+-- quem retomou o pedido por último ("Tentar agora" ou novo pedido igual a um que falhou, RF01).
+ALTER TABLE gestao.inclusao_manual ADD COLUMN IF NOT EXISTS ja_monitorada BOOLEAN;
+ALTER TABLE gestao.inclusao_manual ADD COLUMN IF NOT EXISTS retomado_por_id UUID;
+ALTER TABLE gestao.inclusao_manual ADD COLUMN IF NOT EXISTS retomado_por_nome TEXT;
+ALTER TABLE gestao.inclusao_manual ADD COLUMN IF NOT EXISTS retomado_em TIMESTAMPTZ;
 
 -- Referência editável pelo mantenedor: situações que encerram a tramitação (RN07).
 -- Câmara casa por cod_situacao; Senado casa por texto (a silver grava cod_situacao NULL).

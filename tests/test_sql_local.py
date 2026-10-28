@@ -128,7 +128,7 @@ FUNCOES_APP = (
     "gestao.avaliar(bigint, text, int, uuid, text)",
     "gestao.desfazer_avaliacao(bigint, uuid, text)",
     "gestao.solicitar_inclusao(text, text, uuid, text)",
-    "gestao.tentar_inclusao_agora(bigint)",
+    "gestao.tentar_inclusao_agora(bigint, uuid, text)",
 )
 FUNCOES_INTERNAS = (
     "gestao.gravar_decisao(uuid, bigint, int, jsonb, uuid, text, text)",
@@ -225,12 +225,12 @@ class ContratosTests(_ComDados):
         self.assertEqual(self.projeto(900003, *cols), (True, True, None))  # prioridade sem data fica ativa
 
     def test_encerramento_entre_casas(self):
-        # sem decisão: remessa/divergência não poluem a lista do mantenedor
+        # sem UUID nem acompanhamento: remessa/divergência não poluem a lista do mantenedor
         self.assertFalse(self.projeto(900007, "a_conferir"))
         self.decidir(uuid_teste(5), [900005, 1990000005], "SIM")
         self.decidir(uuid_teste(6), [900006], "SIM", True)
         self.decidir(uuid_teste(16), [1990000016], "SIM")
-        self.decidir(uuid_teste(7), [900007], "SIM")
+        self.decidir(uuid_teste(7), [900007], "NAO")  # conferência independe de relevância/elegibilidade
         self.decidir(uuid_teste(8), [900008, 1990000008], "SIM")
         cols = ("encerrado", "em_carteira", "motivo_historico", "motivos_conferencia")
         # CA05: versão arquivada não esconde a versão ativa da outra casa
@@ -239,7 +239,7 @@ class ContratosTests(_ComDados):
         self.assertEqual(self.projeto(900006, *cols), (True, False, "encerrado", []))
         # Senado casa por texto, sem caixa nem acento
         self.assertEqual(self.projeto(1990000016, *cols), (True, False, "encerrado", []))
-        self.assertEqual(self.projeto(900007, *cols), (False, True, None, ["remessa sem a versão da outra casa carregada"]))
+        self.assertEqual(self.projeto(900007, *cols), (False, False, "marcado NÃO", ["remessa sem a versão da outra casa carregada"]))
         self.assertEqual(self.projeto(900008, *cols), (False, True, None, ["encerramento divergente entre as versões"]))
         self.cur.execute("SELECT uuid_projeto::text, motivo FROM contrato.vw_conferencia ORDER BY 1")
         self.assertEqual(self.cur.fetchall(), [
@@ -309,6 +309,10 @@ class ContratosTests(_ComDados):
             ("Convocada", f"({hoje} + 15)::timestamp", False),       # fim exclusivo
             ("Convocada", f"({hoje} + 15)::timestamp - interval '1 minute'", True),
             ("Convocada", f"{hoje}::timestamp", True),               # início de hoje, inclusivo
+            (None, f"{hoje} + 3 + time '10:00'", False),             # sem status não é agendada
+            ("Encerrada", f"{hoje} + 3 + time '10:00'", False),
+            ("Encerrada (Final)", f"{hoje} + 3 + time '10:00'", False),
+            ("Realizada", f"{hoje} + 3 + time '10:00'", False),
             ("Convocada", f"{hoje}::timestamp - interval '1 minute'", False),
         ]
         for situacao, inicio, esperado in casos:
@@ -318,6 +322,29 @@ class ContratosTests(_ComDados):
         # pauta da vw_pauta com o status na leitura
         self.cur.execute("SELECT chave_agrupamento, status_alerta FROM contrato.vw_pauta")
         self.assertEqual(self.cur.fetchall(), [(uuid_teste(9), "Encerrado sem votação")])
+
+    def test_conferencia_suspende_urgencia(self):
+        self.decidir(uuid_teste(9), [900009], "SIM", True)
+        self.assertTrue(self.projeto(900009, "urgente_pauta"))
+        # a versão passa a "remessa" sem a outra casa carregada: vai à conferência, sem urgência automática
+        self.cur.execute("UPDATE silver.proposicao SET cod_situacao = 926 WHERE id_proposicao = 900009")
+        self.atualizar_cache()
+        self.assertEqual(self.projeto(900009, "a_conferir", "urgente_pauta", "em_carteira"), (True, False, True))
+
+    def test_agenda_futura_nao_aplica_corte(self):
+        # RN06: elegível, sem prioridade, parado há 2 anos, com pauta agendada daqui a 40 dias → Ativas
+        self.decidir(uuid_teste(2), [900002], "SIM")
+        self.assertFalse(self.projeto(900002, "em_carteira"))
+        self.cur.execute("""INSERT INTO silver.evento (id_evento, data_hora_inicio, descricao_tipo, situacao, sigla_orgao)
+            SELECT 9100002, (now() AT TIME ZONE 'America/Sao_Paulo')::date + 40 + time '14:00', 'Reunião Deliberativa', 'Convocada', 'CCJC'""")
+        self.cur.execute("INSERT INTO silver.evento_pauta (id_evento, ordem, id_proposicao, votado) VALUES (9100002, 1, 900002, false)")
+        self.atualizar_cache()
+        self.assertEqual(self.projeto(900002, "em_carteira", "motivo_historico", "urgente_pauta", "proxima_pauta_orgao"),
+                         (True, None, False, "CCJC"))
+        # reunião que não está agendada (encerrada) não segura o projeto nas Ativas
+        self.cur.execute("UPDATE silver.evento SET situacao = 'Encerrada' WHERE id_evento = 9100002")
+        self.atualizar_cache()
+        self.assertEqual(self.projeto(900002, "em_carteira", "motivo_historico"), (False, "parado há mais de 12 meses"))
 
     def test_fila_de_avaliacao(self):
         self.assertEqual(self.projeto(900031, "pendente_avaliacao", "em_carteira", "id_proposicao_recente"), (True, False, 900031))
@@ -451,8 +478,12 @@ class FuncoesGestaoTests(_ComDados):
         t = self.chamar("gestao.falhar_inclusao", p["id"], "Timeout", True)
         self.assertEqual((t["estado"], t["tentativas"]), ("solicitada", 1))
         self.assertIsNotNone(t["proxima_tentativa_em"])
-        self.assertTrue(self.chamar("gestao.tentar_inclusao_agora", p["id"])["alterado"])
-        self.assertEqual(self.contar("SELECT tentativas FROM gestao.inclusao_manual"), 0)
+        self.conn.commit()
+        self.assertErroDominio("ator_obrigatorio", "gestao.tentar_inclusao_agora", p["id"], None, "Ana")
+        self.chamar("gestao.falhar_inclusao", p["id"], "Timeout", True)
+        self.assertTrue(self.chamar("gestao.tentar_inclusao_agora", p["id"], ATOR, "Bia")["alterado"])
+        self.cur.execute("SELECT tentativas, retomado_por_id::text, retomado_por_nome, retomado_em IS NOT NULL FROM gestao.inclusao_manual")
+        self.assertEqual(self.cur.fetchone(), (0, ATOR, "Bia", True))
         # resolvido: vira acompanhada do sistema e só conclui quando aparece no cache
         r = self.chamar("gestao.registrar_inclusao_resolvida", p["id"], 900099)
         self.assertEqual((r["estado"], r["ja_acompanhada"]), ("carregando", False))
@@ -472,12 +503,23 @@ class FuncoesGestaoTests(_ComDados):
         self.assertEqual(self.chamar("gestao.concluir_inclusoes")["concluidas"], 0)
         self.assertErroDominio("inclusao_ja_concluida", "gestao.falhar_inclusao", p["id"], "x", True)
 
-    def test_inclusao_nao_sobrescreve_nao_e_expira_carregando(self):
+    def test_inclusao_de_ja_monitorada_nao_reativa_nada(self):
+        # RF08: marcada NÃO, na fila de avaliação, ou só associada em gestao (fora do cache)
         self.decidir(uuid_teste(33), [900033], "NAO")
-        p = self.chamar("gestao.solicitar_inclusao", "PL 33/2020", "CD:PL 33/2020", ATOR, "Ana")
-        self.chamar("gestao.registrar_inclusao_resolvida", p["id"], 900033)
-        self.assertEqual(self.chamar("gestao.concluir_inclusoes"), {"concluidas": 1, "marcadas_sim": 0, "expiradas": 0})
+        self.decidir(uuid_teste(97), [900097], "SIM")
+        for numero, id_prop in ((33, 900033), (31, 900031), (97, 900097)):
+            p = self.chamar("gestao.solicitar_inclusao", f"PL {numero}", f"CD:PL {numero}", ATOR, "Ana")
+            r = self.chamar("gestao.registrar_inclusao_resolvida", p["id"], id_prop)
+            self.assertEqual((r["estado"], r["ja_monitorada"], r["ja_acompanhada"]), ("concluida", True, False), id_prop)
+            # idempotente
+            self.assertEqual(self.chamar("gestao.registrar_inclusao_resolvida", p["id"], id_prop)["estado"], "concluida")
+        self.assertEqual(self.chamar("gestao.concluir_inclusoes"), {"concluidas": 0, "marcadas_sim": 0, "expiradas": 0})
+        self.assertEqual(self.contar("SELECT count(*) FROM silver.proposicao_acompanhada WHERE id_proposicao IN (900033, 900031, 900097)"), 0)
         self.assertEqual(self.projeto(900033, "relevancia", "elegivel"), ("NAO", False))
+        self.assertEqual(self.projeto(900031, "relevancia", "pendente_avaliacao"), (None, True))
+        self.assertEqual(self.contar("SELECT count(*) FROM gestao.inclusao_manual WHERE ja_monitorada AND estado = 'concluida'"), 3)
+
+    def test_inclusao_carregando_expira(self):
         q = self.chamar("gestao.solicitar_inclusao", "PL 1/1999", "CD:PL 1/1999", ATOR, "Ana")
         self.chamar("gestao.registrar_inclusao_resolvida", q["id"], 900098)
         self.cur.execute("UPDATE gestao.inclusao_manual SET atualizado_em = now() - interval '7 hours' WHERE id = %s", (q["id"],))
@@ -507,6 +549,29 @@ class PrivilegiosContratosTests(_ComDados):
             SELECT count(*) FROM pg_proc p
             WHERE p.pronamespace = 'gestao'::regnamespace AND p.prorettype <> 'trigger'::regtype
               AND (p.proacl IS NULL OR EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee = 0))"""), 0)
+
+    def test_funcoes_pertencem_ao_dono_restrito(self):
+        import psycopg2
+
+        self.cur.execute("""SELECT DISTINCT pg_get_userbyid(p.proowner) FROM pg_proc p
+            WHERE p.pronamespace = 'gestao'::regnamespace AND p.prorettype <> 'trigger'::regtype""")
+        self.assertEqual(self.cur.fetchall(), [("gestao_dono",)])
+        self.assertFalse(self.contar("SELECT rolcanlogin OR rolsuper OR rolcreaterole FROM pg_roles WHERE rolname = 'gestao_dono'"))
+        self.assertFalse(self.contar("SELECT has_schema_privilege('gestao_dono', 'gestao', 'CREATE')"))
+        for relacao in ("bronze.controle_execucao", "silver.proposicao", "gold.vw_monitoramento", "api.vw_monitoramento"):
+            self.assertFalse(self.contar("SELECT has_table_privilege('gestao_dono', %s, 'SELECT')", relacao), relacao)
+        for relacao in ("gestao.decisao_projeto", "gestao.historico_alteracao"):
+            self.assertFalse(self.contar("SELECT has_table_privilege('gestao_dono', %s, 'DELETE')", relacao), relacao)
+        for comando in ("DROP TABLE gestao.projeto", "ALTER TABLE gestao.decisao_projeto ADD COLUMN x int",
+                        "CREATE TABLE gestao.x (a int)", "TRUNCATE gestao.inclusao_manual",
+                        "SELECT * FROM bronze.controle_execucao", "SELECT * FROM silver.proposicao"):
+            self.cur.execute("SET ROLE gestao_dono")
+            with self.assertRaises(psycopg2.errors.InsufficientPrivilege, msg=comando):
+                self.cur.execute(comando)
+            self.conn.rollback()
+        # e as funções continuam funcionando com esses privilégios
+        r = self.chamar("gestao.salvar_decisao", None, 900021, 0, {"relevancia": "SIM"}, ATOR, "Ana")
+        self.assertEqual(r["revisao"], 1)
 
     def test_anon_e_authenticated_so_leem_a_projecao(self):
         import psycopg2

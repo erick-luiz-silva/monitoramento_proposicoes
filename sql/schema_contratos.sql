@@ -149,16 +149,25 @@ LEFT JOIN LATERAL (
 --   encerrado: TODAS as versões do projeto são 'arquivada'/'norma' (remessa não encerra).
 --   elegivel: (acompanhada OR relevancia = 'SIM' OR prioridade) AND relevancia <> 'NAO' AND NOT encerrado.
 --   em_carteira: elegivel AND (prioridade OR data_ultima_mov_grupo nos últimos 12 meses de
---                calendário, em Brasília). Sem data e sem prioridade: histórico ('sem data').
+--                calendário, em Brasília OR pauta agendada de hoje em diante — a agenda futura de
+--                elegíveis não aplica o corte). Sem data, sem prioridade e sem pauta: histórico ('sem data').
 --   motivo_historico: 'encerrado' | 'marcado NÃO' | 'parado há mais de 12 meses' | 'sem data';
 --                NULL na carteira, na fila de avaliação e no que nunca foi elegível.
 --   pendente_avaliacao: em_radar AND relevancia IS NULL AND NOT acompanhada (é a fila; não entra
 --                na carteira). Abrir pelo id_proposicao_recente (o UUID nasce na 1ª decisão).
---   urgente_pauta: prioridade AND elegivel AND item de pauta não Cancelada/Adiada com início em
---                [hoje 00:00, hoje+15 00:00) de Brasília; proxima_pauta_* é o primeiro deles.
+--   Pauta agendada (RF09, "status agendado obrigatório"): item de pauta cujo evento tem situação
+--                informada e que NÃO é 'Cancelada', 'Adiada', nem começa por 'Encerrad' ou 'Realizad'
+--                (sem caixa). Valores vistos na Câmara (28/10/2026): Convocada, Encerrada,
+--                Encerrada (Final), Encerrada (Termo), Cancelada; NULL não conta como agendada.
+--                proxima_pauta_em/_orgao: a primeira pauta agendada com início a partir de hoje
+--                00:00 de Brasília (sem limite de data).
+--   urgente_pauta: prioridade AND elegivel AND NOT a_conferir AND proxima_pauta_em antes de
+--                hoje+15 00:00 (janela [hoje, hoje+15) de Brasília).
 --   a_conferir / motivos_conferencia: grupo com projetos diferentes, projeto com versões em grupos
---                diferentes; e, nos que têm acompanhamento/SIM/prioridade, remessa sem a versão
---                da outra casa carregada ou mistura de versão encerrada com remessa/sem situação.
+--                diferentes; e, em todo projeto com UUID ou acompanhado (independente de relevância,
+--                elegibilidade e corte), remessa sem a versão da outra casa carregada ou mistura de
+--                versão encerrada com remessa/sem situação. A conferência não gera prioridade e
+--                suspende a urgência automática.
 -- id_proposicao_recente: a versão de movimentação mais recente (depois a apresentada por último);
 -- os campos de exibição (identificacao, ementa, situacao_atual, órgão...) são dela.
 -- revisao: 0 sem decisão gravada (é a revisão esperada na primeira decisão).
@@ -175,9 +184,10 @@ pauta_por_versao AS (
            min(pm.data_hora_inicio) AS proxima_pauta_em,
            (array_agg(pm.sigla_orgao ORDER BY pm.data_hora_inicio, pm.sigla_orgao))[1] AS proxima_pauta_orgao
     FROM api_cache.vw_pautas_monitoradas pm, hoje h
-    WHERE coalesce(pm.situacao_evento, '') NOT IN ('Cancelada', 'Adiada')
+    WHERE pm.situacao_evento IS NOT NULL
+      AND pm.situacao_evento NOT IN ('Cancelada', 'Adiada')
+      AND pm.situacao_evento !~* '^(encerrad|realizad)'
       AND pm.data_hora_inicio >= h.dia
-      AND pm.data_hora_inicio < h.dia + 15
     GROUP BY pm.id_proposicao
 ),
 palavras AS (
@@ -222,7 +232,9 @@ regras AS (
         d.atualizado_por_nome AS decisao_atualizada_por_nome,
         (a.qtd_encerradas = a.qtd_versoes) AS encerrado,
         (a.acompanhada OR d.relevancia IS NOT DISTINCT FROM 'SIM' OR d.prioridade IS TRUE) AS base_elegivel,
-        coalesce(a.data_ultima_mov_grupo >= h.dia - interval '12 months', false) AS movimentou_em_12_meses
+        coalesce(a.data_ultima_mov_grupo >= h.dia - interval '12 months', false) AS movimentou_em_12_meses,
+        coalesce(a.proxima_pauta_em < h.dia + 15, false) AS pauta_na_janela,
+        (a.uuid_projeto IS NOT NULL OR a.acompanhada) AS sob_gestao
     FROM agregado a
     CROSS JOIN hoje h
     LEFT JOIN gestao.decisao_projeto d ON d.uuid_projeto = a.uuid_projeto
@@ -236,13 +248,13 @@ elegibilidade AS (
 carteira AS (
     SELECT
         e.*,
-        (e.elegivel AND (e.prioridade IS TRUE OR e.movimentou_em_12_meses)) AS em_carteira,
+        (e.elegivel AND (e.prioridade IS TRUE OR e.movimentou_em_12_meses OR e.proxima_pauta_em IS NOT NULL)) AS em_carteira,
         array_remove(ARRAY[
             CASE WHEN e.grupo_com_projetos_diferentes THEN 'versões do grupo com projetos diferentes' END,
             CASE WHEN e.projeto_em_grupos_diferentes THEN 'projeto com versões em grupos diferentes' END,
-            CASE WHEN e.base_elegivel AND e.tem_remessa AND e.qtd_casas = 1
+            CASE WHEN e.sob_gestao AND e.tem_remessa AND e.qtd_casas = 1
                  THEN 'remessa sem a versão da outra casa carregada' END,
-            CASE WHEN e.base_elegivel AND e.qtd_encerradas > 0 AND e.qtd_encerradas < e.qtd_versoes
+            CASE WHEN e.sob_gestao AND e.qtd_encerradas > 0 AND e.qtd_encerradas < e.qtd_versoes
                       AND (e.tem_remessa OR e.tem_sem_situacao)
                  THEN 'encerramento divergente entre as versões' END
         ], NULL) AS motivos_conferencia
@@ -291,7 +303,7 @@ SELECT
         ELSE 'parado há mais de 12 meses'
     END AS motivo_historico,
     (c.em_radar AND c.relevancia IS NULL AND NOT c.acompanhada) AS pendente_avaliacao,
-    (c.elegivel AND c.prioridade IS TRUE AND c.proxima_pauta_em IS NOT NULL) AS urgente_pauta,
+    (c.elegivel AND c.prioridade IS TRUE AND c.pauta_na_janela AND cardinality(c.motivos_conferencia) = 0) AS urgente_pauta,
     c.proxima_pauta_em,
     c.proxima_pauta_orgao,
     cardinality(c.motivos_conferencia) > 0 AS a_conferir,
@@ -794,7 +806,8 @@ BEGIN
     IF v_pedido.estado = 'falhou' THEN
         UPDATE gestao.inclusao_manual
         SET estado = 'solicitada', etapa = NULL, tentativas = 0, proxima_tentativa_em = NULL,
-            erro = NULL, atualizado_em = now()
+            erro = NULL, atualizado_em = now(),
+            retomado_por_id = p_ator_id, retomado_por_nome = p_ator_nome, retomado_em = now()
         WHERE id = v_pedido.id;
         RETURN jsonb_build_object('id', v_pedido.id, 'estado', 'solicitada', 'existente', true,
                                   'retomado', true, 'id_proposicao', v_pedido.id_proposicao);
@@ -807,10 +820,13 @@ $$;
 -- ---------------------------------------------------------------------------------------------
 -- gestao.tentar_inclusao_agora — botão "Tentar agora" (RF08): pedido em 'falhou', ou esperando
 -- nova tentativa automática, volta a 'solicitada' já elegível, com as tentativas zeradas. Em
--- outro estado não muda nada. Retorna jsonb {id, estado, alterado}.
+-- outro estado não muda nada. Quem retomou fica em retomado_por_id/_nome/_em (RF01).
+-- Retorna jsonb {id, estado, alterado}.
 -- ---------------------------------------------------------------------------------------------
 CREATE FUNCTION gestao.tentar_inclusao_agora(
-    p_id bigint
+    p_id bigint,
+    p_ator_id uuid,
+    p_ator_nome text
 ) RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -819,6 +835,9 @@ AS $$
 DECLARE
     v_pedido gestao.inclusao_manual%ROWTYPE;
 BEGIN
+    IF p_ator_id IS NULL OR coalesce(btrim(p_ator_nome), '') = '' THEN
+        RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'ator_obrigatorio';
+    END IF;
     SELECT * INTO v_pedido FROM gestao.inclusao_manual WHERE id = p_id FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'inclusao_nao_encontrada';
@@ -826,7 +845,8 @@ BEGIN
     IF v_pedido.estado = 'falhou' OR (v_pedido.estado = 'solicitada' AND v_pedido.proxima_tentativa_em > now()) THEN
         UPDATE gestao.inclusao_manual
         SET estado = 'solicitada', etapa = NULL, tentativas = 0, proxima_tentativa_em = NULL,
-            erro = NULL, atualizado_em = now()
+            erro = NULL, atualizado_em = now(),
+            retomado_por_id = p_ator_id, retomado_por_nome = p_ator_nome, retomado_em = now()
         WHERE id = p_id;
         RETURN jsonb_build_object('id', p_id, 'estado', 'solicitada', 'alterado', true);
     END IF;
@@ -885,8 +905,11 @@ $$;
 -- gestao.registrar_inclusao_resolvida — o n8n resolveu o id da Câmara: o pedido passa a
 -- 'carregando' e a proposição entra em silver.proposicao_acompanhada com origem 'sistema'
 -- (retenção de coleta; ON CONFLICT DO NOTHING). Depois disso o n8n dispara modo=inclusao.
+-- Proposição JÁ monitorada (no api_cache ou já associada em gestao) não é reativada (RF08): o
+-- pedido conclui na hora com ja_monitorada = true, sem gravar acompanhada nem relevância; a
+-- aplicação mostra onde ela está (fila, NÃO, histórico ou carteira).
 -- Idempotente para o mesmo id. Outro pedido com o mesmo id: P0001 'inclusao_duplicada'
--- (DETAIL = id do outro pedido). Retorna jsonb {id, estado, id_proposicao, ja_acompanhada}.
+-- (DETAIL = id do outro pedido). Retorna jsonb {id, estado, id_proposicao, ja_monitorada, ja_acompanhada}.
 CREATE FUNCTION gestao.registrar_inclusao_resolvida(
     p_id bigint,
     p_id_proposicao bigint
@@ -908,8 +931,13 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'inclusao_nao_encontrada';
     END IF;
-    IF NOT (v_pedido.estado IN ('solicitada', 'localizando')
-            OR (v_pedido.estado = 'carregando' AND v_pedido.id_proposicao = p_id_proposicao)) THEN
+    IF v_pedido.estado IN ('carregando', 'concluida') AND v_pedido.id_proposicao = p_id_proposicao THEN
+        RETURN jsonb_build_object('id', p_id, 'estado', v_pedido.estado, 'id_proposicao', p_id_proposicao,
+                                  'ja_monitorada', coalesce(v_pedido.ja_monitorada, false),
+                                  'ja_acompanhada', EXISTS (SELECT 1 FROM silver.proposicao_acompanhada
+                                                            WHERE id_proposicao = p_id_proposicao));
+    END IF;
+    IF v_pedido.estado NOT IN ('solicitada', 'localizando') THEN
         RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'estado_invalido', DETAIL = v_pedido.estado;
     END IF;
     SELECT id INTO v_outro FROM gestao.inclusao_manual WHERE id_proposicao = p_id_proposicao AND id <> p_id;
@@ -917,8 +945,20 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'inclusao_duplicada', DETAIL = v_outro::text;
     END IF;
 
+    IF EXISTS (SELECT 1 FROM api_cache.vw_monitoramento WHERE id_proposicao = p_id_proposicao)
+       OR EXISTS (SELECT 1 FROM gestao.projeto_proposicao WHERE id_proposicao = p_id_proposicao) THEN
+        UPDATE gestao.inclusao_manual
+        SET id_proposicao = p_id_proposicao, estado = 'concluida', ja_monitorada = true, etapa = NULL,
+            proxima_tentativa_em = NULL, erro = NULL, atualizado_em = now()
+        WHERE id = p_id;
+        RETURN jsonb_build_object('id', p_id, 'estado', 'concluida', 'id_proposicao', p_id_proposicao,
+                                  'ja_monitorada', true,
+                                  'ja_acompanhada', EXISTS (SELECT 1 FROM silver.proposicao_acompanhada
+                                                            WHERE id_proposicao = p_id_proposicao));
+    END IF;
+
     UPDATE gestao.inclusao_manual
-    SET id_proposicao = p_id_proposicao, estado = 'carregando', etapa = NULL,
+    SET id_proposicao = p_id_proposicao, estado = 'carregando', ja_monitorada = false, etapa = NULL,
         proxima_tentativa_em = NULL, erro = NULL, atualizado_em = now()
     WHERE id = p_id;
     INSERT INTO silver.proposicao_acompanhada (id_proposicao, origem, observacao)
@@ -926,14 +966,15 @@ BEGIN
     ON CONFLICT (id_proposicao) DO NOTHING;
     GET DIAGNOSTICS v_inseridas = ROW_COUNT;
     RETURN jsonb_build_object('id', p_id, 'estado', 'carregando', 'id_proposicao', p_id_proposicao,
-                              'ja_acompanhada', v_inseridas = 0);
+                              'ja_monitorada', false, 'ja_acompanhada', v_inseridas = 0);
 END
 $$;
 
 -- gestao.concluir_inclusoes — chamada pelo n8n a cada webhook de sucesso (idempotente):
 -- 1. todo pedido em 'carregando' cujo id já está no api_cache passa a 'concluida' e, se o
 --    projeto ainda não tem relevância, recebe SIM em nome de quem pediu (RN06: inclusão entra
---    como SIM e acompanhada; uma relevância já decidida, inclusive NÃO, nunca é sobrescrita);
+--    como SIM e acompanhada; uma relevância já decidida, inclusive NÃO, nunca é sobrescrita).
+--    Só pedidos de proposição nova: a já monitorada concluiu no registro, sem SIM (RF08);
 -- 2. pedido em 'carregando' há mais de 6 h vira falha temporária (disparo cancelado na fila).
 -- Retorna jsonb {concluidas, marcadas_sim, expiradas}.
 CREATE FUNCTION gestao.concluir_inclusoes() RETURNS jsonb
@@ -953,6 +994,7 @@ BEGIN
         UPDATE gestao.inclusao_manual i
         SET estado = 'concluida', etapa = NULL, erro = NULL, proxima_tentativa_em = NULL, atualizado_em = now()
         WHERE i.estado = 'carregando'
+          AND i.ja_monitorada IS NOT TRUE
           AND EXISTS (SELECT 1 FROM api_cache.vw_monitoramento m WHERE m.id_proposicao = i.id_proposicao)
         RETURNING i.id, i.id_proposicao, i.solicitante_id, i.solicitante_nome
     LOOP
@@ -1006,6 +1048,35 @@ FROM contrato.vw_versao v
 JOIN contrato.vw_projeto p ON p.chave_agrupamento = v.chave_agrupamento;
 
 -- =============================================================================================
+-- Dono restrito das funções (PRD §5): gestao_dono (NOLOGIN, papel_legislativo_app.sql) só tem o
+-- que as funções usam — nada de DDL, nada de bronze/gold/api, nada de silver além da acompanhada.
+-- SECURITY DEFINER passa a rodar com esses privilégios, não com os do papel do setup.
+-- =============================================================================================
+GRANT USAGE ON SCHEMA gestao, contrato, api_cache, silver TO gestao_dono;
+GRANT SELECT, INSERT ON gestao.projeto, gestao.projeto_proposicao, gestao.historico_alteracao TO gestao_dono;
+GRANT SELECT, INSERT, UPDATE ON gestao.decisao_projeto, gestao.inclusao_manual TO gestao_dono;
+GRANT USAGE ON SEQUENCE gestao.historico_alteracao_id_seq, gestao.inclusao_manual_id_seq TO gestao_dono;
+GRANT SELECT, INSERT ON silver.proposicao_acompanhada TO gestao_dono;
+GRANT SELECT ON api_cache.vw_monitoramento, contrato.vw_associacao, contrato.vw_versao TO gestao_dono;
+-- ALTER ... OWNER exige CREATE no schema para o novo dono: concedido só durante a troca.
+GRANT CREATE ON SCHEMA gestao TO gestao_dono;
+DO $$
+DECLARE
+    f regprocedure;
+BEGIN
+    FOR f IN
+        SELECT p.oid::regprocedure
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'gestao' AND p.prorettype <> 'trigger'::regtype
+    LOOP
+        EXECUTE format('ALTER FUNCTION %s OWNER TO gestao_dono', f);
+    END LOOP;
+END
+$$;
+REVOKE CREATE ON SCHEMA gestao FROM gestao_dono;
+
+-- =============================================================================================
 -- Grants (refeitos a cada setup_db: o DROP derruba os de contrato e das funções).
 -- =============================================================================================
 -- O GRANT amplo de schema_api.sql rodou antes desta view existir.
@@ -1029,7 +1100,7 @@ GRANT EXECUTE ON FUNCTION
     gestao.avaliar(bigint, text, int, uuid, text),
     gestao.desfazer_avaliacao(bigint, uuid, text),
     gestao.solicitar_inclusao(text, text, uuid, text),
-    gestao.tentar_inclusao_agora(bigint)
+    gestao.tentar_inclusao_agora(bigint, uuid, text)
 TO legislativo_app;
 
 NOTIFY pgrst, 'reload schema';

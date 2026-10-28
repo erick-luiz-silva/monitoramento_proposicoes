@@ -819,6 +819,11 @@ class GoldSqlTests(unittest.TestCase):
         grant = re.search(r"GRANT EXECUTE ON FUNCTION(.*?)TO legislativo_app;", sql, re.S).group(1)
         concedidas = sorted(re.findall(r"gestao\.(\w+)\(", grant))
         self.assertEqual(concedidas, ["avaliar", "desfazer_avaliacao", "salvar_decisao", "solicitar_inclusao", "tentar_inclusao_agora"])
+        # dono restrito (PRD §5): toda função de gestao passa a gestao_dono, sem CREATE no schema depois
+        self.assertIn("EXECUTE format('ALTER FUNCTION %s OWNER TO gestao_dono', f)", sql)
+        self.assertGreater(sql.index("REVOKE CREATE ON SCHEMA gestao FROM gestao_dono"), sql.index("OWNER TO gestao_dono"))
+        papeis = self.sql_sem_comentarios("papel_legislativo_app.sql")
+        self.assertIn("CREATE ROLE gestao_dono NOLOGIN", papeis)
         ultima_funcao = max(m.start() for m in re.finditer(r"CREATE FUNCTION", sql))
         self.assertGreater(sql.index("REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA gestao FROM PUBLIC"), ultima_funcao)
         self.assertEqual(re.findall(r"GRANT[^;]*\b(?:anon|authenticated)\b[^;]*;", sql),
