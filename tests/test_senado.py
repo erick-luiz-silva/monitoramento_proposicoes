@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import api_client_senado
 import config
 import extract_incremental
+import load_bronze_senado
 import load_dim_deputado
 import load_dim_orgao
 import pipeline_inclusao
@@ -218,6 +219,59 @@ class ClienteSenadoTests(unittest.TestCase):
             filhos = api_client_senado.expandir_classes((33809634,))
         self.assertEqual(filhos[0], 33809634)
         self.assertGreater(len(filhos), 1)
+
+
+class BronzeSenadoTests(unittest.TestCase):
+    def conexao(self, ultimo_hash=None):
+        cur = MagicMock()
+        cur.fetchone.return_value = (ultimo_hash,) if ultimo_hash else None
+        conn = MagicMock(closed=0)
+        conn.cursor.return_value.__enter__.return_value = cur
+        return conn, cur
+
+    def inserts(self, cur):
+        return [c for c in cur.execute.call_args_list if "INSERT INTO bronze.sf_processo_json" in c.args[0]]
+
+    def test_grava_so_quando_o_payload_muda(self):
+        payload = {"id": 8152618, "b": 2, "a": 1}
+        with patch.object(load_bronze_senado.api, "buscar_processo", return_value=payload):
+            conn, cur = self.conexao()
+            self.assertEqual(load_bronze_senado.carregar_processo(conn, 8152618), "ok")
+            self.assertEqual(len(self.inserts(cur)), 1)
+            conn.commit.assert_called()
+            mesmo_hash = self.inserts(cur)[0].args[1][1]
+            conn, cur = self.conexao(ultimo_hash=mesmo_hash)
+            self.assertEqual(load_bronze_senado.carregar_processo(conn, 8152618), "igual")
+            self.assertEqual(self.inserts(cur), [])
+        # a ordem das chaves não muda o hash
+        self.assertEqual(load_bronze_senado.hash_payload({"a": 1, "b": 2}), load_bronze_senado.hash_payload({"b": 2, "a": 1}))
+
+    def test_erro_de_api_devolve_erro_sem_gravar(self):
+        with patch.object(load_bronze_senado.api, "buscar_processo", side_effect=RuntimeError("HTTP 503")):
+            conn, cur = self.conexao()
+            self.assertEqual(load_bronze_senado.carregar_processo(conn, 1), "erro: HTTP 503")
+        self.assertEqual(self.inserts(cur), [])
+
+    def test_erro_sql_faz_rollback(self):
+        with patch.object(load_bronze_senado.api, "buscar_processo", return_value={"id": 1}):
+            conn, cur = self.conexao()
+            cur.execute.side_effect = [None, RuntimeError("falha no insert")]
+            self.assertTrue(load_bronze_senado.carregar_processo(conn, 1).startswith("erro: falha"))
+        conn.rollback.assert_called()
+
+    def test_mapa_ignora_repetidos(self):
+        conn, cur = self.conexao()
+        load_bronze_senado.gravar_mapa(conn, 8981388, [("PL", 4314, 2016)])
+        sql = cur.executemany.call_args.args[0]
+        self.assertIn("INSERT INTO bronze.sf_mapa_revisora", sql)
+        self.assertIn("ON CONFLICT DO NOTHING", sql)
+        self.assertEqual(cur.executemany.call_args.args[1], [(8981388, "PL", 4314, 2016)])
+
+    def test_tabelas_da_bronze(self):
+        sql = ler("schema_bronze.sql")
+        self.assertIn("CREATE TABLE IF NOT EXISTS bronze.sf_processo_json", sql)
+        self.assertIn("hash_payload", sql)
+        self.assertIn("CREATE TABLE IF NOT EXISTS bronze.sf_mapa_revisora", sql)
 
 
 if __name__ == "__main__":

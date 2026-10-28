@@ -73,3 +73,29 @@ CREATE TABLE IF NOT EXISTS bronze.controle_execucao (
     qtd_proposicoes    INT,
     executado_em       TIMESTAMP NOT NULL DEFAULT now()
 );
+
+-- Senado (docs/superpowers/plans/2026-10-28-senado-fases-3-4.md). id_processo é o id nativo
+-- da API do Senado; a chave deslocada (1e9 + id) só existe da silver em diante.
+-- Só grava quando o payload muda (hash_payload): os detalhes são grandes e cumulativos.
+CREATE TABLE IF NOT EXISTS bronze.sf_processo_json (
+    id_bronze     BIGSERIAL PRIMARY KEY,
+    id_processo   BIGINT NOT NULL,
+    hash_payload  TEXT NOT NULL,
+    payload       JSONB NOT NULL,
+    data_extracao TIMESTAMP NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_bronze_sf_processo_json_id
+    ON bronze.sf_processo_json (id_processo, data_extracao DESC);
+
+-- Números da Câmara de cada processo "Revisora" do Senado (vindo da Câmara), lidos sempre do
+-- detalhe (identificacaoProcessoInicial e outrosNumeros[CD]): o número no Senado pode ser
+-- outro mesmo de 2019 em diante (o ano no Senado é o da chegada). Liga gêmeos que mudaram
+-- de número. Sem o payload: o processo só entra na bronze se for gêmeo de um monitorado.
+CREATE TABLE IF NOT EXISTS bronze.sf_mapa_revisora (
+    id_processo   BIGINT NOT NULL,
+    sigla         VARCHAR(20) NOT NULL,
+    numero        INT NOT NULL,
+    ano           INT NOT NULL,
+    data_extracao TIMESTAMP NOT NULL DEFAULT now(),
+    PRIMARY KEY (id_processo, sigla, numero, ano)
+);
