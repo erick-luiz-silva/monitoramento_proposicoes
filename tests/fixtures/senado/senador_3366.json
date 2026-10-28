@@ -1,0 +1,12 @@
+{
+ "DetalheParlamentar": {
+  "Parlamentar": {
+   "IdentificacaoParlamentar": {
+    "CodigoParlamentar": "3366",
+    "NomeParlamentar": "Marcelo Crivella",
+    "SiglaPartidoParlamentar": "REPUBLICANOS",
+    "UfParlamentar": "RJ"
+   }
+  }
+ }
+}

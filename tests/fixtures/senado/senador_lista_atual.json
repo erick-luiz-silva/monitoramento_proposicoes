@@ -1,0 +1,48 @@
+{
+ "ListaParlamentarEmExercicio": {
+  "Parlamentares": {
+   "Parlamentar": [
+    {
+     "IdentificacaoParlamentar": {
+      "CodigoParlamentar": "5672",
+      "NomeParlamentar": "Alan Rick",
+      "SiglaPartidoParlamentar": "REPUBLICANOS",
+      "UfParlamentar": "AC"
+     }
+    },
+    {
+     "IdentificacaoParlamentar": {
+      "CodigoParlamentar": "5982",
+      "NomeParlamentar": "Alessandro Vieira",
+      "SiglaPartidoParlamentar": "MDB",
+      "UfParlamentar": "SE"
+     }
+    },
+    {
+     "IdentificacaoParlamentar": {
+      "CodigoParlamentar": "6358",
+      "NomeParlamentar": "Ana Paula Lobato",
+      "SiglaPartidoParlamentar": "PSB",
+      "UfParlamentar": "MA"
+     }
+    },
+    {
+     "IdentificacaoParlamentar": {
+      "CodigoParlamentar": "5967",
+      "NomeParlamentar": "Angelo Coronel",
+      "SiglaPartidoParlamentar": "REPUBLICANOS",
+      "UfParlamentar": "BA"
+     }
+    },
+    {
+     "IdentificacaoParlamentar": {
+      "CodigoParlamentar": "6009",
+      "NomeParlamentar": "Astronauta Marcos Pontes",
+      "SiglaPartidoParlamentar": "PL",
+      "UfParlamentar": "SP"
+     }
+    }
+   ]
+  }
+ }
+}

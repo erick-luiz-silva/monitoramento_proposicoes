@@ -17,6 +17,7 @@ import extract_incremental
 import load_bronze_senado
 import load_dim_deputado
 import load_dim_orgao
+import load_dim_senador
 import load_silver
 import pipeline_inclusao
 
@@ -335,6 +336,53 @@ class GoldSenadoFase3Tests(unittest.TestCase):
         sql = cur.execute.call_args.args[0]
         self.assertIn("CASE WHEN p.casa = 'SF' THEN", sql)
         self.assertIn("extensions.unaccent(", sql)
+
+
+class DimSenadorTests(unittest.TestCase):
+    FIX = Path(__file__).parent / "fixtures" / "senado"
+
+    def setUp(self):
+        self.lista = json.loads((self.FIX / "senador_lista_atual.json").read_text(encoding="utf-8"))
+        self.um = json.loads((self.FIX / "senador_3366.json").read_text(encoding="utf-8"))
+        self.cur = MagicMock()
+        conn = MagicMock(); conn.__enter__.return_value = conn
+        conn.cursor.return_value.__enter__.return_value = self.cur
+        self.conn = conn
+        patch.object(load_dim_senador, "get_connection", return_value=conn).start()
+        self.addCleanup(patch.stopall)
+
+    def gravados(self):
+        return [c.args[1][0] for c in self.cur.execute.call_args_list if "INSERT INTO silver.dim_senador" in c.args[0]]
+
+    def test_carrega_atuais_e_ausentes(self):
+        self.cur.fetchall.return_value = [(3366,)]
+        def get(caminho, params=None):
+            return self.lista if caminho == "/senador/lista/atual" else self.um
+        patch.object(load_dim_senador.api, "_get", side_effect=get).start()
+        n = load_dim_senador.carregar_dim_senador()
+        self.assertEqual(n, 6)
+        self.assertIn(3366, self.gravados())
+        self.conn.commit.assert_called()
+
+    def test_lista_com_um_so_parlamentar_vem_como_objeto(self):
+        unico = {"ListaParlamentarEmExercicio": {"Parlamentares": {"Parlamentar":
+                 self.lista["ListaParlamentarEmExercicio"]["Parlamentares"]["Parlamentar"][0]}}}
+        self.cur.fetchall.return_value = []
+        patch.object(load_dim_senador.api, "_get", return_value=unico).start()
+        self.assertEqual(load_dim_senador.carregar_dim_senador(), 1)
+
+    def test_404_num_ex_senador_nao_levanta(self):
+        self.cur.fetchall.return_value = [(1,), (3366,)]
+        def get(caminho, params=None):
+            if caminho == "/senador/lista/atual":
+                return self.lista
+            if caminho == "/senador/1":
+                raise RuntimeError("HTTP 404")
+            return self.um
+        patch.object(load_dim_senador.api, "_get", side_effect=get).start()
+        load_dim_senador.carregar_dim_senador()          # não levanta
+        self.assertIn(3366, self.gravados())
+        self.assertNotIn(1, self.gravados())
 
 
 if __name__ == "__main__":
