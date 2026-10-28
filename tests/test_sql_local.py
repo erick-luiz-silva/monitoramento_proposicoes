@@ -17,7 +17,20 @@ TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 SCHEMAS = ("api", "api_cache", "gold", "silver", "bronze", "gestao", "contrato")
 
 
+def _validar_destino():
+    """Os testes derrubam schemas: só rodam em banco local e nunca em produção/homologação."""
+    from urllib.parse import urlsplit
+
+    host = urlsplit(TEST_DATABASE_URL).hostname
+    if host not in ("localhost", "127.0.0.1"):
+        raise RuntimeError("TEST_DATABASE_URL precisa apontar para localhost/127.0.0.1.")
+    for nome in ("DATABASE_URL", "DATABASE_URL_HOMOLOGACAO"):
+        if os.getenv(nome) and os.getenv(nome) == TEST_DATABASE_URL:
+            raise RuntimeError(f"TEST_DATABASE_URL não pode ser igual a {nome}.")
+
+
 def conectar():
+    _validar_destino()
     import psycopg2
 
     return psycopg2.connect(TEST_DATABASE_URL)

@@ -17,17 +17,17 @@ if [ "$DATABASE_URL" = "$DATABASE_URL_HOMOLOGACAO" ]; then
 fi
 
 IMG=postgres:17
-DOCKER=(docker run --rm -i --network host -e ORIGEM="$DATABASE_URL" -e DESTINO="$DATABASE_URL_HOMOLOGACAO" -v "$RAIZ/data:/w" "$IMG")
+DOCKER=(docker run --rm -i --network host -e DATABASE_URL -e DATABASE_URL_HOMOLOGACAO -v "$RAIZ/data:/w" "$IMG")
 mkdir -p "$RAIZ/data"
 trap 'rm -f "$RAIZ/data/dump_silver.sql" "$RAIZ/data/dump_controle.sql"' EXIT
 
 echo "Dump da produção (somente leitura)..."
 # Dois dumps: -t anula -n quando combinados.
-"${DOCKER[@]}" sh -c 'pg_dump "$ORIGEM" --data-only --no-owner --no-privileges -n silver -f /w/dump_silver.sql'
-"${DOCKER[@]}" sh -c 'pg_dump "$ORIGEM" --data-only --no-owner --no-privileges -t bronze.controle_execucao -f /w/dump_controle.sql'
+"${DOCKER[@]}" sh -c 'pg_dump "$DATABASE_URL" --data-only --no-owner --no-privileges -n silver -f /w/dump_silver.sql'
+"${DOCKER[@]}" sh -c 'pg_dump "$DATABASE_URL" --data-only --no-owner --no-privileges -t bronze.controle_execucao -f /w/dump_controle.sql'
 
 echo "Truncando e restaurando na homologação..."
-"${DOCKER[@]}" sh -c 'psql "$DESTINO" -v ON_ERROR_STOP=1 -q' <<'SQL'
+"${DOCKER[@]}" sh -c 'psql "$DATABASE_URL_HOMOLOGACAO" -v ON_ERROR_STOP=1 -q' <<'SQL'
 DO $$
 DECLARE t text;
 BEGIN
@@ -37,10 +37,10 @@ BEGIN
 END
 $$;
 SQL
-"${DOCKER[@]}" sh -c 'psql "$DESTINO" -v ON_ERROR_STOP=1 -q -f /w/dump_silver.sql -f /w/dump_controle.sql' >/dev/null
+"${DOCKER[@]}" sh -c 'psql "$DATABASE_URL_HOMOLOGACAO" -v ON_ERROR_STOP=1 -q -f /w/dump_silver.sql -f /w/dump_controle.sql' >/dev/null
 
 echo "Ajustando sequences..."
-"${DOCKER[@]}" sh -c 'psql "$DESTINO" -v ON_ERROR_STOP=1 -q' <<'SQL'
+"${DOCKER[@]}" sh -c 'psql "$DATABASE_URL_HOMOLOGACAO" -v ON_ERROR_STOP=1 -q' <<'SQL'
 DO $$
 DECLARE r record;
 BEGIN
@@ -63,7 +63,7 @@ echo "Atualizando api_cache..."
 (cd "$RAIZ/src" && DATABASE_URL="$DATABASE_URL_HOMOLOGACAO" "$RAIZ/.venv/bin/python" load_api.py)
 
 echo "Contagens na homologação:"
-"${DOCKER[@]}" sh -c 'psql "$DESTINO" -tA' <<'SQL'
+"${DOCKER[@]}" sh -c 'psql "$DATABASE_URL_HOMOLOGACAO" -tA' <<'SQL'
 SELECT 'silver.proposicao: ' || count(*) FROM silver.proposicao
 UNION ALL SELECT 'silver.tramitacao: ' || count(*) FROM silver.tramitacao
 UNION ALL SELECT 'api_cache.vw_monitoramento: ' || count(*) FROM api_cache.vw_monitoramento
