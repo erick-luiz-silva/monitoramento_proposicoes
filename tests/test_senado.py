@@ -14,6 +14,7 @@ import api_client_senado
 import comparar_acompanhamento
 import config
 import extract_incremental
+import extract_senado
 import load_bronze_senado
 import load_dim_deputado
 import load_dim_orgao
@@ -383,6 +384,92 @@ class DimSenadorTests(unittest.TestCase):
         load_dim_senador.carregar_dim_senador()          # não levanta
         self.assertIn(3366, self.gravados())
         self.assertNotIn(1, self.gravados())
+
+
+class CargaSenadoTests(unittest.TestCase):
+    def setUp(self):
+        self.events = []
+        self.conn = MagicMock()
+        self.cur = self.conn.cursor.return_value.__enter__.return_value
+        self.cur.fetchall.return_value = []            # sem duplicatas
+        p = lambda nome, **kw: patch.object(extract_senado, nome, **kw).start()
+        self.addCleanup(patch.stopall)
+        p("get_connection", return_value=self.conn)
+        self.conn.__enter__.return_value = self.conn
+        p("calcular_numdias", return_value=(15, False))
+        self.acompanhadas = p("carregar_acompanhadas_sf", return_value=[2916834])
+        self.candidatos = p("coletar_candidatos", return_value=[8152618, 8283772])
+        self.mapa = p("atualizar_mapa_revisora", return_value=0)
+        self.gemeos = p("ids_gemeos", return_value=[7364805])
+        self.recon = p("ids_reconciliacao", return_value=[9000001])
+        self.carregar = p("carregar_processo", side_effect=lambda conn, i: self.events.append(("bronze", i)) or "ok")
+        self.transformar = p("executar_transformacao_senado", side_effect=lambda cur: self.events.append("silver"))
+        self.dim = p("carregar_dim_senador", side_effect=lambda: self.events.append("dim") or 81)
+        self.registrar = p("registrar_execucao", side_effect=lambda conn, tipo, *a: self.events.append(("janela", tipo)))
+
+    def janelas(self):
+        return [e[1] for e in self.events if isinstance(e, tuple) and e[0] == "janela"]
+
+    def test_sucesso_registra_janelas_depois_da_transformacao(self):
+        extract_senado.executar_carga_senado()
+        self.assertEqual(self.janelas(), ["incremental_senado", "reconciliacao_senado"])
+        self.assertLess(self.events.index("silver"), self.events.index(("janela", "incremental_senado")))
+        carregados = [e[1] for e in self.events if isinstance(e, tuple) and e[0] == "bronze"]
+        self.assertEqual(sorted(carregados), [2916834, 7364805, 8152618, 8283772, 9000001])
+        self.conn.commit.assert_called()
+
+    def test_erro_num_candidato_nao_registra_incremental_e_levanta(self):
+        self.carregar.side_effect = lambda conn, i: "erro: HTTP 503" if i == 8152618 else "ok"
+        with self.assertRaises(RuntimeError) as ctx:
+            extract_senado.executar_carga_senado()
+        self.assertNotIsInstance(ctx.exception, extract_senado.SenadoComPendencias)
+        self.assertNotIn("incremental_senado", self.janelas())
+
+    def test_erro_em_acompanhada_ou_gemeo_registra_e_vira_pendencia(self):
+        self.carregar.side_effect = lambda conn, i: "erro: HTTP 404" if i in (2916834, 7364805) else "ok"
+        with self.assertRaises(extract_senado.SenadoComPendencias):
+            extract_senado.executar_carga_senado()
+        self.assertIn("incremental_senado", self.janelas())
+
+    def test_mapa_falhando_vira_pendencia(self):
+        self.mapa.side_effect = RuntimeError("HTTP 503")
+        with self.assertRaises(extract_senado.SenadoComPendencias):
+            extract_senado.executar_carga_senado()
+        self.assertIn("incremental_senado", self.janelas())
+
+    def test_prazo_estourado_levanta_sem_registrar(self):
+        relogio = iter([0.0] + [10_000.0] * 50)
+        patch.object(extract_senado.time, "monotonic", side_effect=lambda: next(relogio)).start()
+        with self.assertRaises(TimeoutError):
+            extract_senado.executar_carga_senado()
+        self.assertEqual(self.janelas(), [])
+        self.transformar.assert_not_called()
+
+    def test_duplicata_desfaz_a_transformacao(self):
+        self.cur.fetchall.return_value = [(1008152618,)]
+        with self.assertRaisesRegex(RuntimeError, "duplicad"):
+            extract_senado.executar_carga_senado()
+        self.conn.rollback.assert_called()
+        self.assertEqual(self.janelas(), [])
+
+    def test_calcular_numdias(self):
+        patch.stopall()
+        cur = MagicMock(); conn = MagicMock(); conn.cursor.return_value.__enter__.return_value = cur
+        hoje = date(2026, 10, 28)
+        for ultimo, esperado in ((date(2026, 10, 27), (15, False)), (date(2026, 10, 8), (30, True)), (None, (30, False))):
+            cur.fetchone.return_value = (ultimo,)
+            self.assertEqual(extract_senado.calcular_numdias(conn, hoje), esperado)
+
+
+class OrquestradorPendenciasTests(unittest.TestCase):
+    def test_pendencia_tem_aviso_proprio(self):
+        with patch.object(extract_incremental, "limpar_aviso_senado"), patch.object(
+            extract_incremental, "executar_carga_camara", return_value=[]), patch.object(
+            extract_incremental, "executar_carga_senado",
+            side_effect=extract_senado.SenadoComPendencias("acompanhadas: 1 com erro")), patch.object(
+            extract_incremental, "atualizar_api"), patch.object(extract_incremental, "gravar_aviso_senado") as aviso:
+            extract_incremental.executar_carga_incremental()
+        self.assertTrue(aviso.call_args.args[0].startswith("Senado atualizado com pendências: "))
 
 
 if __name__ == "__main__":

@@ -42,6 +42,12 @@ CLASSES_SENADO = (33805062, 33809634, 33804850, 33809198)
 SENADO_OFFSET = 1_000_000_000
 PLENARIO_SENADO_OFFSET = 2_000_000_000
 
+# Carga diária do Senado: janela por última atualização (numdias, limite 30 na API),
+# reconciliação por apresentação e prazo global (estourou, vira aviso e a janela não avança).
+SENADO_JANELA_DIAS = 14
+SENADO_RECONCILIACAO_DIAS = 90
+SENADO_PRAZO_MIN = 30
+
 
 def chave_senado(id_nativo):
     if not 0 <= id_nativo < SENADO_OFFSET:
