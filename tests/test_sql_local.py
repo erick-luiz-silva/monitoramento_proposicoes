@@ -66,6 +66,48 @@ class BancoLimpoTests(unittest.TestCase):
         aplicar_schemas(self.cur)
         self.conn.commit()
 
+    def test_gestao_sobrevive_a_novo_setup(self):
+        from setup_db import aplicar_schemas
+
+        self.cur.execute("INSERT INTO gestao.projeto (uuid) VALUES ('00000000-0000-0000-0000-000000000001')")
+        self.cur.execute("INSERT INTO gestao.decisao_projeto (uuid_projeto, relevancia, prioridade) VALUES ('00000000-0000-0000-0000-000000000001', 'SIM', true)")
+        self.conn.commit()
+        aplicar_schemas(self.cur)
+        self.conn.commit()
+        self.cur.execute("SELECT relevancia, prioridade FROM gestao.decisao_projeto")
+        self.assertEqual(self.cur.fetchall(), [("SIM", True)])
+        self.cur.execute("SELECT count(*) FROM gestao.situacao_encerramento")
+        self.assertEqual(self.cur.fetchone()[0], 6)
+
+    def test_historico_imutavel(self):
+        import psycopg2
+
+        self.cur.execute("INSERT INTO gestao.projeto (uuid) VALUES ('00000000-0000-0000-0000-000000000001')")
+        self.cur.execute("INSERT INTO gestao.historico_alteracao (uuid_projeto, operacao, origem) VALUES ('00000000-0000-0000-0000-000000000001', 'criar', 'aplicacao')")
+        self.conn.commit()
+        for comando in ("UPDATE gestao.historico_alteracao SET operacao = 'x'", "DELETE FROM gestao.historico_alteracao", "TRUNCATE gestao.historico_alteracao"):
+            with self.assertRaises(psycopg2.Error, msg=comando):
+                self.cur.execute(comando)
+            self.conn.rollback()
+        self.cur.execute("SELECT count(*) FROM gestao.historico_alteracao")
+        self.assertEqual(self.cur.fetchone()[0], 1)
+
+    def test_anon_sem_acesso_a_gestao(self):
+        import psycopg2
+
+        self.cur.execute("SET ROLE anon")
+        with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+            self.cur.execute("SELECT * FROM gestao.projeto")
+        self.conn.rollback()
+
+    def test_prioridade_exige_relevancia_sim(self):
+        import psycopg2
+
+        self.cur.execute("INSERT INTO gestao.projeto (uuid) VALUES ('00000000-0000-0000-0000-000000000001')")
+        with self.assertRaises(psycopg2.errors.CheckViolation):
+            self.cur.execute("INSERT INTO gestao.decisao_projeto (uuid_projeto, relevancia, prioridade) VALUES ('00000000-0000-0000-0000-000000000001', 'NAO', true)")
+        self.conn.rollback()
+
     def test_unaccent_disponivel(self):
         self.cur.execute("SELECT extensions.unaccent('suínos')")
         self.assertEqual(self.cur.fetchone()[0], "suinos")

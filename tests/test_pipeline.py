@@ -679,7 +679,20 @@ class GoldSqlTests(unittest.TestCase):
         self.assertGreaterEqual(len(re.findall(r"\(\d+, 'planilha_antiga'", seed)), 50)
         fonte = Path(setup_db.__file__).read_text(encoding="utf-8")
         self.assertLess(fonte.index("schema_silver.sql"), fonte.index("seed_acompanhadas.sql"))
-        self.assertLess(fonte.index("seed_acompanhadas.sql"), fonte.index("schema_gold.sql"))
+        self.assertLess(fonte.index("seed_acompanhadas.sql"), fonte.index("schema_gestao.sql"))
+        self.assertLess(fonte.index("schema_gestao.sql"), fonte.index("drop_api.sql"))
+        self.assertLess(fonte.index("drop_api.sql"), fonte.index("schema_gold.sql"))
+
+    def test_schema_gestao_sem_drop_e_idempotente(self):
+        sql = re.sub(r"--[^\n]*", "", (self.SQL_DIR / "schema_gestao.sql").read_text(encoding="utf-8"))
+        # DROP só de trigger (recriado em seguida); nunca de tabela/schema
+        self.assertNotRegex(sql, r"DROP\s+(TABLE|SCHEMA|VIEW|COLUMN)")
+        self.assertNotIn("TRUNCATE TABLE", sql.upper())
+        for criacao in re.findall(r"CREATE TABLE (?:IF NOT EXISTS )?([\w.]+)", sql):
+            self.assertIn(f"CREATE TABLE IF NOT EXISTS {criacao}", sql)
+        self.assertNotRegex(sql, r"CREATE (UNIQUE )?INDEX (?!IF NOT EXISTS)")
+        self.assertIn("REVOKE ALL ON ALL TABLES IN SCHEMA gestao FROM PUBLIC, anon, authenticated", sql)
+        self.assertIn("ALTER DEFAULT PRIVILEGES IN SCHEMA gestao REVOKE ALL ON TABLES", sql)
 
     def test_api_derrubado_antes_da_gold_e_recriado_depois(self):
         fonte = Path(setup_db.__file__).read_text(encoding="utf-8")
