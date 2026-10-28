@@ -217,12 +217,12 @@ table 'gold vw_monitoramento'
 
 		annotation SummarizationSetBy = Automatic
 
-	/// Entra no painel: acompanhada (sempre relevante, mesmo marcada NÃO; decisão do Erick em 28/10/2026) ou
-	/// marcada SIM na aba "Proposições", sem as encerradas (arquivada ou transformada em norma). Mesma regra do e-mail.
+	/// Entra no painel: acompanhada ou marcada SIM na aba "Proposições", sem as marcadas NÃO e sem as encerradas
+	/// (arquivada ou transformada em norma). Mesma regra do e-mail diário; decidido com a Ana em 20/10/2026
 	column em_painel =
 			VAR _relevancia = UPPER(TRIM(LOOKUPVALUE('gold dim_relevancia'[relevancia], 'gold dim_relevancia'[id_proposicao], [id_proposicao])))
 			VAR _encerrada = [situacao_atual] IN {"Arquivada", "Transformado em Norma Jurídica"}
-			RETURN ([acompanhada] || _relevancia = "SIM") && NOT _encerrada
+			RETURN ([acompanhada] || _relevancia = "SIM") && NOT (_relevancia IN {"NÃO", "NAO"}) && NOT _encerrada
 		dataType: boolean
 		lineageTag: 5d9a2c7e-1f4b-4e8a-b3d6-9c0e7a2f4b18
 		summarizeBy: none
