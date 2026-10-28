@@ -1,5 +1,7 @@
 """Senado no mesmo banco da Câmara: chaves, casa e isolamento, sem API nem banco real."""
 
+from datetime import date
+import json
 from pathlib import Path
 import re
 import sys
@@ -8,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+import api_client_senado
 import config
 import extract_incremental
 import load_dim_deputado
@@ -157,6 +160,64 @@ class GoldSenadoSqlTests(unittest.TestCase):
             for coluna in re.split(r",\s*", re.sub(r"\b\w+\.", "", colunas)):
                 coluna = coluna.split(" AS ")[-1].strip()
                 self.assertRegex(select_gold, rf"(\.|AS |\s){coluna}\s*(,|$)", f"{nome}: {coluna}")
+
+
+class ClienteSenadoTests(unittest.TestCase):
+    ARVORE = [{"codigo": 1, "nome": "Raiz A", "filhos": [
+                  {"codigo": 11, "nome": "A1", "filhos": [{"codigo": 111, "nome": "A11", "filhos": []}]},
+                  {"codigo": 12, "nome": "A2"}]},
+              {"codigo": 2, "nome": "Raiz B", "filhos": [{"codigo": 21, "nome": "B1", "filhos": []}]}]
+
+    def setUp(self):
+        self.sleep = patch.object(api_client_senado.time, "sleep").start()
+        self.addCleanup(patch.stopall)
+
+    def resposta(self, status, dados=None):
+        r = MagicMock(status_code=status)
+        r.json.return_value = dados
+        return r
+
+    def test_como_lista(self):
+        self.assertEqual(api_client_senado.como_lista(None), [])
+        self.assertEqual(api_client_senado.como_lista({"a": 1}), [{"a": 1}])
+        self.assertEqual(api_client_senado.como_lista([1, 2]), [1, 2])
+
+    def test_expandir_classes_inclui_descendentes_sem_repetir(self):
+        with patch.object(api_client_senado, "listar_classes", return_value=self.ARVORE):
+            self.assertEqual(api_client_senado.expandir_classes((1, 11)), [1, 11, 111, 12])
+            self.assertEqual(api_client_senado.expandir_classes((2,)), [2, 21])
+
+    def test_retry_em_503_ate_dar_certo(self):
+        get = patch.object(api_client_senado.SESSAO, "get", side_effect=[
+            self.resposta(503), self.resposta(503), self.resposta(200, {"id": 1})]).start()
+        self.assertEqual(api_client_senado.buscar_processo(1), {"id": 1})
+        self.assertEqual(get.call_count, 3)
+
+    def test_esgotar_tentativas_levanta(self):
+        patch.object(api_client_senado.SESSAO, "get", return_value=self.resposta(503)).start()
+        with self.assertRaisesRegex(RuntimeError, "HTTP 503"):
+            api_client_senado.buscar_processo(1)
+
+    def test_404_levanta_sem_retry(self):
+        get = patch.object(api_client_senado.SESSAO, "get", return_value=self.resposta(404)).start()
+        with self.assertRaisesRegex(RuntimeError, "HTTP 404"):
+            api_client_senado.buscar_processo(1)
+        self.assertEqual(get.call_count, 1)
+
+    def test_listar_processos_monta_parametros_e_normaliza_lista(self):
+        get = patch.object(api_client_senado.SESSAO, "get", return_value=self.resposta(200, {"id": 5})).start()
+        self.assertEqual(api_client_senado.listar_processos(numdias=14, codigo_classe=33805062), [{"id": 5}])
+        self.assertEqual(get.call_args.kwargs["params"], {"numdias": 14, "codigoClasse": 33805062})
+        api_client_senado.listar_processos(sigla="MPV", data_inicio=date(2025, 1, 1), data_fim=date(2025, 12, 31), tramitando=True)
+        self.assertEqual(get.call_args.kwargs["params"], {"sigla": "MPV", "dataInicioApresentacao": "2025-01-01",
+                                                          "dataFimApresentacao": "2025-12-31", "tramitando": "S"})
+
+    def test_arvore_real_usa_campo_filhos(self):
+        arvore = json.loads((Path(__file__).parent / "fixtures" / "senado" / "classes.json").read_text(encoding="utf-8"))
+        with patch.object(api_client_senado, "listar_classes", return_value=arvore):
+            filhos = api_client_senado.expandir_classes((33809634,))
+        self.assertEqual(filhos[0], 33809634)
+        self.assertGreater(len(filhos), 1)
 
 
 if __name__ == "__main__":

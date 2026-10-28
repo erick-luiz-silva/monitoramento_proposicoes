@@ -21,11 +21,18 @@ else:
     }
 
 API_BASE_URL = "https://dadosabertos.camara.leg.br/api/v2"
+SENADO_API_BASE = "https://legis.senado.leg.br/dadosabertos"
 
 # Filtro grosso da extração por tema da Câmara (o fino é por keyword, na gold):
 # 64 Agricultura, Pecuária, Pesca e Extrativismo; 48 Meio Ambiente e
 # Desenvolvimento Sustentável; 66 Indústria, Comércio e Serviços.
 TEMAS = [64, 48, 66]
+
+# Filtro grosso do Senado por classe (os filhos são expandidos em tempo de execução, porque
+# o filtro codigoClasse da API não inclui a subárvore): Agropecuária e Abastecimento, Meio
+# Ambiente, Indústria/Comércio/Serviços e Saúde > Defesa e Vigilância Sanitária. Todas as
+# MPVs entram também (só 32 das 238 desde 2023 estão nessas classes).
+CLASSES_SENADO = (33805062, 33809634, 33804850, 33809198)
 
 # Senado no mesmo banco: as chaves do Senado (processo, colegiado, parte de reunião)
 # ganham este deslocamento, para id_proposicao continuar um inteiro único em todas as
