@@ -443,7 +443,8 @@ class CargaSenadoTests(unittest.TestCase):
         with self.assertRaises(TimeoutError):
             extract_senado.executar_carga_senado()
         self.assertEqual(self.janelas(), [])
-        self.transformar.assert_not_called()
+        # o que já foi baixado ainda vai para a silver (senão a API lenta trava o Senado de vez)
+        self.transformar.assert_called_once()
 
     def test_duplicata_desfaz_a_transformacao(self):
         self.cur.fetchall.return_value = [(1008152618,)]
@@ -561,6 +562,21 @@ class BootstrapSenadoTests(unittest.TestCase):
         self.assertEqual(janelas[0][0], date(2025, 6, 1))
         self.assertEqual(janelas[-1][1], date(2026, 10, 28))
         self.assertTrue(all((fim - ini).days < 366 for ini, fim in janelas))
+
+    def test_erro_no_mapa_nao_aborta_a_carga_inicial(self):
+        eventos = []
+        conn = MagicMock(); conn.__enter__.return_value = conn
+        with patch.object(extract_senado, "get_connection", return_value=conn), patch.object(
+                extract_senado.api, "expandir_classes", return_value=[1]), patch.object(
+                extract_senado.api, "listar_processos", return_value=[{"id": 10}]), patch.object(
+                extract_senado, "carregar_acompanhadas_sf", return_value=[]), patch.object(
+                extract_senado, "atualizar_mapa_revisora", side_effect=RuntimeError("1 processos do mapa com erro")), patch.object(
+                extract_senado, "ids_gemeos", return_value=[]), patch.object(
+                extract_senado, "carregar_processo", side_effect=lambda c, i: eventos.append(i) or "ok"), patch.object(
+                extract_senado, "transformar_com_unicidade"), patch.object(extract_senado, "carregar_dim_senador"):
+            with self.assertRaisesRegex(RuntimeError, "mapa"):
+                extract_senado.executar_bootstrap(date(2026, 1, 1), hoje=date(2026, 10, 28))
+        self.assertEqual(eventos, [10])                                # carregou mesmo assim
 
 
 if __name__ == "__main__":

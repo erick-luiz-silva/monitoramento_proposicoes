@@ -383,7 +383,9 @@ Os ids entram como não bloqueantes, na etapa 3 da 3.6.
    - o efeito no painel é nulo, porque `em_painel` usa só acompanhadas e SIM, e no radar é de cerca de 1 por mês.
 
    A pergunta sobre manter "produtor rural" no radar vai para a Ana.
-1. Anotar o "antes": as mesmas contagens da 1.8 (banco e DAX), mais o tempo da `gold.vw_monitoramento` e **os pendentes da Câmara**.
+1. Anotar o "antes": as mesmas contagens da 1.8 (banco e DAX), mais o tempo da `gold.vw_monitoramento` e **o `em_radar` de cada linha da Câmara** (id e valor), para comparar depois.
+   - **[revisão final, I1] Pré-condição:** publicar no n8n o aviso que diferencia "Senado atualizado com pendências" de "não atualizado" antes de reativar o Agendador.
+   - Rodar o `setup_db` primeiro dentro de `BEGIN … ROLLBACK`, para confirmar a permissão de `CREATE EXTENSION` no schema `extensions`.
    - Conferir onde a extensão está: `SELECT extnamespace::regnamespace FROM pg_extension WHERE extname = 'unaccent'`. Se estiver fora de `extensions`, ajustar antes do `setup_db`. **[Fable E7]**
 2. Desativar o Agendador do n8n.
 3. `setup_db` com o código da branch (extensão `unaccent`, tabelas, seed) e `ANALYZE`.
@@ -392,7 +394,9 @@ Os ids entram como não bloqueantes, na etapa 3 da 3.6.
    - PL 6028/2019 Câmara (2229763) e Senado (1008152618) com o mesmo `chave_projeto`, as duas acompanhadas;
    - MPV 1376/2026 com as duas versões no mesmo grupo;
    - nenhuma duplicata na gold;
-   - pendentes do e-mail (`em_radar and not acompanhada`, menos as marcadas) dentro do previsto na 0.2, e **os pendentes da Câmara iguais aos do "antes"** **[Fable E2]**;
+   - pendentes do e-mail (`em_radar and not acompanhada`, menos as marcadas) dentro do previsto na 0.2;
+   - **[revisão final, I2]** listar as linhas da Câmara cujo `em_radar` mudou em relação ao "antes" e confirmar que todas são projetos que nasceram no Senado. Para esses, a data de origem passa a ser a do Senado, como diz o spec. Avisar a Ana se houver algum;
+   - **[revisão final, M10]** conferir à mão os processos do Senado ligados a mais de uma proposição da Câmara (`SELECT id_proposicao_sf, count(DISTINCT id_proposicao_cd) FROM silver.proposicao_vinculo GROUP BY 1 HAVING count(*) > 1`). Nenhum grupo pode juntar projetos diferentes;
    - linhas que a consulta "Consultar Proposições" do n8n devolve com `casa='SF'` (estimativa: 12 a 15);
    - movimentações do Senado em `gold.vw_movimentacoes`, que vão para o primeiro e-mail. Elas entram como novas na carga inicial (informes dos últimos 30 dias das acompanhadas e dos grupos com SIM). **Decisão minha:** mostrar uma vez e avisar a Ana na mensagem;
    - linhas do Senado por keyword.
@@ -409,3 +413,13 @@ Os ids entram como não bloqueantes, na etapa 3 da 3.6.
 - o primeiro e-mail traz as movimentações recentes delas no Senado;
 - a planilha ganha linhas com casa "Senado";
 - o painel conta as duas versões até o ajuste final.
+
+## Revisão final das fases 3 e 4 (Fable, 28/10/2026): mínimos adiados
+
+- Na versão do Senado de um projeto da Câmara de 2026 que ficou fora dos temas da Câmara (sem vínculo), a data de reserva de 1º de janeiro deixa o projeto fora do radar. Só acontece em 2026.
+- O órgão atual pode não ser o da autuação da situação quando há várias autuações e colegiado `{}`.
+- O informe mais recente é ordenado sem `NULLS LAST` (todo informe real tem data).
+- Com erro de processo da janela, as pendências não entram no texto do aviso.
+- A opção `--pausa` do bootstrap não foi implementada; o ritmo fixo de 0,2 s do cliente atende.
+- `DROP TABLE IF EXISTS sf_ultimo` sem `pg_temp.`.
+- O CLAUDE.md será atualizado na fase 8.

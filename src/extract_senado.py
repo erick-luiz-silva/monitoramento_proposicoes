@@ -237,10 +237,16 @@ def executar_carga_senado():
     na_janela = set(candidatos)
     extras = [i for i in _sem_repetir(extras) if i not in na_janela]
     reconciliacao = [i for i in reconciliacao if i not in na_janela and i not in set(extras)]
-    with get_connection() as conn:
-        erros_janela = _carregar(conn, candidatos, prazo_fim)
-        erros_extras = _carregar(conn, extras, prazo_fim)
-        erros_reconciliacao = _carregar(conn, reconciliacao, prazo_fim)
+    # Prazo estourado: para de baixar, mas transforma o que já veio (senão uma API lenta por
+    # vários dias deixa o Senado parado de vez) e só levanta no fim, sem registrar janela.
+    erros_janela, erros_extras, erros_reconciliacao, estouro = [], [], [], None
+    try:
+        with get_connection() as conn:
+            erros_janela = _carregar(conn, candidatos, prazo_fim)
+            erros_extras = _carregar(conn, extras, prazo_fim)
+            erros_reconciliacao = _carregar(conn, reconciliacao, prazo_fim)
+    except TimeoutError as exc:
+        estouro = exc
     if erros_extras:
         pendencias.append(f"{len(erros_extras)} acompanhadas/gêmeos com erro (ex.: {erros_extras[0][0]}: {erros_extras[0][1]})")
     if erros_reconciliacao:
@@ -252,6 +258,8 @@ def executar_carga_senado():
         carregar_dim_senador()
     except Exception as exc:
         pendencias.append(f"senadores: {exc}")
+    if estouro:
+        raise estouro
 
     with get_connection() as conn:
         if not erros_janela:
@@ -289,9 +297,15 @@ def executar_bootstrap(desde, hoje=None):
         ids += _ids(api.listar_processos(codigo_classe=classe, tramitando=True))
     for inicio, fim in _janelas_de_um_ano(desde, hoje):
         ids += _ids(api.listar_processos(sigla="MPV", data_inicio=inicio, data_fim=fim))
+    erro_mapa = None
     with get_connection() as conn:
         ids += carregar_acompanhadas_sf(conn)
-        atualizar_mapa_revisora(conn, completo=True)
+        # Um detalhe com erro entre ~2.000 não aborta a carga: o mapa grava aos poucos e uma
+        # nova rodada só busca o que falta.
+        try:
+            atualizar_mapa_revisora(conn, completo=True)
+        except Exception as exc:
+            erro_mapa = exc
         ids += ids_gemeos(conn)
     ids = _sem_repetir(ids)
     print(f"Senado (carga inicial): {len(ids)} processos")
@@ -299,8 +313,13 @@ def executar_bootstrap(desde, hoje=None):
         erros = _carregar(conn, ids, time.monotonic() + 6 * 3600)
     transformar_com_unicidade()
     carregar_dim_senador()
+    problemas = []
+    if erro_mapa:
+        problemas.append(f"mapa: {erro_mapa}")
     if erros:
-        raise RuntimeError(f"{len(erros)} processos com erro na carga inicial (ex.: {erros[0][0]}: {erros[0][1]}); rode de novo")
+        problemas.append(f"{len(erros)} processos com erro (ex.: {erros[0][0]}: {erros[0][1]})")
+    if problemas:
+        raise RuntimeError("Carga inicial incompleta: " + "; ".join(problemas) + ". Rode de novo: só o que falta é buscado.")
     print("Carga inicial do Senado concluída.")
 
 
