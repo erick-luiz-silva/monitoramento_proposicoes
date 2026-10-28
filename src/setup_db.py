@@ -21,6 +21,11 @@ def aplicar_schemas(cur):
     apply_sql_file(cur, "drop_api.sql")
     apply_sql_file(cur, "schema_gold.sql")
     apply_sql_file(cur, "schema_api.sql")
+    # Papel da aplicação /legislativo (idempotente, sem senha), antes dos grants dos contratos.
+    apply_sql_file(cur, "papel_legislativo_app.sql")
+    # Contratos (schema contrato), funções de gestao e a projeção do painel público em api:
+    # recriados a cada setup, depois do api_cache de que dependem.
+    apply_sql_file(cur, "schema_contratos.sql")
 
 
 if __name__ == "__main__":
@@ -28,4 +33,4 @@ if __name__ == "__main__":
         with conn.cursor() as cur:
             aplicar_schemas(cur)
         conn.commit()
-    print("Schemas bronze, silver, gestao, gold e api (e seed das acompanhadas) aplicados com sucesso.")
+    print("Schemas bronze, silver, gestao, gold, api e contrato (e seed das acompanhadas) aplicados com sucesso.")

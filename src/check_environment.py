@@ -38,6 +38,9 @@ REQUIRED_RELATIONS = (
     "api.vw_tramitacoes",
     "api.vw_pautas_monitoradas",
     "api.vw_audiencias_de_interesse",
+    "api.vw_painel_decisoes",
+    "gestao.decisao_projeto",
+    "contrato.vw_projeto",
 )
 
 # Uma linha por id_proposicao na gold: duplicata faria o REFRESH CONCURRENTLY falhar e

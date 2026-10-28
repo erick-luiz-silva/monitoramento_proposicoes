@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS gestao.historico_alteracao (
     em            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS ix_historico_alteracao_projeto ON gestao.historico_alteracao (uuid_projeto, em);
+-- Revisão da decisão resultante da alteração: desfazer_avaliacao só desfaz se ela ainda é a atual.
+ALTER TABLE gestao.historico_alteracao ADD COLUMN IF NOT EXISTS revisao INT;
 
 CREATE OR REPLACE FUNCTION gestao.bloquear_alteracao_historico() RETURNS trigger
 LANGUAGE plpgsql AS $$
