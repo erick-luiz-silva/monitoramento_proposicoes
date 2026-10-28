@@ -8,6 +8,7 @@ vira SenadoComPendencias ("Senado atualizado com pendências").
 """
 
 import argparse
+import re
 import time
 from datetime import date, timedelta
 
@@ -98,9 +99,46 @@ def ids_reconciliacao(conn, hoje):
     return [i for i in ids if i not in existentes]
 
 
+_RE_IDENTIFICACAO = re.compile(r"^(\S+) 0*([0-9]+)/([0-9]{4})$")
+
+
+def numeros_camara(detalhe):
+    """Números da Câmara (sigla, número, ano) de um processo do Senado, lidos do detalhe."""
+    numeros = []
+    if detalhe.get("siglaCasaIniciadora") == "CD":
+        m = _RE_IDENTIFICACAO.match(detalhe.get("identificacaoProcessoInicial") or "")
+        if m:
+            numeros.append((m[1], int(m[2]), int(m[3])))
+    for outro in api.como_lista(detalhe.get("outrosNumeros")):
+        numero, ano = str(outro.get("numero") or ""), str(outro.get("ano") or "")
+        if outro.get("casaIdentificadora") == "CD" and numero.isdigit() and int(numero) > 0 and re.fullmatch(r"[0-9]{4}", ano):
+            numeros.append((outro.get("sigla"), int(numero), int(ano)))
+    return list(dict.fromkeys(numeros))
+
+
 def atualizar_mapa_revisora(conn, completo, numdias=None):
-    """Mapa dos processos "Revisora" (números da Câmara). Ver Tarefa 4.1."""
-    return 0
+    """Mapa dos processos "Revisora" (vindos da Câmara): busca o detalhe de cada novo e grava
+    os números da Câmara. Nunca usa a identificação da lista: 238 dos ~2.000 processos de 2019
+    em diante têm número diferente do da Câmara. Carga inicial: todos os em tramitação; por
+    dia: os atualizados na janela. Devolve quantos processos novos foram consultados."""
+    lista = api.listar_processos(tramitando=True) if completo else api.listar_processos(numdias=numdias)
+    revisoras = _sem_repetir(int(p["id"]) for p in lista if p.get("objetivo") == "Revisora" and p.get("id") is not None)
+    with conn.cursor() as cur:
+        cur.execute("SELECT DISTINCT id_processo FROM bronze.sf_mapa_revisora WHERE id_processo = ANY(%s);", (revisoras,))
+        mapeados = {linha[0] for linha in cur.fetchall()}
+    novos = [i for i in revisoras if i not in mapeados]
+    erros = []
+    for id_processo in novos:
+        try:
+            numeros = numeros_camara(api.buscar_processo(id_processo))
+        except Exception as exc:
+            erros.append(f"{id_processo}: {exc}")
+            continue
+        if numeros:
+            gravar_mapa(conn, id_processo, numeros)
+    if erros:
+        raise RuntimeError(f"{len(erros)} processos do mapa com erro (ex.: {erros[0]})")
+    return len(novos)
 
 
 def ids_gemeos(conn):
@@ -154,12 +192,17 @@ def executar_carga_senado():
     print(f"Senado: {len(candidatos)} processos na janela de {numdias} dias, {len(acompanhadas)} acompanhadas")
 
     extras = list(acompanhadas)
+    # Mapa antes dos gêmeos (os gêmeos de número diferente saem do mapa); falhas separadas.
     try:
         with get_connection() as conn:
             atualizar_mapa_revisora(conn, completo=False, numdias=numdias)
+    except Exception as exc:
+        pendencias.append(f"mapa: {exc}")
+    try:
+        with get_connection() as conn:
             extras += ids_gemeos(conn)
     except Exception as exc:
-        pendencias.append(f"mapa/gêmeos: {exc}")
+        pendencias.append(f"gêmeos: {exc}")
     if recarga_total:
         with get_connection() as conn, conn.cursor() as cur:
             cur.execute(_SQL_SF_DA_GOLD)

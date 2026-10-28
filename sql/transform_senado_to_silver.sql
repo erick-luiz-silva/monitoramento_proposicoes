@@ -219,3 +219,66 @@ ON CONFLICT (id_orgao) DO UPDATE SET
     nome = EXCLUDED.nome,
     casa = EXCLUDED.casa,
     data_extracao = EXCLUDED.data_extracao;
+
+-- 6) Vínculos entre as casas (fase 4). Recriados a cada transformação, menos os manuais, para
+-- um vínculo errado não ficar para sempre. Nunca pela identificação do Senado: o número muda
+-- de uma casa para a outra mesmo de 2019 em diante (o ano no Senado é o da chegada).
+DELETE FROM silver.proposicao_vinculo
+WHERE origem <> 'manual' AND id_proposicao_sf IN (SELECT 1000000000 + id_processo FROM sf_ultimo);
+
+-- 'identificacao': números da Câmara no próprio detalhe (identificacaoProcessoInicial quando
+-- veio da Câmara, e outrosNumeros da Câmara, qualquer que seja a casa iniciadora).
+WITH numeros_cd AS (
+    SELECT u.id_processo, r[1] AS sigla, r[2]::int AS numero, r[3]::int AS ano
+    FROM (
+        SELECT u.id_processo, regexp_match(u.payload->>'identificacaoProcessoInicial', '^(\S+) 0*([0-9]+)/([0-9]{4})$') AS r
+        FROM sf_ultimo u
+        WHERE u.payload->>'siglaCasaIniciadora' = 'CD'
+    ) u
+    WHERE r IS NOT NULL
+    UNION
+    SELECT u.id_processo, o.value->>'sigla', ltrim(o.value->>'numero', '0')::int, (o.value->>'ano')::int
+    FROM sf_ultimo u
+    CROSS JOIN LATERAL jsonb_array_elements(coalesce(u.payload->'outrosNumeros', '[]')) o(value)
+    WHERE o.value->>'casaIdentificadora' = 'CD'
+      AND o.value->>'numero' ~ '^[0-9]*[1-9][0-9]*$'
+      AND o.value->>'ano' ~ '^[0-9]{4}$'
+)
+INSERT INTO silver.proposicao_vinculo (id_proposicao_cd, id_proposicao_sf, origem)
+SELECT DISTINCT p.id_proposicao, 1000000000 + n.id_processo, 'identificacao'
+FROM numeros_cd n
+JOIN silver.proposicao p ON p.casa = 'CD' AND p.sigla_tipo = n.sigla AND p.numero = n.numero AND p.ano = n.ano
+ON CONFLICT (id_proposicao_cd, id_proposicao_sf) DO NOTHING;
+
+-- 'revisora': o mapa dos processos que vieram da Câmara (bronze.sf_mapa_revisora, lido do detalhe).
+INSERT INTO silver.proposicao_vinculo (id_proposicao_cd, id_proposicao_sf, origem)
+SELECT DISTINCT p.id_proposicao, 1000000000 + m.id_processo, 'revisora'
+FROM bronze.sf_mapa_revisora m
+JOIN sf_ultimo u ON u.id_processo = m.id_processo
+JOIN silver.proposicao p ON p.casa = 'CD' AND p.sigla_tipo = m.sigla AND p.numero = m.numero AND p.ano = m.ano
+ON CONFLICT (id_proposicao_cd, id_proposicao_sf) DO NOTHING;
+
+-- 'mpv': a numeração da MPV é nacional (EC 32/2001); a data de edição no Senado
+-- (dataInicioEfetivo) bate com a apresentação na Câmara (98/98 na fase 0, até 7 dias).
+INSERT INTO silver.proposicao_vinculo (id_proposicao_cd, id_proposicao_sf, origem)
+SELECT DISTINCT p.id_proposicao, 1000000000 + u.id_processo, 'mpv'
+FROM sf_ultimo u
+JOIN silver.proposicao p
+  ON p.casa = 'CD' AND p.sigla_tipo = 'MPV' AND u.payload->>'sigla' = 'MPV'
+ AND u.payload->>'numero' ~ '^[0-9]+$' AND p.numero = (u.payload->>'numero')::int
+ AND p.ano = (u.payload->>'ano')::int
+WHERE (u.payload->>'ano')::int >= 2002
+  AND abs((u.payload->>'dataInicioEfetivo')::date - p.data_apresentacao::date) <= 7
+ON CONFLICT (id_proposicao_cd, id_proposicao_sf) DO NOTHING;
+
+-- 7) Data de origem da versão do Senado de um projeto da Câmara: a apresentação na Câmara
+-- (versão ligada mais antiga). Sem vínculo, fica o 1º de janeiro do ano de origem gravado
+-- acima. Sem isto, o min() do grupo pegaria 1º/jan e tiraria do radar uma proposição nova.
+UPDATE silver.proposicao sf
+SET data_apresentacao_origem = coalesce(
+    (SELECT min(cd.data_apresentacao)
+     FROM silver.proposicao_vinculo v
+     JOIN silver.proposicao cd ON cd.id_proposicao = v.id_proposicao_cd
+     WHERE v.id_proposicao_sf = sf.id_proposicao),
+    sf.data_apresentacao_origem)
+WHERE sf.id_proposicao >= 1000000000 AND sf.casa_iniciadora = 'CD';

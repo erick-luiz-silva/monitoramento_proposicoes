@@ -484,5 +484,46 @@ class SeedSenadoTests(unittest.TestCase):
         self.assertEqual(seed.count("ON CONFLICT"), 3)
 
 
+class VinculoSenadoTests(unittest.TestCase):
+    def test_sql_das_tres_origens_e_data_pela_camara(self):
+        sql = sem_comentarios(ler("transform_senado_to_silver.sql"))
+        for origem in ("'identificacao'", "'revisora'", "'mpv'"):
+            self.assertIn(origem, sql)
+        self.assertRegex(sql, r"DELETE FROM silver\.proposicao_vinculo\s+WHERE origem <> 'manual'")
+        self.assertIn(">= 2002", sql)
+        self.assertIn("<= 7", sql)
+        self.assertIn("dataInicioEfetivo", sql)
+        self.assertRegex(sql, r"UPDATE silver\.proposicao[\s\S]*data_apresentacao_origem[\s\S]*proposicao_vinculo")
+
+    def test_numeros_da_camara_vem_do_detalhe(self):
+        detalhe = json.loads((Path(__file__).parent / "fixtures" / "senado" / "8981388.json").read_text(encoding="utf-8"))
+        self.assertIn(("PL", 4314, 2016), extract_senado.numeros_camara(detalhe))
+        self.assertEqual(extract_senado.numeros_camara({"siglaCasaIniciadora": "SF", "outrosNumeros": []}), [])
+        self.assertEqual(extract_senado.numeros_camara({"siglaCasaIniciadora": "CD",
+                                                        "identificacaoProcessoInicial": "MPV 2163-41/2001"}), [])
+
+    def test_mapa_sempre_busca_o_detalhe_dos_novos(self):
+        lista = [{"id": 1, "identificacao": "PL 395/2019", "objetivo": "Revisora"},
+                 {"id": 2, "identificacao": "PL 10/2020", "objetivo": "Revisora"},
+                 {"id": 3, "identificacao": "PL 5/2020", "objetivo": "Iniciadora"}]
+        detalhe = {"siglaCasaIniciadora": "CD", "identificacaoProcessoInicial": "PL 6882/2017", "outrosNumeros": []}
+        cur = MagicMock(); cur.fetchall.return_value = [(2,)]          # o 2 já está no mapa
+        conn = MagicMock(); conn.cursor.return_value.__enter__.return_value = cur
+        with patch.object(extract_senado.api, "listar_processos", return_value=lista) as listar, patch.object(
+                extract_senado.api, "buscar_processo", return_value=detalhe) as buscar, patch.object(
+                extract_senado, "gravar_mapa") as gravar:
+            self.assertEqual(extract_senado.atualizar_mapa_revisora(conn, completo=False, numdias=14), 1)
+        listar.assert_called_once_with(numdias=14)
+        buscar.assert_called_once_with(1)                              # nunca usa o número da lista
+        gravar.assert_called_once_with(conn, 1, [("PL", 6882, 2017)])
+
+    def test_mapa_completo_usa_tramitando(self):
+        with patch.object(extract_senado.api, "listar_processos", return_value=[]) as listar:
+            cur = MagicMock(); cur.fetchall.return_value = []
+            conn = MagicMock(); conn.cursor.return_value.__enter__.return_value = cur
+            extract_senado.atualizar_mapa_revisora(conn, completo=True)
+        listar.assert_called_once_with(tramitando=True)
+
+
 if __name__ == "__main__":
     unittest.main()
