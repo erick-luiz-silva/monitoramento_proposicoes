@@ -1,6 +1,6 @@
 # Plano — Módulo de Monitoramento Legislativo da Plataforma ABCS
 
-Data: 28/10/2026. Status: planejamento revisado; implementação não iniciada.
+Data: 28/10/2026. Status: fundação implementada na branch `legislativo-fundacao`; importação e urgência em validação na homologação; aplicação pendente.
 
 Revisão: GPT-6 Astra, com ajustes incorporados. Este plano e o [PRD](prd.md) devem passar pelo agente revisor antes de futuras entregas ou revisões ao usuário.
 
@@ -109,7 +109,7 @@ Audiências são sugestões temáticas, sem vínculo inferido com projeto. Parti
 
 ### Urgência e confirmação
 
-Movimentação elegível é só uma movimentação maior, pela lista proposta no Apêndice A do PRD, a validar com a Ana e guardada numa tabela de referência editável. Prioritário ativo fica urgente por movimentação elegível não confirmada ou por pauta agendada na janela entre o início de hoje e o início do 15º dia seguinte, exclusivo, em Brasília. O status agendado também é obrigatório.
+Movimentação elegível é só uma movimentação maior, pela lista do Apêndice A do PRD, validada pela Ana em 28/10/2026 e guardada numa tabela de referência editável. Prioritário ativo fica urgente por movimentação elegível não confirmada ou por pauta agendada na janela entre o início de hoje e o início do 15º dia seguinte, exclusivo, em Brasília. O status agendado também é obrigatório.
 
 Ana confirma os IDs dos movimentos efetivamente apresentados; a confirmação é compartilhada e auditada. Nova ocorrência recebida durante a confirmação continua pendente. Confirmar movimentos não elimina urgência causada por pauta. Cancelamento e reagendamento atualizam esse motivo.
 
@@ -173,7 +173,7 @@ Os testes verificam dependências nos dois sentidos e os grants depois de cada `
    - ensaio da migração e lista de conflitos;
    - hospedagem e pooler;
    - capacidades na plataforma;
-   - validar com a Ana a lista de movimentações maiores (PRD, Apêndice A);
+   - lista de movimentações maiores validada pela Ana em 28/10/2026 (PRD, Apêndice A);
    - conflitos da migração decididos pela Ana na planilha.
 2. **Mockup navegável (concluído em 28/10/2026, versão 2 aprovada):**
    - protótipo com dados fictícios cobrindo as tarefas da Entrega 1 (PRD seção 6, item 2);
@@ -200,3 +200,15 @@ Riscos principais: manutenção individual (reusar stack e evitar serviço novo)
 Aceite (detalhado no PRD, CA01–CA14): anonimato sem internos (fora a projeção deliberada do painel); permissões independentes do mailing; edição imediata auditada e sem sobrescrita; contagens consistentes entre gráficos e listas; prioridades antigas visíveis; encerramento entre casas correto; urgência independente do envio de e-mail; inclusão idempotente e retomável; migração sem perda; decisões e permissões preservadas após backfill e recriação dos caches.
 
 Usar unittest/fixtures para Python, testes SQL de contratos e privilégios no harness Postgres local, Vitest para a aplicação e Playwright só para o roteiro do CA11. Testes automatizados dispensam APIs e credenciais reais e usam dados sintéticos. A homologação do piloto usa dados oficiais públicos e uma importação privada das decisões. Uso só em computador. Não criar comentários, responsáveis, aplicativo nativo, notificações complexas, agente de IA ou novo serviço de BI neste MVP.
+
+### Referência temporal na virada
+
+No congelamento da planilha, depois da importação final sem conflitos e antes de habilitar a edição da Ana, o mantenedor define a referência uma única vez no banco de destino:
+
+```sql
+UPDATE gestao.parametro
+SET valor = clock_timestamp()::text
+WHERE chave = 'data_implantacao' AND valor IS NULL;
+```
+
+Conferir o valor gravado e preservá-lo nas reexecuções, backfills e novos `setup_db`. Não preencher automaticamente no ensaio. A urgência compara a data oficial com a referência mais recente entre esse instante e `prioridade_desde`.

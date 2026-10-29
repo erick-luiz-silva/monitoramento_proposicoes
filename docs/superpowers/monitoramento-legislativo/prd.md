@@ -201,7 +201,7 @@ O campo de uma nova inclusão não é apagado quando a lista de pedidos se atual
 
 Um projeto prioritário ativo é urgente por movimento elegível não confirmado ou por pauta agendada no intervalo do início de hoje ao início do 15º dia seguinte, exclusivo, em Brasília. Mostrar o motivo ou ambos.
 
-Movimento elegível é só uma **movimentação maior** (decisão do Erick, 28/10/2026). Exemplos: parecer, inclusão em pauta, votação, mudança de relator ou de situação. Movimentos de rotina (recebimento, encaminhamento, publicação) aparecem no histórico, mas não geram urgência nem pedem confirmação. A lista proposta está no Apêndice A e precisa ser validada com a Ana antes da construção.
+Movimento elegível é só uma **movimentação maior** (decisão do Erick, 28/10/2026). Exemplos: parecer, inclusão em pauta, votação, mudança de relator ou de situação. Movimentos de rotina (recebimento, encaminhamento, publicação) aparecem no histórico, mas não geram urgência nem pedem confirmação. A lista do Apêndice A foi validada pela Ana em 28/10/2026.
 
 Ana confirma somente IDs de movimentos apresentados, com efeito compartilhado e autoria. Nenhuma movimentação vem pré-selecionada. Um botão "Selecionar todas as apresentadas" agiliza, e o botão de confirmar mostra quantas serão confirmadas (aprovado no mockup). Movimento que chega durante a confirmação continua pendente. Abertura da página e envio de e-mail não confirmam leitura. Pauta na janela mantém urgência mesmo após confirmação; cancelamento/reagendamento atualizam o motivo.
 
@@ -480,8 +480,7 @@ Premissas:
 
 Se essas premissas mudarem, atualizar plano e PRD e submetê-los ao agente revisor. Na virada, atualizar CLAUDE.md, README e AGENTS.md, que hoje dizem que a relevância vive na planilha e nunca no banco.
 
-Perguntas em aberto, a decidir antes da construção:
-1. Lista de movimentações maiores (Apêndice A): validar com a Ana, de preferência mostrando o mockup.
+A lista de movimentações maiores do Apêndice A foi validada pela Ana em 28/10/2026.
 
 Decididas em 28/10/2026:
 - duas entregas;
@@ -501,7 +500,7 @@ Limites do protótipo que não mudam o requisito:
 - **Power BI:** o ambiente bloqueia a incorporação de outros sites, então o Power BI é só descrito. No sistema, o painel aparece inserido na página.
 - **Filtros:** o endereço não aceita parâmetros, então os filtros ficam guardados no navegador. No sistema, eles ficam no endereço da página.
 
-## Apêndice A — Movimentações maiores (proposta para validar com a Ana)
+## Apêndice A — Movimentações maiores (validado pela Ana em 28/10/2026)
 
 Uma movimentação maior é uma mudança que exige reação do time político: quem relata, o que o relator concluiu, se entrou em votação, qual foi o resultado e se o caminho do projeto mudou.
 
@@ -532,13 +531,9 @@ A base são os tipos de tramitação da Câmara (`silver.tramitacao.cod_tipo_tra
 - Encaminhamento (180), Envio para a redação final (113), Devolução ao(à) Relator(a) (170) e Devolução de Vista (602);
 - Despacho (1023), Acessórios (1245), Encerramentos (1244), Devolução à CCP (1010), Leitura do ofício de MPV (1516), Encerramento de Comissão Temporária (1051), Conferência de Assinaturas (1042) e Não Informado (5).
 
-Para validar com a Ana:
-- se Distribuição (110) é maior, porque ela define as comissões por onde o projeto passa;
-- se Aprovação de Requerimento (195) é maior, porque costuma ser urgência ou audiência pública, mas pode ser rotina;
-- se Leitura e publicação do Parecer (330) repete o Parecer (322) e pode ser rotina;
-- se Encerramentos (1244) é maior. O nome é vago, e o caso precisa ser conferido em exemplos.
+Validação da Ana em 28/10/2026: Distribuição (110), Aprovação de Requerimento (195) e Leitura e publicação do Parecer (330) são maiores. A leitura do parecer pode ocorrer meses depois de sua apresentação. Distribuição foi descrita como menos urgente que relatoria; um nível separado fica como possível ajuste futuro. Encerramentos (1244), não submetido à Ana, permanece rotina por decisão do mantenedor.
 
-**Senado.** O Senado não tem código de tipo: a movimentação é um texto livre (`descricao_tramitacao`). A proposta é tratar como maior o texto que mencione:
+**Senado.** O Senado não tem código de tipo: a movimentação é um texto livre (`descricao_tramitacao`). A regra aprovada pela Ana em 28/10/2026 trata como maior o texto que mencione:
 - parecer, relator ou relatoria;
 - aprovação, rejeição ou votação;
 - pauta;
@@ -548,7 +543,7 @@ Para validar com a Ana:
 - urgência;
 - prejuízo ou retirada.
 
-Nos últimos 12 meses, essa regra pega 98 de 250 movimentações do Senado (39%). Antes de valer, ela precisa ser conferida em exemplos reais, como foi feito com `eh_relator` na fase Senado.
+Nos últimos 12 meses, essa regra pega 98 de 250 movimentações do Senado (39%). A implementação confere exemplos reais na homologação, como foi feito com `eh_relator` na fase Senado.
 
 **Regras gerais:**
 - uma tramitação nova de tipo maior numa prioridade ativa abre urgência até ser confirmada;
