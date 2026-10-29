@@ -547,20 +547,59 @@ class FuncoesGestaoTests(_ComDados):
         self.assertEqual(self.chamar("gestao.reivindicar_inclusao", p["id"])["reivindicado"], False)
         self.conn.commit()
         self.assertErroDominio("inclusao_nao_encontrada", "gestao.reivindicar_inclusao", 999999)
-        # n8n caiu no meio: 'localizando' parado volta a 'solicitada' sem gastar tentativa
+        # n8n caiu no meio: 'localizando' parado volta como falha temporária (conta tentativa)
         self.cur.execute("UPDATE gestao.inclusao_manual SET atualizado_em = now() - interval '5 minutes' WHERE id = %s", (p["id"],))
         self.assertEqual(self.chamar("gestao.concluir_inclusoes")["devolvidas"], 0)
         self.cur.execute("UPDATE gestao.inclusao_manual SET atualizado_em = now() - interval '11 minutes' WHERE id = %s", (p["id"],))
         self.assertEqual(self.chamar("gestao.concluir_inclusoes")["devolvidas"], 1)
-        self.cur.execute("SELECT estado, tentativas FROM gestao.inclusao_manual WHERE id = %s", (p["id"],))
-        self.assertEqual(self.cur.fetchone(), ("solicitada", 0))
+        self.cur.execute("SELECT estado, tentativas, proxima_tentativa_em IS NOT NULL FROM gestao.inclusao_manual WHERE id = %s", (p["id"],))
+        self.assertEqual(self.cur.fetchone(), ("solicitada", 1, True))
         # processo atrasado não devolve à fila um pedido que outro já levou adiante
+        self.cur.execute("UPDATE gestao.inclusao_manual SET proxima_tentativa_em = NULL WHERE id = %s", (p["id"],))
         self.chamar("gestao.reivindicar_inclusao", p["id"])
         self.chamar("gestao.registrar_inclusao_resolvida", p["id"], 900098)
         self.conn.commit()
         self.assertErroDominio("estado_invalido", "gestao.falhar_inclusao", p["id"], "Timeout", True)
         self.cur.execute("SELECT estado FROM gestao.inclusao_manual WHERE id = %s", (p["id"],))
         self.assertEqual(self.cur.fetchone()[0], "carregando")
+
+    def test_localizacao_que_sempre_trava_esgota_em_falhou(self):
+        # defeito determinístico no n8n: reivindica, trava, expira... não pode girar sem fim
+        p = self.chamar("gestao.solicitar_inclusao", "PL 4/1999", "CD:PL 4/1999", ATOR, "Ana")
+        for tentativa in range(1, 6):
+            self.cur.execute("UPDATE gestao.inclusao_manual SET proxima_tentativa_em = NULL WHERE id = %s", (p["id"],))
+            self.assertTrue(self.chamar("gestao.reivindicar_inclusao", p["id"])["reivindicado"], tentativa)
+            self.cur.execute("UPDATE gestao.inclusao_manual SET atualizado_em = now() - interval '11 minutes' WHERE id = %s", (p["id"],))
+            self.chamar("gestao.concluir_inclusoes")
+        self.cur.execute("SELECT estado, tentativas FROM gestao.inclusao_manual WHERE id = %s", (p["id"],))
+        self.assertEqual(self.cur.fetchone(), ("falhou", 5))
+        self.assertFalse(self.chamar("gestao.reivindicar_inclusao", p["id"])["reivindicado"])
+
+    def test_expiracao_nao_derruba_conclusao_nem_aplica_duas_vezes(self):
+        import psycopg2
+
+        q = self.chamar("gestao.solicitar_inclusao", "PL 5/1999", "CD:PL 5/1999", ATOR, "Ana")
+        self.chamar("gestao.reivindicar_inclusao", q["id"])
+        self.chamar("gestao.registrar_inclusao_resolvida", q["id"], 900098)
+        self.cur.execute("UPDATE gestao.inclusao_manual SET atualizado_em = now() - interval '61 minutes' WHERE id = %s", (q["id"],))
+        self.conn.commit()
+        # outra conexão (o webhook de fim de carga) segura o pedido: o cron pula, sem erro
+        outra = psycopg2.connect(TEST_DATABASE_URL)
+        try:
+            with outra.cursor() as c2:
+                c2.execute("SELECT 1 FROM gestao.inclusao_manual WHERE id = %s FOR UPDATE", (q["id"],))
+                self.assertEqual(self.chamar("gestao.concluir_inclusoes")["expiradas"], 0)
+                self.conn.commit()
+            outra.rollback()
+        finally:
+            outra.close()
+        self.assertEqual(self.chamar("gestao.concluir_inclusoes")["expiradas"], 1)
+        self.assertEqual(self.chamar("gestao.concluir_inclusoes")["expiradas"], 0)
+        self.cur.execute("SELECT estado, tentativas FROM gestao.inclusao_manual WHERE id = %s", (q["id"],))
+        self.assertEqual(self.cur.fetchone(), ("solicitada", 1))
+        # falha só vale para pedido em andamento
+        self.conn.commit()
+        self.assertErroDominio("estado_invalido", "gestao.aplicar_falha_inclusao", q["id"], "x", True)
 
 
 @unittest.skipUnless(TEST_DATABASE_URL, "TEST_DATABASE_URL não definida")

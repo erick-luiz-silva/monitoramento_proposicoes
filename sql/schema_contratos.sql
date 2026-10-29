@@ -920,8 +920,8 @@ $$;
 -- gestao.reivindicar_inclusao — o n8n pega um pedido para resolver (webhook do app ou cron).
 -- Atômico: só um processo reivindica. Pedido 'solicitada' elegível (sem nova tentativa marcada
 -- para depois) passa a 'localizando'; em qualquer outro estado nada muda e reivindicado = false
--- ('falhou' só volta por "Tentar agora"). 'localizando' parado há mais de 10 min é devolvido
--- por concluir_inclusoes. Retorna jsonb {id, reivindicado, estado, entrada, chave_entrada}.
+-- ('falhou' só volta por "Tentar agora"). 'localizando' parado há mais de 10 min vira falha
+-- temporária em concluir_inclusoes (conta tentativa). Retorna jsonb {id, reivindicado, estado, entrada, chave_entrada}.
 CREATE FUNCTION gestao.reivindicar_inclusao(
     p_id bigint
 ) RETURNS jsonb
@@ -983,7 +983,8 @@ $$;
 -- gestao.aplicar_falha_inclusao — interna (sem grant): usada por falhar_inclusao e pela expiração
 -- de concluir_inclusoes. Temporária: nova tentativa automática espaçada (15, 30, 60, 120 min) até
 -- 5 tentativas; depois, ou se permanente (ex.: "não encontrado"), fica em 'falhou' à espera de
--- "Tentar agora". Pedido concluído não volta atrás.
+-- "Tentar agora". Só vale para pedido em andamento ('localizando' ou 'carregando'); concluído
+-- não volta atrás.
 -- Retorna jsonb {id, estado, tentativas, proxima_tentativa_em}.
 CREATE FUNCTION gestao.aplicar_falha_inclusao(
     p_id bigint,
@@ -1006,6 +1007,9 @@ BEGIN
     END IF;
     IF v_pedido.estado = 'concluida' THEN
         RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'inclusao_ja_concluida';
+    END IF;
+    IF v_pedido.estado NOT IN ('localizando', 'carregando') THEN
+        RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'estado_invalido', DETAIL = v_pedido.estado;
     END IF;
     v_tentativas := v_pedido.tentativas + 1;
     IF coalesce(p_temporaria, false) AND v_tentativas < 5 THEN
@@ -1098,7 +1102,7 @@ $$;
 --    como SIM e acompanhada; uma relevância já decidida, inclusive NÃO, nunca é sobrescrita).
 --    Só pedidos de proposição nova: a já monitorada concluiu no registro, sem SIM (RF08);
 -- 2. pedido em 'carregando' há mais de 60 min vira falha temporária (disparo cancelado na fila);
--- 3. pedido em 'localizando' há mais de 10 min (o n8n caiu no meio) volta a 'solicitada'.
+-- 3. pedido em 'localizando' há mais de 10 min (o n8n caiu no meio) vira falha temporária.
 -- Retorna jsonb {concluidas, marcadas_sim, expiradas, devolvidas}.
 CREATE FUNCTION gestao.concluir_inclusoes() RETURNS jsonb
 LANGUAGE plpgsql
@@ -1140,18 +1144,29 @@ BEGIN
         END IF;
     END LOOP;
 
+    -- SKIP LOCKED: o webhook de fim de carga e o cron podem rodar ao mesmo tempo; cada pedido
+    -- expira uma vez só, e um pedido que a outra chamada está concluindo é deixado para ela.
     FOR v_pedido IN
         SELECT id FROM gestao.inclusao_manual
         WHERE estado = 'carregando' AND atualizado_em < now() - interval '60 minutes'
+        FOR UPDATE SKIP LOCKED
     LOOP
-        PERFORM gestao.aplicar_falha_inclusao(v_pedido.id, 'Carga não concluída em 60 minutos', true);
+        PERFORM gestao.aplicar_falha_inclusao(v_pedido.id,
+            'A carga não terminou em 60 minutos (disparo não iniciado ou fila ocupada). Nova tentativa automática.', true);
         v_expiradas := v_expiradas + 1;
     END LOOP;
 
-    UPDATE gestao.inclusao_manual
-    SET estado = 'solicitada', atualizado_em = now()
-    WHERE estado = 'localizando' AND atualizado_em < now() - interval '10 minutes';
-    GET DIAGNOSTICS v_devolvidas = ROW_COUNT;
+    -- 'localizando' parado (o n8n caiu no meio) conta tentativa: um defeito que se repete
+    -- esgota em 5 tentativas e vira 'falhou', em vez de girar sem fim.
+    FOR v_pedido IN
+        SELECT id FROM gestao.inclusao_manual
+        WHERE estado = 'localizando' AND atualizado_em < now() - interval '10 minutes'
+        FOR UPDATE SKIP LOCKED
+    LOOP
+        PERFORM gestao.aplicar_falha_inclusao(v_pedido.id,
+            'A localização não terminou. Nova tentativa automática.', true);
+        v_devolvidas := v_devolvidas + 1;
+    END LOOP;
 
     RETURN jsonb_build_object('concluidas', v_concluidas, 'marcadas_sim', v_sim, 'expiradas', v_expiradas,
                               'devolvidas', v_devolvidas);
