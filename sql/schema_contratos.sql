@@ -144,6 +144,40 @@ LEFT JOIN LATERAL (
 ) enc ON true;
 
 -- ---------------------------------------------------------------------------------------------
+-- Movimentos maiores oficiais. Não depende de vw_projeto para evitar dependência circular.
+-- A confirmação usa a identidade oficial estável, mesmo após reagrupar versões.
+-- GREATEST ignora NULL; sem baseline nem prioridade_desde, apos_referencia é false.
+CREATE VIEW contrato.vw_movimentacao_maior AS
+SELECT v.chave_agrupamento, v.uuid_projeto, t.id_proposicao, t.sequencia, t.data_hora,
+       v.identificacao_casa, t.sigla_orgao, t.descricao_tramitacao AS descricao,
+       c.id_proposicao IS NOT NULL AS confirmada, c.confirmada_por_nome, c.confirmada_em,
+       coalesce(t.data_hora > (greatest(
+           (SELECT p.valor::timestamptz FROM gestao.parametro p WHERE p.chave = 'data_implantacao'),
+           d.prioridade_desde) AT TIME ZONE 'America/Sao_Paulo'), false) AS apos_referencia
+FROM contrato.vw_versao v
+JOIN silver.tramitacao t ON t.id_proposicao = v.id_proposicao
+LEFT JOIN gestao.decisao_projeto d ON d.uuid_projeto = v.uuid_projeto
+LEFT JOIN gestao.confirmacao_movimentacao c
+       ON c.id_proposicao = t.id_proposicao AND c.sequencia = t.sequencia
+WHERE (v.casa = 'CD' AND EXISTS (
+    SELECT 1 FROM gestao.tipo_movimentacao tm
+    WHERE tm.casa = 'CD' AND tm.cod_tipo_tramitacao = t.cod_tipo_tramitacao AND tm.maior
+)) OR (v.casa = 'SF' AND EXISTS (
+    SELECT 1 FROM gestao.regra_movimentacao_senado rm
+    WHERE extensions.unaccent(lower(t.descricao_tramitacao)) ~ rm.padrao
+));
+
+CREATE VIEW contrato.vw_tipos_sem_classificacao AS
+SELECT t.cod_tipo_tramitacao, count(*) AS ocorrencias,
+       min(t.descricao_tramitacao) AS exemplo
+FROM silver.tramitacao t
+JOIN contrato.vw_versao v ON v.id_proposicao = t.id_proposicao
+WHERE v.casa = 'CD' AND t.cod_tipo_tramitacao IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM gestao.tipo_movimentacao tm
+                  WHERE tm.casa = 'CD' AND tm.cod_tipo_tramitacao = t.cod_tipo_tramitacao)
+GROUP BY t.cod_tipo_tramitacao;
+
+-- ---------------------------------------------------------------------------------------------
 -- contrato.vw_projeto — uma linha por projeto (chave_agrupamento): decisão, regras da carteira,
 -- fila de avaliação, urgência por pauta e aviso de conferência. Regras (PRD RN06, RN07, RF09):
 --   encerrado: TODAS as versões do projeto são 'arquivada'/'norma' (remessa não encerra).
@@ -307,10 +341,24 @@ SELECT
     c.proxima_pauta_em,
     c.proxima_pauta_orgao,
     cardinality(c.motivos_conferencia) > 0 AS a_conferir,
-    c.motivos_conferencia
+    c.motivos_conferencia,
+    coalesce(m.pendentes, 0)::int AS movimentacoes_a_confirmar,
+    (coalesce(m.pendentes, 0) > 0) AS urgente_movimentacao,
+    ((c.elegivel AND c.prioridade IS TRUE AND c.pauta_na_janela AND cardinality(c.motivos_conferencia) = 0)
+     OR coalesce(m.pendentes, 0) > 0) AS urgente,
+    array_remove(ARRAY[
+        CASE WHEN coalesce(m.pendentes, 0) > 0 THEN 'movimentação' END,
+        CASE WHEN c.elegivel AND c.prioridade IS TRUE AND c.pauta_na_janela
+                  AND cardinality(c.motivos_conferencia) = 0 THEN 'pauta' END
+    ], NULL) AS motivos_urgencia
 FROM carteira c
 JOIN versao r ON r.id_proposicao = c.id_proposicao_recente
-LEFT JOIN palavras p ON p.chave_agrupamento = c.chave_agrupamento;
+LEFT JOIN palavras p ON p.chave_agrupamento = c.chave_agrupamento
+LEFT JOIN LATERAL (
+    SELECT count(*) AS pendentes FROM contrato.vw_movimentacao_maior mm
+    WHERE c.prioridade IS TRUE AND c.elegivel AND cardinality(c.motivos_conferencia) = 0
+      AND mm.chave_agrupamento = c.chave_agrupamento AND mm.apos_referencia AND NOT mm.confirmada
+) m ON true;
 
 -- ---------------------------------------------------------------------------------------------
 -- contrato.vw_conferencia — lista do mantenedor: uma linha por (projeto, motivo). Dois UUIDs
@@ -397,6 +445,17 @@ JOIN contrato.vw_versao v ON v.id_proposicao = pm.id_proposicao;
 --   falha_api: a última atualização do api_cache ('atualizacao_api', gravada por load_api) é
 --       anterior à última carga diária — as telas e o painel mostram dados velhos.
 -- ---------------------------------------------------------------------------------------------
+-- Leituras privadas da aplicação: tabelas de gestão continuam sem SELECT direto.
+CREATE VIEW contrato.vw_historico AS
+SELECT id, uuid_projeto, operacao, diferencas, origem, ator_id, ator_nome, em, revisao
+FROM gestao.historico_alteracao;
+
+CREATE VIEW contrato.vw_inclusao AS
+SELECT id, entrada, chave_entrada, casa, id_proposicao, estado, etapa, tentativas,
+       proxima_tentativa_em, erro, email_estado, solicitante_id, solicitante_nome,
+       criado_em, atualizado_em, ja_monitorada
+FROM gestao.inclusao_manual;
+
 CREATE VIEW contrato.vw_frescor AS
 WITH carga AS (
     SELECT
@@ -1029,6 +1088,71 @@ END
 $$;
 
 -- =============================================================================================
+-- Confirma apenas IDs efetivamente apresentados pela tela. Não toca no checkpoint do e-mail.
+CREATE FUNCTION gestao.confirmar_movimentacoes(
+    p_uuid uuid, p_itens jsonb, p_ator_id uuid, p_ator_nome text
+) RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+    v_confirmadas jsonb;
+    v_quantidade int;
+    v_proximo uuid;
+BEGIN
+    IF p_ator_id IS NULL OR coalesce(btrim(p_ator_nome), '') = '' THEN
+        RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'ator_obrigatorio';
+    END IF;
+    IF p_itens IS NULL OR jsonb_typeof(p_itens) <> 'array' THEN
+        RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'campos_invalidos';
+    END IF;
+    IF p_uuid IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'projeto_nao_informado';
+    END IF;
+    -- A tela pode ter sido aberta antes de uma reconciliação. Resolve o mesmo alias
+    -- aceito por gravar_decisao, sem confirmar movimentos de outro projeto.
+    FOR i IN 1..20 LOOP
+        SELECT substituido_por INTO v_proximo FROM gestao.projeto WHERE uuid = p_uuid;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'projeto_nao_encontrado';
+        END IF;
+        EXIT WHEN v_proximo IS NULL;
+        p_uuid := v_proximo;
+    END LOOP;
+    IF v_proximo IS NOT NULL THEN
+        RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'projeto_nao_encontrado';
+    END IF;
+    PERFORM pg_advisory_xact_lock(hashtextextended('gestao.projeto:' || p_uuid::text, 0));
+    -- Só prioridade ativa pede confirmação. A conferência suspende urgência e confirmação.
+    WITH inseridas AS (
+        INSERT INTO gestao.confirmacao_movimentacao
+            (id_proposicao, sequencia, uuid_projeto, confirmada_por_id, confirmada_por_nome)
+        SELECT DISTINCT m.id_proposicao, m.sequencia, p_uuid, p_ator_id, p_ator_nome
+        FROM contrato.vw_movimentacao_maior m
+        JOIN contrato.vw_projeto p ON p.chave_agrupamento = m.chave_agrupamento
+        WHERE m.uuid_projeto = p_uuid AND m.apos_referencia AND NOT m.confirmada
+          AND p.prioridade IS TRUE AND p.elegivel AND NOT p.a_conferir
+          AND EXISTS (
+              SELECT 1 FROM jsonb_array_elements(p_itens) AS i(item)
+              WHERE i.item->>'id_proposicao' = m.id_proposicao::text
+                AND i.item->>'sequencia' = m.sequencia::text)
+        ON CONFLICT DO NOTHING
+        RETURNING id_proposicao, sequencia
+    )
+    SELECT coalesce(jsonb_agg(jsonb_build_object('id_proposicao', id_proposicao, 'sequencia', sequencia)), '[]'::jsonb),
+           count(*)::int INTO v_confirmadas, v_quantidade FROM inseridas;
+    IF v_quantidade > 0 THEN
+        INSERT INTO gestao.historico_alteracao (uuid_projeto, operacao, diferencas, origem, ator_id, ator_nome)
+        VALUES (p_uuid, 'confirmar_movimentacoes', jsonb_build_object('itens', v_confirmadas),
+                'aplicacao', p_ator_id, p_ator_nome);
+    END IF;
+    RETURN jsonb_build_object('confirmadas', v_quantidade,
+                              'ignoradas', jsonb_array_length(p_itens) - v_quantidade);
+END
+$$;
+
+-- =============================================================================================
 -- Projeção do painel público (Power BI pela anon, PRD seção 5). A ÚNICA view de api que lê
 -- gestao: uma linha por versão de api_cache.vw_monitoramento, colunas fixas e travadas por teste
 -- (sem ação, parecer, observações, histórico nem autoria). Versão sem UUID: uuid_projeto NULL
@@ -1055,6 +1179,9 @@ JOIN contrato.vw_projeto p ON p.chave_agrupamento = v.chave_agrupamento;
 GRANT USAGE ON SCHEMA gestao, contrato, api_cache, silver TO gestao_dono;
 GRANT SELECT, INSERT ON gestao.projeto, gestao.projeto_proposicao, gestao.historico_alteracao TO gestao_dono;
 GRANT SELECT, INSERT, UPDATE ON gestao.decisao_projeto, gestao.inclusao_manual TO gestao_dono;
+GRANT SELECT, INSERT ON gestao.confirmacao_movimentacao TO gestao_dono;
+GRANT SELECT ON gestao.tipo_movimentacao, gestao.regra_movimentacao_senado, gestao.parametro TO gestao_dono;
+GRANT SELECT ON contrato.vw_projeto, contrato.vw_movimentacao_maior TO gestao_dono;
 GRANT USAGE ON SEQUENCE gestao.historico_alteracao_id_seq, gestao.inclusao_manual_id_seq TO gestao_dono;
 GRANT SELECT, INSERT ON silver.proposicao_acompanhada TO gestao_dono;
 GRANT SELECT ON api_cache.vw_monitoramento, contrato.vw_associacao, contrato.vw_versao TO gestao_dono;
@@ -1100,7 +1227,8 @@ GRANT EXECUTE ON FUNCTION
     gestao.avaliar(bigint, text, int, uuid, text),
     gestao.desfazer_avaliacao(bigint, uuid, text),
     gestao.solicitar_inclusao(text, text, uuid, text),
-    gestao.tentar_inclusao_agora(bigint, uuid, text)
+    gestao.tentar_inclusao_agora(bigint, uuid, text),
+    gestao.confirmar_movimentacoes(uuid, jsonb, uuid, text)
 TO legislativo_app;
 
 NOTIFY pgrst, 'reload schema';

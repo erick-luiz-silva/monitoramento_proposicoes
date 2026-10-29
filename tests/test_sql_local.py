@@ -124,6 +124,7 @@ class BancoLimpoTests(unittest.TestCase):
 FIXTURE_GESTAO = Path(__file__).resolve().parent / "fixtures" / "gestao" / "silver_sintetica.sql"
 ATOR = "00000000-0000-0000-0000-0000000000aa"
 FUNCOES_APP = (
+    "gestao.confirmar_movimentacoes(uuid, jsonb, uuid, text)",
     "gestao.salvar_decisao(uuid, bigint, int, jsonb, uuid, text)",
     "gestao.avaliar(bigint, text, int, uuid, text)",
     "gestao.desfazer_avaliacao(bigint, uuid, text)",

@@ -818,7 +818,7 @@ class GoldSqlTests(unittest.TestCase):
         self.assertRegex(sql, r"nspname = 'gestao' AND p\.prorettype <> 'trigger'::regtype")
         grant = re.search(r"GRANT EXECUTE ON FUNCTION(.*?)TO legislativo_app;", sql, re.S).group(1)
         concedidas = sorted(re.findall(r"gestao\.(\w+)\(", grant))
-        self.assertEqual(concedidas, ["avaliar", "desfazer_avaliacao", "salvar_decisao", "solicitar_inclusao", "tentar_inclusao_agora"])
+        self.assertEqual(concedidas, ["avaliar", "confirmar_movimentacoes", "desfazer_avaliacao", "salvar_decisao", "solicitar_inclusao", "tentar_inclusao_agora"])
         # dono restrito (PRD §5): toda função de gestao passa a gestao_dono, sem CREATE no schema depois
         self.assertIn("EXECUTE format('ALTER FUNCTION %s OWNER TO gestao_dono', f)", sql)
         self.assertGreater(sql.index("REVOKE CREATE ON SCHEMA gestao FROM gestao_dono"), sql.index("OWNER TO gestao_dono"))
