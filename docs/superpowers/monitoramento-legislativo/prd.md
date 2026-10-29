@@ -165,13 +165,13 @@ A fase 6 do roteiro do Senado (inclusão manual do Senado) não deve ser constru
 Persistir solicitação, solicitante, estado e resultado. A solicitação não expira após duas horas; tentativas têm espaçamento controlado e deduplicação, sem repetição contínua ilimitada.
 
 **Ciclo do pedido (esclarecimento da avaliação do Astra):**
-1. **Solicitada:** o pedido foi gravado.
-2. **Em processamento, etapa "localizando":** o n8n resolve a identificação ou o link para o id da Câmara. É a **resolução**. Um "não encontrado" é falha permanente, sem tentativa automática.
+1. **Solicitada:** o pedido foi gravado. Logo depois da resposta, o app avisa o webhook do n8n só com o id do pedido (29/10/2026: processamento imediato, pedido do Erick). Se o aviso se perder, um cron de 15 min do n8n pega o pedido.
+2. **Em processamento, etapa "localizando":** o n8n reivindica o pedido com `gestao.reivindicar_inclusao`, que é atômica: se o webhook e o cron pegam o mesmo pedido, só um leva. Depois resolve a identificação ou o link para o id da Câmara. É a **resolução**. Um "não encontrado" é falha permanente, sem tentativa automática. A falha só é aceita de pedido em "localizando". Pedido parado nessa etapa há mais de 10 min (o n8n caiu no meio) volta a "solicitada" sem gastar tentativa.
 3. **Em processamento, etapa "carregando":** com o id resolvido, uma função de `gestao` grava a acompanhada em `silver.proposicao_acompanhada`, com `origem = 'sistema'`. Isso é a **preparação para a coleta**. Só depois o n8n dispara `modo=inclusao`. Não há dependência circular: a projeção usa o id resolvido, e não o pedido concluído.
 4. **Concluída:** os dados estão disponíveis na base de consulta, ou seja, a proposição aparece em `api`.
    - A cada webhook de sucesso, de qualquer modo, o n8n marca como "concluída" todo pedido em "carregando" cujo `id_proposicao` já está em `api.vw_monitoramento`. A regra é idempotente.
    - Isso é necessário porque o sucesso do job não prova que um pedido específico chegou. `pipeline_inclusao.py` carrega todas as acompanhadas ausentes e só falha se nenhuma carregar, e a carga diária também carrega acompanhadas.
-   - Pedido em "carregando" há mais de 6 horas vira falha temporária, com nova tentativa. Isso cobre o disparo de `modo=inclusao` que o GitHub cancela na fila quando chega outro disparo (`concurrency` do `pipeline.yml`).
+   - Pedido em "carregando" há mais de 60 minutos vira falha temporária, com nova tentativa. Isso cobre o disparo de `modo=inclusao` que o GitHub cancela na fila quando chega outro disparo (`concurrency` do `pipeline.yml`, separada por ambiente). Até 29/10/2026 o limite era de 6 horas.
    - O estado do e-mail fica em `gestao.inclusao_manual`. `silver.proposicao_acompanhada.confirmada_em` deixa de ser preenchido para pedidos novos.
 5. **Falhou:** guarda o erro e a tentativa. Falha temporária ganha tentativas automáticas espaçadas, com limite; esgotado o limite, fica "falhou" à espera de "Tentar agora".
 
@@ -180,7 +180,8 @@ Persistir solicitação, solicitante, estado e resultado. A solicitação não e
 **Tela:**
 - um campo rotulado "Identificação ou link da Câmara", sem seletor de casa;
 - a mensagem de resultado;
-- a lista de pedidos com estado e link para o projeto, sem colunas "Quem" e "Tentativas" (as tentativas entram no texto do erro);
+- a lista de pedidos com estado, quem pediu ("· por Fulano", na mesma linha, por pedido do Erick em 29/10/2026) e link para o projeto. Não há coluna "Tentativas": elas entram no texto do erro;
+- a lista se atualiza sozinha a cada 10 s enquanto houver pedido em andamento;
 - pedidos concluídos há mais de 7 dias ficam recolhidos.
 
 **Identidade e duplicidade:**
