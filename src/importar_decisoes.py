@@ -25,10 +25,12 @@ from pathlib import Path
 from google.auth.transport.requests import AuthorizedSession
 
 from comparar_acompanhamento import ler_aba
+from config import casa_de
 from db import get_connection
 from google_auth import get_credentials
 
 SAIDA_CONFLITOS = Path(__file__).resolve().parents[1] / "data" / "conflitos_migracao.csv"
+SAIDA_FORA = Path(__file__).resolve().parents[1] / "data" / "fora_do_monitoramento.csv"
 ATOR_NOME = "importação da planilha"
 CAMPOS = ("relevancia", "posicao", "prioridade", "acao", "parecer", "observacoes")
 POSICOES = {
@@ -44,9 +46,11 @@ TIPO_DIVERGENCIA = "Divergência entre as versões do mesmo projeto"
 TIPO_PRIORIDADE_SEM_SIM = "Prioridade SIM sem relevância SIM"
 TIPO_AMBIGUA = "Identificação ambígua entre casas no Posicionamento"
 TIPO_SEM_PROPOSICAO = "Identificação do Posicionamento sem proposição monitorada"
-TIPO_ID_FORA = "Linha de Proposições fora do monitoramento"
+TIPO_SEM_ID = "Linha de Proposições sem id_proposicao válido"
+TIPO_ID_DIVERGE = "id_proposicao e identificação do Posicionamento apontam para projetos diferentes"
 TIPO_VALOR = "Valor não reconhecido"
 TIPO_PROJETOS_DIFERENTES = "Versões do projeto ligadas a projetos diferentes no banco"
+TIPO_GRUPOS_DIFERENTES = "Projeto do banco separado em grupos diferentes na importação"
 
 
 def _sem_acento(texto):
@@ -115,6 +119,8 @@ def resolver_identificacao(ident, indice):
     levar a um único grupo. Devolve ('ok', chave) | ('ambigua', None) | ('sem_proposicao', None)."""
     ident = (ident or "").strip()
     exata = indice["por_casa"].get(ident)
+    if exata and len(exata) > 1:
+        return "ambigua", None
     if exata:
         return "ok", next(iter(exata))
     grupos = indice["por_ident"].get(ident, set())
@@ -135,37 +141,79 @@ def _rotulo_grupo(versoes):
     return " / ".join(idents), " + ".join(casas)
 
 
-def consolidar(linhas_proposicoes, linhas_posicionamento, linhas_cache):
-    """Lógica pura. Devolve (grupos, conflitos, totais). grupos: {chave: dict com a decisão desejada}."""
+def consolidar(linhas_proposicoes, linhas_posicionamento, linhas_cache, ids_silver=frozenset()):
+    """Lógica pura. Devolve (grupos, conflitos, extras). grupos: {chave: dict com a decisão desejada}.
+    Linhas da planilha cujo id não está no cache (fora do monitoramento atual) não são conflito: viram um
+    grupo próprio (só o id) e entram em extras["fora"] para a lista do mantenedor."""
     indice = indexar_cache(linhas_cache)
     versoes = defaultdict(list)
     for l in linhas_cache:
         versoes[l["chave_projeto"]].append(l)
     conflitos = []
-    # chave -> campo -> lista de (valor, identificacao da linha de origem)
+    fora = []
+    # chave -> campo -> lista de valores
     achados = defaultdict(lambda: defaultdict(list))
     relevancias = defaultdict(list)
 
+    def chave_fora(id_, ident, casa):
+        chave = f"id{id_}"
+        if chave not in versoes:
+            versoes[chave] = [{"id_proposicao": id_, "identificacao": ident, "identificacao_casa": ident,
+                               "casa": "SF" if _sem_acento(casa) == "senado" else "CD",
+                               "chave_projeto": chave, "acompanhada": False}]
+        return chave
+
+    def chave_do_id(id_):
+        cache = indice["por_id"].get(id_)
+        if cache is not None:
+            return cache["chave_projeto"]
+        if id_ in ids_silver:
+            return chave_fora(id_, ident, "Senado" if casa_de(id_) == "SF" else "Câmara")
+        return None
+
     for linha in linhas_proposicoes:
         bruto = (linha.get("id_proposicao") or "").strip()
-        cache = indice["por_id"].get(int(bruto)) if bruto.isdigit() else None
         relevancia = normalizar_relevancia(linha.get("relevancia"))
+        ident_linha = (linha.get("identificacao") or "").strip()
+        casa_linha = (linha.get("casa") or "").strip()
+        if not bruto.isdigit():
+            if bruto or relevancia is not None:
+                conflitos.append(_conflito(TIPO_SEM_ID, ident_linha, casa_linha,
+                                           f"relevância {(linha.get('relevancia') or '').strip() or 'vazia'}"))
+            continue
+        id_ = int(bruto)
+        cache = indice["por_id"].get(id_)
         if cache is None:
-            if relevancia is not None or bruto:
-                casa = (linha.get("casa") or "").strip()
-                conflitos.append(_conflito(TIPO_ID_FORA, (linha.get("identificacao") or "").strip(), casa,
-                                           f"relevância {linha.get('relevancia', '').strip() or 'vazia'}"))
-            continue
+            fora.append({"identificacao": ident_linha, "casa": casa_linha,
+                         "relevancia": (linha.get("relevancia") or "").strip()})
+            chave = chave_fora(id_, ident_linha, casa_linha)
+            rotulo_ident, rotulo_casa = ident_linha, casa_linha
+        else:
+            chave = cache["chave_projeto"]
+            rotulo_ident, rotulo_casa = _rotulo_grupo([cache])
         if relevancia == DESCONHECIDO:
-            ident, casa = _rotulo_grupo([cache])
-            conflitos.append(_conflito(TIPO_VALOR, ident, casa, f"relevância: {linha.get('relevancia', '').strip()}"))
+            conflitos.append(_conflito(TIPO_VALOR, rotulo_ident, rotulo_casa,
+                                       f"relevância: {(linha.get('relevancia') or '').strip()}"))
             continue
-        relevancias[cache["chave_projeto"]].append(relevancia)
+        relevancias[chave].append(relevancia)
 
     posicionamento_validas = 0
     for linha in linhas_posicionamento:
         ident = (linha.get("identificacao") or "").strip()
         situacao, chave = resolver_identificacao(ident, indice)
+        id_bruto = (linha.get("id_proposicao") or "").strip()
+        if id_bruto:
+            # o id é a ligação preferida; a identificação só confere
+            chave_id = chave_do_id(int(id_bruto)) if id_bruto.isdigit() else None
+            if chave_id is None:
+                conflitos.append(_conflito(TIPO_SEM_PROPOSICAO, ident, "", "o id_proposicao informado não existe no banco"))
+                continue
+            candidatos = (indice["por_casa"].get(ident)
+                          or indice["por_ident"].get(ident, set()))
+            if candidatos and chave_id not in candidatos:
+                conflitos.append(_conflito(TIPO_ID_DIVERGE, ident, "", "o id_proposicao e a identificação levam a projetos diferentes"))
+                continue
+            situacao, chave = "ok", chave_id
         if situacao == "ambigua":
             conflitos.append(_conflito(TIPO_AMBIGUA, ident, "Câmara + Senado",
                                        "a identificação existe em mais de um projeto; informe a casa na planilha"))
@@ -190,7 +238,7 @@ def consolidar(linhas_proposicoes, linhas_posicionamento, linhas_cache):
                 achados[chave][campo].append(valor)
 
     grupos = {}
-    for chave in sorted(set(versoes)):
+    for chave in sorted(set(versoes), key=str):
         ident, casa = _rotulo_grupo(versoes[chave])
         relevancia, divergente = consolidar_relevancia(relevancias.get(chave, []))
         desejado = {"relevancia": relevancia}
@@ -217,16 +265,27 @@ def consolidar(linhas_proposicoes, linhas_posicionamento, linhas_cache):
             "relevancia_divergente": divergente,
             "tem_decisao": any(valor is not None for valor in desejado.values()),
         }
-    return grupos, conflitos, {"posicionamento_ligadas": posicionamento_validas}
+    return grupos, conflitos, {"posicionamento_ligadas": posicionamento_validas, "fora": fora}
 
 
 def conflitos_de_estado(grupos, assoc):
     """Grupos cujas versões já estão ligadas a projetos diferentes no banco (não deveria ocorrer)."""
     conflitos = []
+    grupos_por_uuid = defaultdict(list)
     for chave, g in grupos.items():
-        if len({assoc[i] for i in g["ids"] if i in assoc}) > 1:
+        uuids = {assoc[i] for i in g["ids"] if i in assoc}
+        if len(uuids) > 1:
             conflitos.append(_conflito(TIPO_PROJETOS_DIFERENTES, g["identificacao"], g["casa"],
                                        "versões do grupo ligadas a mais de um projeto"))
+        for uuid_projeto in uuids:
+            grupos_por_uuid[uuid_projeto].append(g)
+    for ligados in grupos_por_uuid.values():
+        if len(ligados) > 1:
+            conflitos.append(_conflito(
+                TIPO_GRUPOS_DIFERENTES,
+                " / ".join(g["identificacao"] for g in ligados),
+                " + ".join(sorted({g["casa"] for g in ligados})),
+                "o mesmo projeto está separado em grupos; mantenedor precisa reconciliar antes de importar"))
     return conflitos
 
 
@@ -238,7 +297,7 @@ def planejar_grupo(g, uuids, ids_associados, decisao, so_migracao):
     plano = {"criar_projeto": criar, "associar": [], "decisao": None, "diferencas": {}}
     if criar or uuids:
         plano["associar"] = [i for i in g["ids"] if i not in ids_associados]
-    if not g["tem_decisao"]:
+    if not g["tem_decisao"] and decisao is None:
         return plano
     desejado = g["desejado"]
     if decisao is None:
@@ -278,6 +337,11 @@ def ler_cache(cur):
     return [dict(zip(nomes, linha)) for linha in cur.fetchall()]
 
 
+def ler_ids_silver(cur):
+    cur.execute("SELECT id_proposicao FROM silver.proposicao")
+    return {r[0] for r in cur.fetchall()}
+
+
 def ler_estado(cur):
     """Associações e decisões atuais: ({id: uuid}, {uuid: decisao}, {uuid: só_migração})."""
     cur.execute("SELECT id_proposicao, uuid_projeto FROM contrato.vw_associacao")
@@ -314,6 +378,15 @@ def aplicar_grupo(cur, g):
     uuids, ids_assoc, decisao, so_mig, unico = _estado_do_grupo(g, assoc, decisoes, so_migracao)
     if len(uuids) > 1:
         raise RuntimeError("versões do grupo ligadas a projetos diferentes; resolva antes de importar")
+    if unico is not None:
+        cur.execute("SELECT pg_advisory_xact_lock(hashtextextended('gestao.projeto:' || %s::text, 0))", (str(unico),))
+        # Uma edição por UUID pode terminar enquanto esperamos a trava. A decisão e a
+        # origem do histórico precisam ser relidas antes de decidir o que sobrescrever.
+        assoc, decisoes, so_migracao = ler_estado_grupo(cur, g["ids"])
+        estado = _estado_do_grupo(g, assoc, decisoes, so_migracao)
+        if estado[4] != unico or len(estado[0]) != 1:
+            raise RuntimeError("associação do projeto mudou durante a importação; repita o ensaio")
+        uuids, ids_assoc, decisao, so_mig, unico = estado
     plano = planejar_grupo(g, uuids, ids_assoc, decisao, so_mig)
     resultado = Counter()
     if plano["criar_projeto"]:
@@ -350,7 +423,11 @@ def aplicar_grupo(cur, g):
             ON CONFLICT (uuid_projeto) DO UPDATE SET
                 relevancia = EXCLUDED.relevancia, posicao = EXCLUDED.posicao, prioridade = EXCLUDED.prioridade,
                 acao = EXCLUDED.acao, parecer = EXCLUDED.parecer, observacoes = EXCLUDED.observacoes,
-                revisao = EXCLUDED.revisao, prioridade_desde = EXCLUDED.prioridade_desde,
+                revisao = EXCLUDED.revisao,
+                prioridade_desde = CASE
+                    WHEN EXCLUDED.prioridade IS NOT TRUE THEN NULL
+                    WHEN gestao.decisao_projeto.prioridade IS TRUE THEN gestao.decisao_projeto.prioridade_desde
+                    ELSE EXCLUDED.prioridade_desde END,
                 atualizado_em = EXCLUDED.atualizado_em, atualizado_por_nome = EXCLUDED.atualizado_por_nome
             """,
             (str(unico), d["relevancia"], d["posicao"], d["prioridade"], d["acao"], d["parecer"],
@@ -447,6 +524,15 @@ def gravar_csv(conflitos, caminho=SAIDA_CONFLITOS):
             w.writerow([c["identificacao"], c["casa"], c["tipo"], c["valores"]])
 
 
+def gravar_fora(fora, caminho=SAIDA_FORA):
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    with open(caminho, "w", newline="", encoding="utf-8-sig") as f:
+        w = csv.writer(f)
+        w.writerow(["identificacao", "casa", "relevancia"])
+        for l in sorted(fora, key=lambda l: l["identificacao"]):
+            w.writerow([l["identificacao"], l["casa"], l["relevancia"]])
+
+
 def imprimir(titulo, dados):
     print(f"{titulo}:")
     for chave, valor in dados.items():
@@ -464,9 +550,10 @@ def main():
     with get_connection() as conn:
         with conn.cursor() as cur:
             cache = ler_cache(cur)
+            ids_silver = ler_ids_silver(cur)
             assoc, decisoes, so_migracao = ler_estado(cur)
         conn.rollback()  # leitura: não deixa transação aberta durante o resto
-        grupos, conflitos, _ = consolidar(proposicoes, posicionamento, cache)
+        grupos, conflitos, extras = consolidar(proposicoes, posicionamento, cache, ids_silver)
         conflitos += conflitos_de_estado(grupos, assoc)
         plano = planejar_tudo(grupos, assoc, decisoes, so_migracao)
 
@@ -476,6 +563,8 @@ def main():
         por_tipo = Counter(c["tipo"] for c in conflitos)
         imprimir(f"Conflitos ({len(conflitos)})", dict(por_tipo))
         gravar_csv(conflitos)
+        gravar_fora(extras["fora"])
+        print(f"Fora do monitoramento (importadas, lista do mantenedor): {len(extras['fora'])}")
         print(f"Lista para a Ana: {SAIDA_CONFLITOS.relative_to(SAIDA_CONFLITOS.parents[1])}")
 
         if not args.aplicar:
@@ -487,7 +576,16 @@ def main():
         resultado = Counter()
         try:
             with conn.cursor() as cur:
-                for chave in sorted(grupos):
+                for chave in sorted(grupos, key=str):
+                    previsto = plano[chave]
+                    # O ensaio já leu o estado inteiro. Nada mudou: não abrir centenas
+                    # de consultas/travas no pooler só para repetir a comparação.
+                    # Uma edição posterior a essa leitura também fica preservada.
+                    if (not previsto["criar_projeto"] and not previsto["associar"]
+                            and previsto["decisao"] in (None, "igual", "preservada")):
+                        if previsto["decisao"] == "preservada":
+                            resultado["decisoes_preservadas"] += 1
+                        continue
                     resultado.update(aplicar_grupo(cur, grupos[chave]))
             conn.commit()
         except Exception:
