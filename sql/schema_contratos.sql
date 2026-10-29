@@ -914,15 +914,78 @@ END
 $$;
 
 -- ---------------------------------------------------------------------------------------------
--- Funções do n8n (escritas e testadas aqui; o grant ao papel do n8n vem no passo do n8n).
--- A aplicação NÃO as executa.
+-- Funções do n8n (grant ao papel legislativo_n8n no fim do arquivo). A aplicação NÃO as executa.
 -- ---------------------------------------------------------------------------------------------
 
--- gestao.falhar_inclusao — registra falha do pedido. Temporária: nova tentativa automática
--- espaçada (15, 30, 60, 120 min) até 5 tentativas; depois, ou se permanente (ex.: "não
--- encontrado"), fica em 'falhou' à espera de "Tentar agora". Pedido concluído não volta atrás.
--- Retorna jsonb {id, estado, tentativas, proxima_tentativa_em}.
+-- gestao.reivindicar_inclusao — o n8n pega um pedido para resolver (webhook do app ou cron).
+-- Atômico: só um processo reivindica. Pedido 'solicitada' elegível (sem nova tentativa marcada
+-- para depois) passa a 'localizando'; em qualquer outro estado nada muda e reivindicado = false
+-- ('falhou' só volta por "Tentar agora"). 'localizando' parado há mais de 10 min é devolvido
+-- por concluir_inclusoes. Retorna jsonb {id, reivindicado, estado, entrada, chave_entrada}.
+CREATE FUNCTION gestao.reivindicar_inclusao(
+    p_id bigint
+) RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+    v_pedido gestao.inclusao_manual%ROWTYPE;
+    v_reivindicado boolean;
+BEGIN
+    UPDATE gestao.inclusao_manual
+    SET estado = 'localizando', etapa = NULL, atualizado_em = now()
+    WHERE id = p_id AND estado = 'solicitada'
+      AND (proxima_tentativa_em IS NULL OR proxima_tentativa_em <= now())
+    RETURNING * INTO v_pedido;
+    v_reivindicado := FOUND;
+    IF NOT v_reivindicado THEN
+        SELECT * INTO v_pedido FROM gestao.inclusao_manual WHERE id = p_id;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'inclusao_nao_encontrada';
+        END IF;
+    END IF;
+    RETURN jsonb_build_object('id', p_id, 'reivindicado', v_reivindicado,
+                              'estado', v_pedido.estado, 'entrada', v_pedido.entrada,
+                              'chave_entrada', v_pedido.chave_entrada);
+END
+$$;
+
+-- gestao.falhar_inclusao — o n8n registra falha na resolução de um pedido que ele reivindicou
+-- ('localizando'; outro estado: P0001 'estado_invalido', para um processo atrasado não devolver
+-- à fila um pedido que outro já levou adiante). Regras da falha em aplicar_falha_inclusao.
 CREATE FUNCTION gestao.falhar_inclusao(
+    p_id bigint,
+    p_erro text,
+    p_temporaria boolean
+) RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+    v_estado text;
+BEGIN
+    SELECT estado INTO v_estado FROM gestao.inclusao_manual WHERE id = p_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'inclusao_nao_encontrada';
+    END IF;
+    IF v_estado = 'concluida' THEN
+        RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'inclusao_ja_concluida';
+    END IF;
+    IF v_estado <> 'localizando' THEN
+        RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'estado_invalido', DETAIL = v_estado;
+    END IF;
+    RETURN gestao.aplicar_falha_inclusao(p_id, p_erro, p_temporaria);
+END
+$$;
+
+-- gestao.aplicar_falha_inclusao — interna (sem grant): usada por falhar_inclusao e pela expiração
+-- de concluir_inclusoes. Temporária: nova tentativa automática espaçada (15, 30, 60, 120 min) até
+-- 5 tentativas; depois, ou se permanente (ex.: "não encontrado"), fica em 'falhou' à espera de
+-- "Tentar agora". Pedido concluído não volta atrás.
+-- Retorna jsonb {id, estado, tentativas, proxima_tentativa_em}.
+CREATE FUNCTION gestao.aplicar_falha_inclusao(
     p_id bigint,
     p_erro text,
     p_temporaria boolean
@@ -1034,8 +1097,9 @@ $$;
 --    projeto ainda não tem relevância, recebe SIM em nome de quem pediu (RN06: inclusão entra
 --    como SIM e acompanhada; uma relevância já decidida, inclusive NÃO, nunca é sobrescrita).
 --    Só pedidos de proposição nova: a já monitorada concluiu no registro, sem SIM (RF08);
--- 2. pedido em 'carregando' há mais de 6 h vira falha temporária (disparo cancelado na fila).
--- Retorna jsonb {concluidas, marcadas_sim, expiradas}.
+-- 2. pedido em 'carregando' há mais de 60 min vira falha temporária (disparo cancelado na fila);
+-- 3. pedido em 'localizando' há mais de 10 min (o n8n caiu no meio) volta a 'solicitada'.
+-- Retorna jsonb {concluidas, marcadas_sim, expiradas, devolvidas}.
 CREATE FUNCTION gestao.concluir_inclusoes() RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -1048,6 +1112,7 @@ DECLARE
     v_concluidas int := 0;
     v_sim int := 0;
     v_expiradas int := 0;
+    v_devolvidas int := 0;
 BEGIN
     FOR v_pedido IN
         UPDATE gestao.inclusao_manual i
@@ -1077,13 +1142,19 @@ BEGIN
 
     FOR v_pedido IN
         SELECT id FROM gestao.inclusao_manual
-        WHERE estado = 'carregando' AND atualizado_em < now() - interval '6 hours'
+        WHERE estado = 'carregando' AND atualizado_em < now() - interval '60 minutes'
     LOOP
-        PERFORM gestao.falhar_inclusao(v_pedido.id, 'Carga não concluída em 6 horas', true);
+        PERFORM gestao.aplicar_falha_inclusao(v_pedido.id, 'Carga não concluída em 60 minutos', true);
         v_expiradas := v_expiradas + 1;
     END LOOP;
 
-    RETURN jsonb_build_object('concluidas', v_concluidas, 'marcadas_sim', v_sim, 'expiradas', v_expiradas);
+    UPDATE gestao.inclusao_manual
+    SET estado = 'solicitada', atualizado_em = now()
+    WHERE estado = 'localizando' AND atualizado_em < now() - interval '10 minutes';
+    GET DIAGNOSTICS v_devolvidas = ROW_COUNT;
+
+    RETURN jsonb_build_object('concluidas', v_concluidas, 'marcadas_sim', v_sim, 'expiradas', v_expiradas,
+                              'devolvidas', v_devolvidas);
 END
 $$;
 
@@ -1230,5 +1301,15 @@ GRANT EXECUTE ON FUNCTION
     gestao.tentar_inclusao_agora(bigint, uuid, text),
     gestao.confirmar_movimentacoes(uuid, jsonb, uuid, text)
 TO legislativo_app;
+
+-- Papel do n8n (fluxo de inclusão, RF08): lê os pedidos e executa só as funções do fluxo.
+GRANT USAGE ON SCHEMA contrato, gestao TO legislativo_n8n;
+GRANT SELECT ON contrato.vw_inclusao TO legislativo_n8n;
+GRANT EXECUTE ON FUNCTION
+    gestao.reivindicar_inclusao(bigint),
+    gestao.falhar_inclusao(bigint, text, boolean),
+    gestao.registrar_inclusao_resolvida(bigint, bigint),
+    gestao.concluir_inclusoes()
+TO legislativo_n8n;
 
 NOTIFY pgrst, 'reload schema';

@@ -131,11 +131,15 @@ FUNCOES_APP = (
     "gestao.solicitar_inclusao(text, text, uuid, text)",
     "gestao.tentar_inclusao_agora(bigint, uuid, text)",
 )
-FUNCOES_INTERNAS = (
-    "gestao.gravar_decisao(uuid, bigint, int, jsonb, uuid, text, text)",
+FUNCOES_N8N = (
+    "gestao.reivindicar_inclusao(bigint)",
     "gestao.registrar_inclusao_resolvida(bigint, bigint)",
     "gestao.concluir_inclusoes()",
     "gestao.falhar_inclusao(bigint, text, boolean)",
+)
+FUNCOES_INTERNAS = FUNCOES_N8N + (
+    "gestao.gravar_decisao(uuid, bigint, int, jsonb, uuid, text, text)",
+    "gestao.aplicar_falha_inclusao(bigint, text, boolean)",
 )
 COLUNAS_PAINEL = ["id_proposicao", "casa", "uuid_projeto", "relevancia", "posicao", "prioridade", "em_carteira"]
 
@@ -470,22 +474,26 @@ class FuncoesGestaoTests(_ComDados):
         self.assertEqual((p["estado"], p["existente"]), ("solicitada", False))
         dup = self.chamar("gestao.solicitar_inclusao", "https://www.camara.leg.br/...", "CD:PL 99/2026", ATOR, "Ana")
         self.assertEqual((dup["id"], dup["existente"], dup["retomado"]), (p["id"], True, False))
+        self.assertTrue(self.chamar("gestao.reivindicar_inclusao", p["id"])["reivindicado"])
         f = self.chamar("gestao.falhar_inclusao", p["id"], "Não encontrada na Câmara", False)
         self.assertEqual(f["estado"], "falhou")
+        self.assertFalse(self.chamar("gestao.reivindicar_inclusao", p["id"])["reivindicado"])  # 'falhou' só por "Tentar agora"
         ret = self.chamar("gestao.solicitar_inclusao", "PL 99/2026", "CD:PL 99/2026", ATOR, "Ana")
         self.assertEqual((ret["id"], ret["estado"], ret["retomado"]), (p["id"], "solicitada", True))
         self.assertEqual(self.contar("SELECT count(*) FROM gestao.inclusao_manual"), 1)
-        # falha temporária: nova tentativa espaçada; "Tentar agora" antecipa
+        # falha temporária: nova tentativa espaçada (não reivindicável antes da hora); "Tentar agora" antecipa
+        self.chamar("gestao.reivindicar_inclusao", p["id"])
         t = self.chamar("gestao.falhar_inclusao", p["id"], "Timeout", True)
         self.assertEqual((t["estado"], t["tentativas"]), ("solicitada", 1))
         self.assertIsNotNone(t["proxima_tentativa_em"])
+        self.assertFalse(self.chamar("gestao.reivindicar_inclusao", p["id"])["reivindicado"])
         self.conn.commit()
         self.assertErroDominio("ator_obrigatorio", "gestao.tentar_inclusao_agora", p["id"], None, "Ana")
-        self.chamar("gestao.falhar_inclusao", p["id"], "Timeout", True)
         self.assertTrue(self.chamar("gestao.tentar_inclusao_agora", p["id"], ATOR, "Bia")["alterado"])
         self.cur.execute("SELECT tentativas, retomado_por_id::text, retomado_por_nome, retomado_em IS NOT NULL FROM gestao.inclusao_manual")
         self.assertEqual(self.cur.fetchone(), (0, ATOR, "Bia", True))
         # resolvido: vira acompanhada do sistema e só conclui quando aparece no cache
+        self.assertTrue(self.chamar("gestao.reivindicar_inclusao", p["id"])["reivindicado"])
         r = self.chamar("gestao.registrar_inclusao_resolvida", p["id"], 900099)
         self.assertEqual((r["estado"], r["ja_acompanhada"]), ("carregando", False))
         self.assertEqual(self.chamar("gestao.registrar_inclusao_resolvida", p["id"], 900099)["estado"], "carregando")  # idempotente
@@ -514,7 +522,8 @@ class FuncoesGestaoTests(_ComDados):
             self.assertEqual((r["estado"], r["ja_monitorada"], r["ja_acompanhada"]), ("concluida", True, False), id_prop)
             # idempotente
             self.assertEqual(self.chamar("gestao.registrar_inclusao_resolvida", p["id"], id_prop)["estado"], "concluida")
-        self.assertEqual(self.chamar("gestao.concluir_inclusoes"), {"concluidas": 0, "marcadas_sim": 0, "expiradas": 0})
+        self.assertEqual(self.chamar("gestao.concluir_inclusoes"),
+                         {"concluidas": 0, "marcadas_sim": 0, "expiradas": 0, "devolvidas": 0})
         self.assertEqual(self.contar("SELECT count(*) FROM silver.proposicao_acompanhada WHERE id_proposicao IN (900033, 900031, 900097)"), 0)
         self.assertEqual(self.projeto(900033, "relevancia", "elegivel"), ("NAO", False))
         self.assertEqual(self.projeto(900031, "relevancia", "pendente_avaliacao"), (None, True))
@@ -523,10 +532,35 @@ class FuncoesGestaoTests(_ComDados):
     def test_inclusao_carregando_expira(self):
         q = self.chamar("gestao.solicitar_inclusao", "PL 1/1999", "CD:PL 1/1999", ATOR, "Ana")
         self.chamar("gestao.registrar_inclusao_resolvida", q["id"], 900098)
-        self.cur.execute("UPDATE gestao.inclusao_manual SET atualizado_em = now() - interval '7 hours' WHERE id = %s", (q["id"],))
+        self.cur.execute("UPDATE gestao.inclusao_manual SET atualizado_em = now() - interval '50 minutes' WHERE id = %s", (q["id"],))
+        self.assertEqual(self.chamar("gestao.concluir_inclusoes")["expiradas"], 0)
+        self.cur.execute("UPDATE gestao.inclusao_manual SET atualizado_em = now() - interval '61 minutes' WHERE id = %s", (q["id"],))
         self.assertEqual(self.chamar("gestao.concluir_inclusoes")["expiradas"], 1)
         self.cur.execute("SELECT estado, tentativas FROM gestao.inclusao_manual WHERE id = %s", (q["id"],))
         self.assertEqual(self.cur.fetchone(), ("solicitada", 1))
+
+    def test_inclusao_reivindicada_uma_vez_e_devolvida_se_parar(self):
+        p = self.chamar("gestao.solicitar_inclusao", "PL 2/1999", "CD:PL 2/1999", ATOR, "Ana")
+        r = self.chamar("gestao.reivindicar_inclusao", p["id"])
+        self.assertEqual((r["reivindicado"], r["estado"], r["chave_entrada"]), (True, "localizando", "CD:PL 2/1999"))
+        # webhook e cron no mesmo pedido: só o primeiro leva
+        self.assertEqual(self.chamar("gestao.reivindicar_inclusao", p["id"])["reivindicado"], False)
+        self.conn.commit()
+        self.assertErroDominio("inclusao_nao_encontrada", "gestao.reivindicar_inclusao", 999999)
+        # n8n caiu no meio: 'localizando' parado volta a 'solicitada' sem gastar tentativa
+        self.cur.execute("UPDATE gestao.inclusao_manual SET atualizado_em = now() - interval '5 minutes' WHERE id = %s", (p["id"],))
+        self.assertEqual(self.chamar("gestao.concluir_inclusoes")["devolvidas"], 0)
+        self.cur.execute("UPDATE gestao.inclusao_manual SET atualizado_em = now() - interval '11 minutes' WHERE id = %s", (p["id"],))
+        self.assertEqual(self.chamar("gestao.concluir_inclusoes")["devolvidas"], 1)
+        self.cur.execute("SELECT estado, tentativas FROM gestao.inclusao_manual WHERE id = %s", (p["id"],))
+        self.assertEqual(self.cur.fetchone(), ("solicitada", 0))
+        # processo atrasado não devolve à fila um pedido que outro já levou adiante
+        self.chamar("gestao.reivindicar_inclusao", p["id"])
+        self.chamar("gestao.registrar_inclusao_resolvida", p["id"], 900098)
+        self.conn.commit()
+        self.assertErroDominio("estado_invalido", "gestao.falhar_inclusao", p["id"], "Timeout", True)
+        self.cur.execute("SELECT estado FROM gestao.inclusao_manual WHERE id = %s", (p["id"],))
+        self.assertEqual(self.cur.fetchone()[0], "carregando")
 
 
 @unittest.skipUnless(TEST_DATABASE_URL, "TEST_DATABASE_URL não definida")
@@ -615,6 +649,33 @@ class PrivilegiosContratosTests(_ComDados):
                         "SELECT gestao.concluir_inclusoes()",
                         "SELECT * FROM silver.proposicao"):
             self.cur.execute("SET ROLE legislativo_app")
+            with self.assertRaises(psycopg2.errors.InsufficientPrivilege, msg=comando):
+                self.cur.execute(comando)
+            self.conn.rollback()
+
+    def test_legislativo_n8n_executa_so_o_fluxo_de_inclusao(self):
+        import psycopg2
+
+        for funcao in FUNCOES_N8N:
+            self.assertTrue(self.contar("SELECT has_function_privilege('legislativo_n8n', %s, 'EXECUTE')", funcao), funcao)
+        for funcao in FUNCOES_APP + ("gestao.gravar_decisao(uuid, bigint, int, jsonb, uuid, text, text)",
+                                     "gestao.aplicar_falha_inclusao(bigint, text, boolean)"):
+            self.assertFalse(self.contar("SELECT has_function_privilege('legislativo_n8n', %s, 'EXECUTE')", funcao), funcao)
+        for relacao in ("contrato.vw_projeto", "contrato.vw_versao", "gestao.inclusao_manual", "gestao.decisao_projeto",
+                        "silver.proposicao", "api_cache.vw_monitoramento"):
+            self.assertFalse(self.contar("SELECT has_table_privilege('legislativo_n8n', %s, 'SELECT')", relacao), relacao)
+        p = self.chamar("gestao.solicitar_inclusao", "PL 3/1999", "CD:PL 3/1999", ATOR, "Ana")
+        self.conn.commit()
+        self.cur.execute("SET ROLE legislativo_n8n")
+        self.cur.execute("SELECT estado, solicitante_nome FROM contrato.vw_inclusao WHERE id = %s", (p["id"],))
+        self.assertEqual(self.cur.fetchone(), ("solicitada", "Ana"))
+        self.assertTrue(self.chamar("gestao.reivindicar_inclusao", p["id"])["reivindicado"])
+        self.assertEqual(self.chamar("gestao.registrar_inclusao_resolvida", p["id"], 900098)["estado"], "carregando")
+        self.chamar("gestao.concluir_inclusoes")
+        self.conn.commit()
+        for comando in ("SELECT gestao.aplicar_falha_inclusao(1, 'x', true)", "SELECT * FROM gestao.inclusao_manual",
+                        "UPDATE gestao.inclusao_manual SET estado = 'concluida'"):
+            self.cur.execute("SET ROLE legislativo_n8n")
             with self.assertRaises(psycopg2.errors.InsufficientPrivilege, msg=comando):
                 self.cur.execute(comando)
             self.conn.rollback()
