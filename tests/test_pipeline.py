@@ -858,5 +858,16 @@ class SilverSqlTests(unittest.TestCase):
             self.assertIn(guarda, comandos[tabela], tabela)
 
 
+class WorkflowAmbienteTests(unittest.TestCase):
+    def test_producao_por_padrao_e_fila_separada_por_ambiente(self):
+        yml = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "pipeline.yml").read_text(encoding="utf-8")
+        entrada = re.search(r"\n      ambiente:\n(.*?)\n      somente_notificar_n8n:", yml, re.S).group(1)
+        self.assertIn("default: producao", entrada)
+        # sem o input (Agendador e fluxo da planilha), o job continua no environment da produção
+        self.assertIn("environment: ${{ inputs.ambiente == 'homologacao' && 'homologacao' || 'DATABASE_URL' }}", yml)
+        self.assertIn("group: monitoramento-proposicoes-pipeline-${{ inputs.ambiente || 'producao' }}", yml)
+        self.assertNotRegex(yml, r"cancel-in-progress: true")
+
+
 if __name__ == "__main__":
     unittest.main()
