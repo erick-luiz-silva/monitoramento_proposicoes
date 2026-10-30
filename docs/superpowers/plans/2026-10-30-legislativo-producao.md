@@ -57,7 +57,7 @@ Cenários que o PRD implica mas nenhuma tarefa de código cobre; cada um tem tes
 
 **Arquivos:** `sql/papel_legislativo_app.sql` (só o `CREATE ROLE`), `sql/schema_contratos.sql` (grants e função do papel de leitura), `tests/test_sql_local.py`, `src/.env.example`, `sql/sondagem_privilegios.sql` (novo), modelo do PBIP em `BI/` (se as mudanças do modelo ainda não estiverem na branch).
 
-**Consome:** branch `legislativo-fundacao` (este repo, HEAD `68913eb`), branch `legislativo-entrega-1` (app, HEAD `45ec73e`).
+**Consome:** branch `legislativo-fundacao` (este repo, HEAD `d365761` ou posterior; a main #12 já foi integrada no merge `1eed5c3`), branch `legislativo-entrega-1` (app, HEAD `45ec73e`).
 **Produz:** código de prontidão testado e PRs prontos, **sem merge na `main`** (o merge deste repo e a tag acontecem dentro da janela, Tarefa 4 passo 4; o do app, na Tarefa 7).
 
 > **Por que o merge deste repo não vem antes da janela:** o Agendador dispara o workflow na `main`. Depois do merge, a `main` traz um `check_environment.py` que exige `api.vw_painel_decisoes`, `gestao.decisao_projeto` e `contrato.vw_projeto`, que o banco antigo não tem. Toda carga (07h17/10h/14h) falharia até a troca do secret, e a reversão deixaria a `main` nova apontando para o banco antigo.
@@ -69,7 +69,8 @@ Cenários que o PRD implica mas nenhuma tarefa de código cobre; cada um tem tes
   - Janela combinada: dia útil fora de 07h–08h, 10h e 14h; Ana e Erick disponíveis.
   - Ensaio da Tarefa 3 concluído: contagens batendo com a origem e reversão ensaiada (runbook commitado).
   - Rascunhos da Tarefa 5 validados em homologação com `legislativo_n8n_leitura` (execução de teste; nenhuma chamada ao Google Sheets). Este é o portão do B2: sem ele, o `4F6…` novo não é publicado.
-  - Token Google conferido (passo 5 desta tarefa) e relatório de `importar_decisoes.py` **sem `--aplicar`** sem conflito aberto, rodado antes da janela (I4: conflito descoberto depois do merge na `main` obrigaria a reverter o merge). O relatório se repete no passo 4 da Tarefa 4.
+  - Token Google conferido (passo 5 desta tarefa) e relatório de `importar_decisoes.py` **sem `--aplicar`** sem conflito aberto, rodado antes da janela (I4: conflito descoberto depois do merge na `main` obrigaria a reverter o merge). O relatório se repete no passo 3a e de novo no passo 4 da Tarefa 4.
+  - Grants de `gestao`/`contrato` do papel de leitura (Tarefa 5) commitados no PR #13 e testados (`test_legislativo_n8n_leitura_tem_so_os_privilegios_do_fluxo` atualizado): é mudança de código, então exige nova revisão antes do merge.
 - [ ] **Passo 2: Papel de leitura do fluxo principal do n8n (fecha B3)**
   Inventariar, com `get_workflow_details` do `4F6Y2cOHhqNuhdYm`, cada leitura e escrita que o fluxo faz no banco (hoje ele lê a planilha; a versão de produção nova vai ler `gestao`/`contrato`). Com esse inventário, criar o papel `legislativo_n8n_leitura` com **somente** o que a lista exige:
   - `CREATE ROLE` em `sql/papel_legislativo_app.sql` (esse arquivo roda antes de `schema_contratos.sql` e só cria papéis).
@@ -177,10 +178,12 @@ Cenários que o PRD implica mas nenhuma tarefa de código cobre; cada um tem tes
   Seguir a Tarefa 3, passo 2, exatamente como ensaiado. Conferir as contagens e `count(*)` de `gold.vw_movimentacoes` contra a origem no mesmo instante da cópia (Tarefa 3, passo 3). **Divergência = parar.**
 - [ ] **Passo 3: Schemas, privilégios e teste HTTP (fecha I1/M3)**
   `python setup_db.py` no destino (de novo, depois do restore), com destino conferido. Depois: `sql/sondagem_privilegios.sql` (zero divergência) e o teste HTTP anônimo da Tarefa 2, passo 6. Esperado: sem exposição de `gestao`/`contrato`. **Divergência = parar.**
+- [ ] **Passo 3a: Relatório do importador, sem `--aplicar` (I4, achado 1 da 5ª revisão)**
+  `python importar_decisoes.py` (só relatório). Zero conflito aberto é condição para o 3b. Se houver conflito, a virada para aqui: o merge e a planilha não são tocados. A planilha continua aberta até o passo 1, então o relatório se repete no passo 4 e o `--aplicar` fica só lá.
 - [ ] **Passo 3b: Merge deste repo e tag [PRODUÇÃO]**
   Só aqui, com o Agendador pausado e o banco novo já com os objetos que o `check_environment.py` da `main` exige: merge do PR de `legislativo-fundacao` → `main` e `git tag legislativo-entrega-1-prod && git push origin legislativo-entrega-1-prod` (sem `--tags`). Confirmar na `main` que `pipeline.yml` tem `ambiente` com padrão `producao`, para o Agendador (que não informa) continuar na produção. A reversão deste merge está na Tarefa 8.
 - [ ] **Passo 4: Importação final com conflitos zerados (passo 2 da ordem)**
-  Este relatório repete o portão da Tarefa 1 (passo 1): se houver conflito aqui, a virada para antes do passo 3b e a `main` não é tocada. `python importar_decisoes.py` (relatório): sem conflito aberto. Conferir que o relatório de "Gravado" bate com o ensaio da homologação (CA07). Só então `python importar_decisoes.py --aplicar` (o script recusa se houver conflito). Rodar de novo `--aplicar`: não deve gravar nada.
+  Este relatório repete o passo 3a (agora com a planilha protegida). `python importar_decisoes.py` (relatório): sem conflito aberto. Conferir que o relatório de "Gravado" bate com o ensaio da homologação (CA07). Só então `python importar_decisoes.py --aplicar` (o script recusa se houver conflito). Rodar de novo `--aplicar`: não deve gravar nada.
 - [ ] **Passo 5: Referência de urgência (fecha CA06)**
   Conferir o host do destino e então executar o `UPDATE gestao.parametro … data_implantacao` das restrições globais. Depois `select valor from gestao.parametro where chave='data_implantacao'` e anotar o instante. Conferir que a lista de urgências/pendências de confirmação está coerente (sem urgência criada pela importação).
 - [ ] **Passo 6: Publicar os fluxos do n8n que leem o banco novo (passos 3 e 4 da ordem) [PRODUÇÃO]**

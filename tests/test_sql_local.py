@@ -766,5 +766,41 @@ class PrivilegiosContratosTests(_ComDados):
             self.cur.execute("SELECT gestao.registrar_alerta_movimentacoes('completo', 1, now() AT TIME ZONE 'UTC' + interval '1 hour')")
         self.conn.rollback()
 
+    def test_checkpoint_rejeita_modo_e_instante_fora_da_janela(self):
+        import psycopg2
+
+        self.cur.execute("SET ROLE legislativo_n8n_leitura")
+        for modo in ("Completo", "completa", None):
+            with self.assertRaises(psycopg2.errors.RaiseException, msg=str(modo)):
+                self.cur.execute("SELECT gestao.registrar_alerta_movimentacoes(%s, 1, now() AT TIME ZONE 'UTC')", (modo,))
+            self.conn.rollback()
+            self.cur.execute("SET ROLE legislativo_n8n_leitura")
+        # instante com o atraso de uma sessão em Brasília (3 h) e instante no futuro: ambos rejeitados
+        for instante in ("now() AT TIME ZONE 'UTC' - interval '3 hours'", "now() AT TIME ZONE 'UTC' + interval '1 hour'", "NULL::timestamp"):
+            with self.assertRaises(psycopg2.errors.RaiseException, msg=instante):
+                self.cur.execute(f"SELECT gestao.registrar_alerta_movimentacoes('completo', 1, {instante})")
+            self.conn.rollback()
+            self.cur.execute("SET ROLE legislativo_n8n_leitura")
+        self.conn.rollback()
+
+    def test_legislativo_n8n_leitura_tem_so_os_privilegios_do_fluxo(self):
+        # M2 / achado 4: asserção geral, para uma concessão futura não passar despercebida
+        self.cur.execute("""SELECT p.oid::regprocedure::text FROM pg_proc p
+            WHERE p.pronamespace IN ('gestao'::regnamespace, 'bronze'::regnamespace, 'silver'::regnamespace, 'gold'::regnamespace)
+              AND p.prorettype <> 'trigger'::regtype AND has_function_privilege('legislativo_n8n_leitura', p.oid, 'EXECUTE')""")
+        self.assertEqual([r[0] for r in self.cur.fetchall()], ["gestao.registrar_alerta_movimentacoes(text,integer,timestamp without time zone)"])
+        self.cur.execute("""SELECT table_schema || '.' || table_name || ':' || privilege_type
+            FROM information_schema.role_table_grants WHERE grantee = 'legislativo_n8n_leitura'
+            ORDER BY 1""")
+        esperado = sorted(
+            [f"gold.{v}:SELECT" for v in ("vw_grupo_projeto", "vw_monitoramento", "vw_pautas_monitoradas", "vw_movimentacoes", "vw_audiencias_de_interesse")]
+            + ["silver.evento:SELECT", "silver.proposicao_acompanhada:SELECT",
+               "bronze.alerta_pauta:SELECT", "bronze.alerta_pauta:INSERT", "bronze.alerta_pauta:DELETE"])
+        self.assertEqual([r[0] for r in self.cur.fetchall()], esperado)
+        self.cur.execute("""SELECT table_schema || '.' || table_name || ':' || column_name
+            FROM information_schema.column_privileges WHERE grantee = 'legislativo_n8n_leitura' AND privilege_type = 'UPDATE'""")
+        self.assertEqual([r[0] for r in self.cur.fetchall()], ["silver.proposicao_acompanhada:confirmada_em"])
+        self.conn.rollback()
+
 if __name__ == "__main__":
     unittest.main()

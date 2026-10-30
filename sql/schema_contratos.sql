@@ -1261,21 +1261,27 @@ JOIN contrato.vw_projeto p ON p.chave_agrupamento = v.chave_agrupamento;
 -- como todas as marcas internas (data_extracao usa o mesmo DEFAULT now() numa sessão UTC; ver
 -- api.vw_ultima_carga). O instante vem do n8n, lido com SELECT localtimestamp ANTES das consultas
 -- do e-mail: uma tramitação carregada durante o envio tem data_extracao depois dele e volta no
--- próximo diário, em vez de sumir. Rejeita instante nulo ou no futuro. Só o modo 'completo' avança
--- a marca (o diário, único que lista movimentações). Retorna true se gravou.
+-- próximo diário, em vez de sumir. Só o modo 'completo' avança a marca (o diário, único que lista
+-- movimentações); 'pautas' e 'inclusao' não gravam e devolvem false. Qualquer outro valor é erro,
+-- para um modo digitado errado não repetir movimentações sem aviso. O instante precisa estar na
+-- janela de até 1 hora atrás até agora (UTC): uma sessão em Brasília entregaria 3 h a menos e
+-- passaria só com a checagem de futuro. Retorna true se gravou.
 CREATE FUNCTION gestao.registrar_alerta_movimentacoes(p_modo text, p_qtd int, p_instante timestamp) RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, pg_temp
 AS $$
 DECLARE
+    v_agora timestamp := now() AT TIME ZONE 'UTC';
     v_hoje date := (now() AT TIME ZONE 'America/Sao_Paulo')::date;
 BEGIN
-    IF p_modo IS DISTINCT FROM 'completo' THEN
+    IF p_modo IN ('pautas', 'inclusao') THEN
         RETURN false;
+    ELSIF p_modo IS DISTINCT FROM 'completo' THEN
+        RAISE EXCEPTION 'modo de checkpoint desconhecido: %', p_modo;
     END IF;
-    IF p_instante IS NULL OR p_instante > (now() AT TIME ZONE 'UTC') THEN
-        RAISE EXCEPTION 'instante do checkpoint inválido: %', p_instante;
+    IF p_instante IS NULL OR p_instante > v_agora OR p_instante < v_agora - interval '1 hour' THEN
+        RAISE EXCEPTION 'instante do checkpoint fora da janela (UTC): %', p_instante;
     END IF;
     INSERT INTO bronze.controle_execucao (tipo_carga, data_inicio_janela, data_fim_janela, qtd_proposicoes, executado_em)
     VALUES ('alerta_movimentacoes', v_hoje, v_hoje, p_qtd, p_instante);
