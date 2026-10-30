@@ -796,8 +796,10 @@ class GoldSqlTests(unittest.TestCase):
     def test_dependencias_do_cache_so_em_arquivos_recriados(self):
         # gestao nunca é derrubado: não pode depender de nada que o DROP ... CASCADE recria
         recriados = {"drop_api.sql", "schema_gold.sql", "schema_api.sql", "schema_contratos.sql"}
+        # sondagem: leitura feita pelo admin depois do setup; o setup_db não a aplica
+        nao_aplicados = {"sondagem_privilegios.sql"}
         for arquivo in sorted(p.name for p in self.SQL_DIR.glob("*.sql")):
-            if arquivo in recriados:
+            if arquivo in recriados or arquivo in nao_aplicados:
                 continue
             self.assertNotRegex(self.sql_sem_comentarios(arquivo), r"\b(api_cache|gold|contrato|api)\.\w", arquivo)
         # schema contrato e suas views só existem em schema_contratos.sql, recriado do zero

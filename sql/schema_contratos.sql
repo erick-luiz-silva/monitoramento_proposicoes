@@ -1257,12 +1257,36 @@ SELECT
 FROM contrato.vw_versao v
 JOIN contrato.vw_projeto p ON p.chave_agrupamento = v.chave_agrupamento;
 
+-- Checkpoint do e-mail de movimentações (n8n, papel legislativo_n8n_leitura). A marca é o relógio
+-- de Brasília lido DO BANCO no momento da gravação, nunca o instante enviado pelo n8n (fuso e
+-- offset diferentes: a marca 3 horas errada repetiria alertas). Só o modo 'completo' avança a
+-- marca (o diário). Retorna true se gravou.
+CREATE FUNCTION gestao.registrar_alerta_movimentacoes(p_modo text, p_qtd int) RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+    v_agora timestamp := now() AT TIME ZONE 'America/Sao_Paulo';
+BEGIN
+    IF p_modo IS DISTINCT FROM 'completo' THEN
+        RETURN false;
+    END IF;
+    INSERT INTO bronze.controle_execucao (tipo_carga, data_inicio_janela, data_fim_janela, qtd_proposicoes, executado_em)
+    VALUES ('alerta_movimentacoes', v_agora::date, v_agora::date, p_qtd, v_agora);
+    RETURN true;
+END
+$$;
+
 -- =============================================================================================
 -- Dono restrito das funções (PRD §5): gestao_dono (NOLOGIN, papel_legislativo_app.sql) só tem o
--- que as funções usam — nada de DDL, nada de bronze/gold/api, nada de silver além da acompanhada.
--- SECURITY DEFINER passa a rodar com esses privilégios, não com os do papel do setup.
+-- que as funções usam — nada de DDL, nada de gold/api, nada de silver além da acompanhada, e em
+-- bronze só o INSERT do checkpoint de alerta (sem leitura). SECURITY DEFINER passa a rodar com
+-- esses privilégios, não com os do papel do setup.
 -- =============================================================================================
-GRANT USAGE ON SCHEMA gestao, contrato, api_cache, silver TO gestao_dono;
+GRANT USAGE ON SCHEMA gestao, contrato, api_cache, silver, bronze TO gestao_dono;
+GRANT INSERT ON bronze.controle_execucao TO gestao_dono;
+GRANT USAGE ON SEQUENCE bronze.controle_execucao_id_execucao_seq TO gestao_dono;
 GRANT SELECT, INSERT ON gestao.projeto, gestao.projeto_proposicao, gestao.historico_alteracao TO gestao_dono;
 GRANT SELECT, INSERT, UPDATE ON gestao.decisao_projeto, gestao.inclusao_manual TO gestao_dono;
 GRANT SELECT, INSERT ON gestao.confirmacao_movimentacao TO gestao_dono;
@@ -1326,5 +1350,11 @@ GRANT EXECUTE ON FUNCTION
     gestao.registrar_inclusao_resolvida(bigint, bigint),
     gestao.concluir_inclusoes()
 TO legislativo_n8n;
+
+-- Papel de leitura do fluxo principal do n8n (Tarefa 5 define as leituras de gestao/contrato
+-- quando o rascunho do fluxo novo existir). Por ora só o checkpoint do e-mail: sem SELECT em
+-- tabela, sem INSERT direto em bronze.controle_execucao.
+GRANT USAGE ON SCHEMA gestao TO legislativo_n8n_leitura;
+GRANT EXECUTE ON FUNCTION gestao.registrar_alerta_movimentacoes(text, int) TO legislativo_n8n_leitura;
 
 NOTIFY pgrst, 'reload schema';

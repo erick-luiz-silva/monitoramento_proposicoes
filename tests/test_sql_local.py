@@ -719,6 +719,34 @@ class PrivilegiosContratosTests(_ComDados):
                 self.cur.execute(comando)
             self.conn.rollback()
 
+    def test_legislativo_n8n_leitura_so_grava_o_checkpoint_de_movimentacoes(self):
+        import psycopg2
+
+        self.assertTrue(self.contar("SELECT has_function_privilege('legislativo_n8n_leitura', 'gestao.registrar_alerta_movimentacoes(text, int)', 'EXECUTE')"))
+        for papel in ("anon", "authenticated", "legislativo_app", "legislativo_n8n"):
+            self.assertFalse(self.contar("SELECT has_function_privilege(%s, 'gestao.registrar_alerta_movimentacoes(text, int)', 'EXECUTE')", papel), papel)
+        for relacao in ("gestao.decisao_projeto", "contrato.vw_projeto", "gestao.inclusao_manual", "silver.proposicao_acompanhada"):
+            for privilegio in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+                self.assertFalse(self.contar("SELECT has_table_privilege('legislativo_n8n_leitura', %s, %s)", relacao, privilegio), (relacao, privilegio))
+        self.assertFalse(self.contar("SELECT has_table_privilege('legislativo_n8n_leitura', 'bronze.controle_execucao', 'INSERT')"))
+
+        self.cur.execute("SET ROLE legislativo_n8n_leitura")
+        self.cur.execute("SELECT gestao.registrar_alerta_movimentacoes('pautas', 5)")
+        self.assertFalse(self.cur.fetchone()[0])
+        self.cur.execute("SELECT gestao.registrar_alerta_movimentacoes('completo', 7)")
+        self.assertTrue(self.cur.fetchone()[0])
+        self.conn.commit()
+        self.cur.execute("RESET ROLE")
+        # relógio de Brasília do banco (sessão UTC), não o localtimestamp da sessão
+        self.cur.execute("""SELECT qtd_proposicoes, executado_em <= now() AT TIME ZONE 'America/Sao_Paulo',
+                executado_em > (now() AT TIME ZONE 'America/Sao_Paulo') - interval '1 minute'
+            FROM bronze.controle_execucao WHERE tipo_carga = 'alerta_movimentacoes' ORDER BY id_execucao DESC LIMIT 1""")
+        self.assertEqual(self.cur.fetchone(), (7, True, True))
+        self.cur.execute("SET ROLE legislativo_n8n_leitura")
+        with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+            self.cur.execute("SELECT * FROM gestao.decisao_projeto")
+        self.conn.rollback()
+
 
 if __name__ == "__main__":
     unittest.main()

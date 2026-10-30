@@ -15,6 +15,10 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'legislativo_n8n') THEN
         CREATE ROLE legislativo_n8n NOLOGIN;
     END IF;
+    -- legislativo_n8n_leitura: fluxo principal do n8n (e-mail diário, checkpoint de movimentações).
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'legislativo_n8n_leitura') THEN
+        CREATE ROLE legislativo_n8n_leitura NOLOGIN;
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gestao_dono') THEN
         CREATE ROLE gestao_dono NOLOGIN NOINHERIT;
     END IF;
