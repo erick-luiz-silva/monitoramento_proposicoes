@@ -127,7 +127,10 @@ SELECT
     (max(executado_em) FILTER (WHERE tipo_carga = 'incremental_senado')
         AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo' AS ultima_carga_senado,
     (max(executado_em) FILTER (WHERE tipo_carga = 'eventos_senado')
-        AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo' AS ultima_carga_pautas_senado
+        AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo' AS ultima_carga_pautas_senado,
+    -- frescor do próprio cache (RF10): gravado por load_api na transação dos REFRESH
+    (max(executado_em) FILTER (WHERE tipo_carga = 'atualizacao_api')
+        AT TIME ZONE 'UTC') AT TIME ZONE 'America/Sao_Paulo' AS ultima_atualizacao_api
 FROM bronze.controle_execucao;
 
 REVOKE ALL ON SCHEMA api_cache FROM PUBLIC;

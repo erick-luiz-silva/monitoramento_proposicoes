@@ -679,11 +679,26 @@ class GoldSqlTests(unittest.TestCase):
         self.assertGreaterEqual(len(re.findall(r"\(\d+, 'planilha_antiga'", seed)), 50)
         fonte = Path(setup_db.__file__).read_text(encoding="utf-8")
         self.assertLess(fonte.index("schema_silver.sql"), fonte.index("seed_acompanhadas.sql"))
-        self.assertLess(fonte.index("seed_acompanhadas.sql"), fonte.index("schema_gold.sql"))
+        self.assertLess(fonte.index("seed_acompanhadas.sql"), fonte.index("schema_gestao.sql"))
+        self.assertLess(fonte.index("schema_gestao.sql"), fonte.index("drop_api.sql"))
+        self.assertLess(fonte.index("drop_api.sql"), fonte.index("schema_gold.sql"))
+
+    def test_schema_gestao_sem_drop_e_idempotente(self):
+        sql = re.sub(r"--[^\n]*", "", (self.SQL_DIR / "schema_gestao.sql").read_text(encoding="utf-8"))
+        # DROP só de trigger (recriado em seguida); nunca de tabela/schema
+        self.assertNotRegex(sql, r"DROP\s+(TABLE|SCHEMA|VIEW|COLUMN)")
+        self.assertNotIn("TRUNCATE TABLE", sql.upper())
+        for criacao in re.findall(r"CREATE TABLE (?:IF NOT EXISTS )?([\w.]+)", sql):
+            self.assertIn(f"CREATE TABLE IF NOT EXISTS {criacao}", sql)
+        self.assertNotRegex(sql, r"CREATE (UNIQUE )?INDEX (?!IF NOT EXISTS)")
+        self.assertIn("REVOKE ALL ON ALL TABLES IN SCHEMA gestao FROM PUBLIC, anon, authenticated", sql)
+        self.assertIn("ALTER DEFAULT PRIVILEGES IN SCHEMA gestao REVOKE ALL ON TABLES", sql)
 
     def test_api_derrubado_antes_da_gold_e_recriado_depois(self):
         fonte = Path(setup_db.__file__).read_text(encoding="utf-8")
-        ordem = [fonte.index(f'apply_sql_file(cur, "{nome}")') for nome in ("drop_api.sql", "schema_gold.sql", "schema_api.sql")]
+        ordem = [fonte.index(f'apply_sql_file(cur, "{nome}")') for nome in (
+            "schema_gestao.sql", "drop_api.sql", "schema_gold.sql", "schema_api.sql",
+            "papel_legislativo_app.sql", "schema_contratos.sql")]
         self.assertEqual(ordem, sorted(ordem))
 
     def test_api_expoe_so_views_finas_com_relogio_na_leitura(self):
@@ -733,8 +748,11 @@ class GoldSqlTests(unittest.TestCase):
             load_api.atualizar_api()
         cur = conn.__enter__.return_value.cursor.return_value.__enter__.return_value
         sqls = [c.args[0] for c in cur.execute.call_args_list]
-        self.assertEqual(len(sqls), len(load_api.MATERIALIZADAS))
-        self.assertTrue(all(s.startswith("REFRESH MATERIALIZED VIEW CONCURRENTLY api_cache.") for s in sqls))
+        self.assertEqual(len(sqls), len(load_api.MATERIALIZADAS) + 1)
+        self.assertTrue(all(s.startswith("REFRESH MATERIALIZED VIEW CONCURRENTLY api_cache.") for s in sqls[:-1]))
+        # frescor do cache (RF10) na mesma transação, depois de todos os REFRESH
+        self.assertIn("'atualizacao_api'", sqls[-1])
+        self.assertIn("now() AT TIME ZONE 'America/Sao_Paulo'", sqls[-1])
         conn.__enter__.return_value.commit.assert_called_once()
 
     def test_destaque_so_para_designacao_de_relator(self):
@@ -749,6 +767,77 @@ class GoldSqlTests(unittest.TestCase):
         self.assertIn("gold.vw_grupo_projeto", check_environment.REQUIRED_RELATIONS)
         for relacao in ("bronze.sf_processo_json", "bronze.sf_mapa_revisora", "silver.dim_senador"):
             self.assertIn(relacao, check_environment.REQUIRED_RELATIONS)
+        for relacao in ("gestao.decisao_projeto", "contrato.vw_projeto", "api.vw_painel_decisoes"):
+            self.assertIn(relacao, check_environment.REQUIRED_RELATIONS)
+
+    def sql_sem_comentarios(self, arquivo):
+        return re.sub(r"--[^\n]*", "", (self.SQL_DIR / arquivo).read_text(encoding="utf-8"))
+
+    def test_painel_publico_tem_colunas_fixas(self):
+        # PRD seção 5 / CA12: a única exposição deliberada de gestao à anon
+        sql = self.sql_sem_comentarios("schema_contratos.sql")
+        select = re.search(r"CREATE VIEW api\.vw_painel_decisoes AS\s+SELECT(.*?)\bFROM\b", sql, re.S).group(1)
+        colunas = [re.split(r"[.\s]", item.strip())[-1] for item in select.split(",")]
+        self.assertEqual(colunas, ["id_proposicao", "casa", "uuid_projeto", "relevancia", "posicao", "prioridade", "em_carteira"])
+        self.assertIn("GRANT SELECT ON api.vw_painel_decisoes TO anon", sql)
+        # api = views finas do cache + vw_ultima_carga + a projeção, e nada mais
+        api = re.findall(r"CREATE VIEW api\.(\w+)", self.sql_sem_comentarios("schema_api.sql") + sql)
+        self.assertEqual(sorted(api), sorted(list(load_api.MATERIALIZADAS) + ["vw_ultima_carga", "vw_painel_decisoes"]))
+
+    def test_so_a_projecao_le_gestao(self):
+        # nada em api/api_cache/gold lê gestao, exceto a projeção do painel
+        for arquivo in sorted(p.name for p in self.SQL_DIR.glob("*.sql")):
+            # sondagem: diagnóstico do admin que lista os objetos de gestao; o setup_db não a aplica
+            if arquivo in ("schema_gestao.sql", "schema_contratos.sql", "sondagem_privilegios.sql"):
+                continue
+            self.assertNotRegex(self.sql_sem_comentarios(arquivo), r"\b(gestao|contrato)\.", arquivo)
+        criados = re.findall(r"CREATE (?:MATERIALIZED )?VIEW ((?:api|api_cache|gold)\.\w+)", self.sql_sem_comentarios("schema_contratos.sql"))
+        self.assertEqual(criados, ["api.vw_painel_decisoes"])
+
+    def test_dependencias_do_cache_so_em_arquivos_recriados(self):
+        # gestao nunca é derrubado: não pode depender de nada que o DROP ... CASCADE recria
+        recriados = {"drop_api.sql", "schema_gold.sql", "schema_api.sql", "schema_contratos.sql"}
+        # sondagem: leitura feita pelo admin depois do setup; o setup_db não a aplica
+        nao_aplicados = {"sondagem_privilegios.sql"}
+        for arquivo in sorted(p.name for p in self.SQL_DIR.glob("*.sql")):
+            if arquivo in recriados or arquivo in nao_aplicados:
+                continue
+            self.assertNotRegex(self.sql_sem_comentarios(arquivo), r"\b(api_cache|gold|contrato|api)\.\w", arquivo)
+        # schema contrato e suas views só existem em schema_contratos.sql, recriado do zero
+        sql = self.sql_sem_comentarios("schema_contratos.sql")
+        self.assertTrue(sql.lstrip().startswith("DROP SCHEMA IF EXISTS contrato CASCADE;"))
+        self.assertIn("CREATE SCHEMA contrato;", sql)
+
+    def test_funcoes_de_gestao_seguras_e_grants_minimos(self):
+        sql = self.sql_sem_comentarios("schema_contratos.sql")
+        funcoes = re.findall(r"CREATE FUNCTION (gestao\.\w+)\((.*?)\$\$", sql, re.S)
+        self.assertGreaterEqual(len(funcoes), 9)
+        for nome, corpo in funcoes:
+            self.assertIn("SECURITY DEFINER", corpo, nome)
+            self.assertIn("SET search_path = pg_catalog, pg_temp", corpo, nome)
+        # nenhuma função retorna tipo de linha de contrato.* (o DROP SCHEMA as levaria junto)
+        self.assertNotRegex(sql, r"RETURNS (SETOF )?contrato\.")
+        # assinaturas velhas: todas as funções de gestao (menos gatilho) são derrubadas antes
+        self.assertRegex(sql, r"nspname = 'gestao' AND p\.prorettype <> 'trigger'::regtype")
+        grant = re.search(r"GRANT EXECUTE ON FUNCTION(.*?)TO legislativo_app;", sql, re.S).group(1)
+        concedidas = sorted(re.findall(r"gestao\.(\w+)\(", grant))
+        self.assertEqual(concedidas, ["avaliar", "confirmar_movimentacoes", "desfazer_avaliacao", "salvar_decisao", "solicitar_inclusao", "tentar_inclusao_agora"])
+        # dono restrito (PRD §5): toda função de gestao passa a gestao_dono, sem CREATE no schema depois
+        self.assertIn("EXECUTE format('ALTER FUNCTION %s OWNER TO gestao_dono', f)", sql)
+        self.assertGreater(sql.index("REVOKE CREATE ON SCHEMA gestao FROM gestao_dono"), sql.index("OWNER TO gestao_dono"))
+        papeis = self.sql_sem_comentarios("papel_legislativo_app.sql")
+        self.assertIn("CREATE ROLE gestao_dono NOLOGIN", papeis)
+        ultima_funcao = max(m.start() for m in re.finditer(r"CREATE FUNCTION", sql))
+        self.assertGreater(sql.index("REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA gestao FROM PUBLIC"), ultima_funcao)
+        self.assertEqual(re.findall(r"GRANT[^;]*\b(?:anon|authenticated)\b[^;]*;", sql),
+                         ["GRANT SELECT ON api.vw_painel_decisoes TO anon;"])
+
+    def test_contratos_usam_relogio_de_brasilia(self):
+        sql = self.sql_sem_comentarios("schema_contratos.sql")
+        self.assertNotRegex(sql, r"(?i)current_date|current_timestamp|localtimestamp")
+        for bloco in re.findall(r"CREATE VIEW .*?;", sql, re.S):
+            for ocorrencia in re.finditer(r"now\(\)", bloco):
+                self.assertTrue(bloco[ocorrencia.end():].startswith(" AT TIME ZONE 'America/Sao_Paulo'"), bloco[:60])
 
 
 class WorkflowYamlTests(unittest.TestCase):
@@ -770,6 +859,17 @@ class SilverSqlTests(unittest.TestCase):
         guarda = "WHERE EXISTS (SELECT 1 FROM silver.proposicao p WHERE p.id_proposicao = b.id_proposicao)"
         for tabela in ("silver.proposicoes_proponentes", "silver.proposicao_tema", "silver.tramitacao"):
             self.assertIn(guarda, comandos[tabela], tabela)
+
+
+class WorkflowAmbienteTests(unittest.TestCase):
+    def test_producao_por_padrao_e_fila_separada_por_ambiente(self):
+        yml = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "pipeline.yml").read_text(encoding="utf-8")
+        entrada = re.search(r"\n      ambiente:\n(.*?)\n      somente_notificar_n8n:", yml, re.S).group(1)
+        self.assertIn("default: producao", entrada)
+        # sem o input (Agendador e fluxo da planilha), o job continua no environment da produção
+        self.assertIn("environment: ${{ inputs.ambiente == 'homologacao' && 'homologacao' || 'DATABASE_URL' }}", yml)
+        self.assertIn("group: monitoramento-proposicoes-pipeline-${{ inputs.ambiente || 'producao' }}", yml)
+        self.assertNotRegex(yml, r"cancel-in-progress: true")
 
 
 if __name__ == "__main__":

@@ -2,6 +2,10 @@
 -- update/delete), preservando o histórico de payloads como a API os retornou.
 -- A chave primária é um id_bronze surrogate; id_proposicao é indexado, não único.
 
+-- unaccent: usada na gold (keywords do Senado sem acento); a produção já tem, a homologação/teste não.
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA extensions;
+
 CREATE SCHEMA IF NOT EXISTS bronze;
 
 CREATE TABLE IF NOT EXISTS bronze.proposicoes_json (
