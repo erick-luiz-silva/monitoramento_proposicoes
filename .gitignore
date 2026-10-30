@@ -28,5 +28,8 @@ data/
 # Estado local do Claude Code
 .claude/scheduled_tasks.lock
 
+# Material de divulgação (prints e textos com posições da ABCS; repositório público).
+divulgacao/
+
 # Aviso de falha do Senado gravado pela carga para o n8n (logs/aviso_senado.txt).
 logs/
