@@ -74,6 +74,21 @@ CREATE TABLE IF NOT EXISTS bronze.controle_execucao (
     executado_em       TIMESTAMP NOT NULL DEFAULT now()
 );
 
+-- Pautas já avisadas por e-mail, por dia de Brasília. O n8n ("Monitoramento de Proposições →
+-- Google Sheets") só manda a pauta que ainda não está aqui no dia e grava depois do envio:
+-- cada pauta sai uma vez por dia e as rodadas de pautas (10h/14h) avisam só as novas.
+-- data_hora_inicio entra na chave para reavisar pauta remarcada. Duas execuções do n8n quase
+-- simultâneas podem repetir uma pauta (risco aceito). Linhas com mais de 30 dias são apagadas
+-- pelo próprio n8n.
+CREATE TABLE IF NOT EXISTS bronze.alerta_pauta (
+    dia              DATE NOT NULL,
+    id_evento        BIGINT NOT NULL,
+    id_proposicao    BIGINT NOT NULL,
+    data_hora_inicio TIMESTAMP NOT NULL,
+    avisado_em       TIMESTAMP NOT NULL DEFAULT (now() AT TIME ZONE 'America/Sao_Paulo'),
+    PRIMARY KEY (dia, id_evento, id_proposicao, data_hora_inicio)
+);
+
 -- Senado (docs/superpowers/plans/2026-10-28-senado-fases-3-4.md). id_processo é o id nativo
 -- da API do Senado; a chave deslocada (1e9 + id) só existe da silver em diante.
 -- Só grava quando o payload muda (hash_payload): os detalhes são grandes e cumulativos.
