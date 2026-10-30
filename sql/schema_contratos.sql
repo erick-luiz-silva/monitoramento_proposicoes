@@ -1257,23 +1257,28 @@ SELECT
 FROM contrato.vw_versao v
 JOIN contrato.vw_projeto p ON p.chave_agrupamento = v.chave_agrupamento;
 
--- Checkpoint do e-mail de movimentações (n8n, papel legislativo_n8n_leitura). A marca é o relógio
--- de Brasília lido DO BANCO no momento da gravação, nunca o instante enviado pelo n8n (fuso e
--- offset diferentes: a marca 3 horas errada repetiria alertas). Só o modo 'completo' avança a
--- marca (o diário). Retorna true se gravou.
-CREATE FUNCTION gestao.registrar_alerta_movimentacoes(p_modo text, p_qtd int) RETURNS boolean
+-- Checkpoint do e-mail de movimentações (n8n, papel legislativo_n8n_leitura). executado_em é UTC,
+-- como todas as marcas internas (data_extracao usa o mesmo DEFAULT now() numa sessão UTC; ver
+-- api.vw_ultima_carga). O instante vem do n8n, lido com SELECT localtimestamp ANTES das consultas
+-- do e-mail: uma tramitação carregada durante o envio tem data_extracao depois dele e volta no
+-- próximo diário, em vez de sumir. Rejeita instante nulo ou no futuro. Só o modo 'completo' avança
+-- a marca (o diário, único que lista movimentações). Retorna true se gravou.
+CREATE FUNCTION gestao.registrar_alerta_movimentacoes(p_modo text, p_qtd int, p_instante timestamp) RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, pg_temp
 AS $$
 DECLARE
-    v_agora timestamp := now() AT TIME ZONE 'America/Sao_Paulo';
+    v_hoje date := (now() AT TIME ZONE 'America/Sao_Paulo')::date;
 BEGIN
     IF p_modo IS DISTINCT FROM 'completo' THEN
         RETURN false;
     END IF;
+    IF p_instante IS NULL OR p_instante > (now() AT TIME ZONE 'UTC') THEN
+        RAISE EXCEPTION 'instante do checkpoint inválido: %', p_instante;
+    END IF;
     INSERT INTO bronze.controle_execucao (tipo_carga, data_inicio_janela, data_fim_janela, qtd_proposicoes, executado_em)
-    VALUES ('alerta_movimentacoes', v_agora::date, v_agora::date, p_qtd, v_agora);
+    VALUES ('alerta_movimentacoes', v_hoje, v_hoje, p_qtd, p_instante);
     RETURN true;
 END
 $$;
@@ -1351,10 +1356,18 @@ GRANT EXECUTE ON FUNCTION
     gestao.concluir_inclusoes()
 TO legislativo_n8n;
 
--- Papel de leitura do fluxo principal do n8n (Tarefa 5 define as leituras de gestao/contrato
--- quando o rascunho do fluxo novo existir). Por ora só o checkpoint do e-mail: sem SELECT em
--- tabela, sem INSERT direto em bronze.controle_execucao.
-GRANT USAGE ON SCHEMA gestao TO legislativo_n8n_leitura;
-GRANT EXECUTE ON FUNCTION gestao.registrar_alerta_movimentacoes(text, int) TO legislativo_n8n_leitura;
+-- Papel de leitura do fluxo principal do n8n (inventário do 4F6Y2cOHhqNuhdYm, 30/10/2026). Cobre
+-- o que o fluxo atual lê e grava: gold (views, que rodam com o dono e não precisam de grant em
+-- tabela), silver.evento e silver.proposicao_acompanhada (confirmada_em é a única coluna escrita),
+-- bronze.alerta_pauta (lê, grava e apaga o aviso diário de pautas). Não lê gestao/contrato: essas
+-- leituras entram na Tarefa 5, quando o rascunho do fluxo novo existir. O controle_execucao só é
+-- escrito pela função de checkpoint, nunca por INSERT direto.
+GRANT USAGE ON SCHEMA gestao, gold, silver, bronze TO legislativo_n8n_leitura;
+GRANT SELECT ON gold.vw_grupo_projeto, gold.vw_monitoramento, gold.vw_pautas_monitoradas,
+    gold.vw_movimentacoes, gold.vw_audiencias_de_interesse TO legislativo_n8n_leitura;
+GRANT SELECT ON silver.evento, silver.proposicao_acompanhada TO legislativo_n8n_leitura;
+GRANT UPDATE (confirmada_em) ON silver.proposicao_acompanhada TO legislativo_n8n_leitura;
+GRANT SELECT, INSERT, DELETE ON bronze.alerta_pauta TO legislativo_n8n_leitura;
+GRANT EXECUTE ON FUNCTION gestao.registrar_alerta_movimentacoes(text, int, timestamp) TO legislativo_n8n_leitura;
 
 NOTIFY pgrst, 'reload schema';

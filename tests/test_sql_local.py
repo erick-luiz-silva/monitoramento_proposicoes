@@ -719,34 +719,52 @@ class PrivilegiosContratosTests(_ComDados):
                 self.cur.execute(comando)
             self.conn.rollback()
 
-    def test_legislativo_n8n_leitura_so_grava_o_checkpoint_de_movimentacoes(self):
+    def test_legislativo_n8n_leitura_roda_o_fluxo_principal_e_nada_alem(self):
         import psycopg2
 
-        self.assertTrue(self.contar("SELECT has_function_privilege('legislativo_n8n_leitura', 'gestao.registrar_alerta_movimentacoes(text, int)', 'EXECUTE')"))
+        assinatura = "gestao.registrar_alerta_movimentacoes(text, int, timestamp)"
+        self.assertTrue(self.contar("SELECT has_function_privilege('legislativo_n8n_leitura', %s, 'EXECUTE')", assinatura))
         for papel in ("anon", "authenticated", "legislativo_app", "legislativo_n8n"):
-            self.assertFalse(self.contar("SELECT has_function_privilege(%s, 'gestao.registrar_alerta_movimentacoes(text, int)', 'EXECUTE')", papel), papel)
-        for relacao in ("gestao.decisao_projeto", "contrato.vw_projeto", "gestao.inclusao_manual", "silver.proposicao_acompanhada"):
+            self.assertFalse(self.contar("SELECT has_function_privilege(%s, %s, 'EXECUTE')", papel, assinatura), papel)
+        for relacao in ("gestao.decisao_projeto", "contrato.vw_projeto", "gestao.inclusao_manual", "bronze.controle_execucao"):
             for privilegio in ("SELECT", "INSERT", "UPDATE", "DELETE"):
                 self.assertFalse(self.contar("SELECT has_table_privilege('legislativo_n8n_leitura', %s, %s)", relacao, privilegio), (relacao, privilegio))
-        self.assertFalse(self.contar("SELECT has_table_privilege('legislativo_n8n_leitura', 'bronze.controle_execucao', 'INSERT')"))
+        self.assertFalse(self.contar("SELECT has_table_privilege('legislativo_n8n_leitura', 'silver.proposicao_acompanhada', 'UPDATE')"))
+        self.assertTrue(self.contar("SELECT has_column_privilege('legislativo_n8n_leitura', 'silver.proposicao_acompanhada', 'confirmada_em', 'UPDATE')"))
 
+        # SQL de escrita do fluxo (nó "Registrar Envio" e consultas do e-mail), como o papel do n8n
         self.cur.execute("SET ROLE legislativo_n8n_leitura")
-        self.cur.execute("SELECT gestao.registrar_alerta_movimentacoes('pautas', 5)")
+        self.cur.execute("SELECT count(*) FROM gold.vw_monitoramento")
+        self.cur.execute("SELECT count(*) FROM gold.vw_movimentacoes")
+        self.cur.execute("SELECT localtimestamp::text")
+        instante = self.cur.fetchone()[0]
+        self.cur.execute("SELECT gestao.registrar_alerta_movimentacoes('pautas', 5, localtimestamp)")
         self.assertFalse(self.cur.fetchone()[0])
-        self.cur.execute("SELECT gestao.registrar_alerta_movimentacoes('completo', 7)")
+        self.cur.execute("SELECT gestao.registrar_alerta_movimentacoes('completo', 7, %s::timestamp)", (instante,))
         self.assertTrue(self.cur.fetchone()[0])
+        self.cur.execute("INSERT INTO bronze.alerta_pauta (dia, id_evento, id_proposicao, data_hora_inicio) VALUES (current_date, 1, 2, now())")
+        self.cur.execute("DELETE FROM bronze.alerta_pauta WHERE dia < current_date - 30")
+        self.cur.execute("UPDATE silver.proposicao_acompanhada SET confirmada_em = now() WHERE id_proposicao = -1")
         self.conn.commit()
-        self.cur.execute("RESET ROLE")
-        # relógio de Brasília do banco (sessão UTC), não o localtimestamp da sessão
-        self.cur.execute("""SELECT qtd_proposicoes, executado_em <= now() AT TIME ZONE 'America/Sao_Paulo',
-                executado_em > (now() AT TIME ZONE 'America/Sao_Paulo') - interval '1 minute'
-            FROM bronze.controle_execucao WHERE tipo_carga = 'alerta_movimentacoes' ORDER BY id_execucao DESC LIMIT 1""")
-        self.assertEqual(self.cur.fetchone(), (7, True, True))
-        self.cur.execute("SET ROLE legislativo_n8n_leitura")
-        with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
-            self.cur.execute("SELECT * FROM gestao.decisao_projeto")
-        self.conn.rollback()
 
+        # o checkpoint grava UTC: o instante enviado pelo n8n é o próprio executado_em
+        self.cur.execute("RESET ROLE")
+        self.cur.execute("""SELECT qtd_proposicoes, executado_em = %s::timestamp, executado_em <= now() AT TIME ZONE 'UTC'
+            FROM bronze.controle_execucao WHERE tipo_carga = 'alerta_movimentacoes' ORDER BY id_execucao DESC LIMIT 1""", (instante,))
+        self.assertEqual(self.cur.fetchone(), (7, True, True))
+
+        for comando in ("SELECT * FROM gestao.decisao_projeto",
+                        "INSERT INTO bronze.controle_execucao (tipo_carga, data_inicio_janela, data_fim_janela) VALUES ('incremental', current_date, current_date)",
+                        "UPDATE silver.proposicao_acompanhada SET origem = 'x'",
+                        "SELECT gestao.salvar_decisao(NULL, 1, 0, '{}'::jsonb, NULL, NULL)"):
+            self.cur.execute("SET ROLE legislativo_n8n_leitura")
+            with self.assertRaises(psycopg2.errors.InsufficientPrivilege, msg=comando):
+                self.cur.execute(comando)
+            self.conn.rollback()
+        self.cur.execute("SET ROLE legislativo_n8n_leitura")
+        with self.assertRaises(psycopg2.errors.RaiseException):
+            self.cur.execute("SELECT gestao.registrar_alerta_movimentacoes('completo', 1, now() AT TIME ZONE 'UTC' + interval '1 hour')")
+        self.conn.rollback()
 
 if __name__ == "__main__":
     unittest.main()
