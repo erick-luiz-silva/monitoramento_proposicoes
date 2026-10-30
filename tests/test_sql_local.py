@@ -775,6 +775,19 @@ class PrivilegiosContratosTests(_ComDados):
                 self.cur.execute("SELECT gestao.registrar_alerta_movimentacoes(%s, 1, now() AT TIME ZONE 'UTC')", (modo,))
             self.conn.rollback()
             self.cur.execute("SET ROLE legislativo_n8n_leitura")
+        # limite da janela: 30 min atrás aceito, 61 min atrás rejeitado; 'inclusao' devolve false sem gravar
+        self.cur.execute("SELECT gestao.registrar_alerta_movimentacoes('inclusao', 1, now() AT TIME ZONE 'UTC')")
+        self.assertFalse(self.cur.fetchone()[0])
+        self.conn.rollback()
+        self.cur.execute("SET ROLE legislativo_n8n_leitura")
+        self.cur.execute("SELECT gestao.registrar_alerta_movimentacoes('completo', 1, now() AT TIME ZONE 'UTC' - interval '30 minutes')")
+        self.assertTrue(self.cur.fetchone()[0])
+        self.conn.rollback()
+        self.cur.execute("SET ROLE legislativo_n8n_leitura")
+        with self.assertRaises(psycopg2.errors.RaiseException):
+            self.cur.execute("SELECT gestao.registrar_alerta_movimentacoes('completo', 1, now() AT TIME ZONE 'UTC' - interval '61 minutes')")
+        self.conn.rollback()
+        self.cur.execute("SET ROLE legislativo_n8n_leitura")
         # instante com o atraso de uma sessão em Brasília (3 h) e instante no futuro: ambos rejeitados
         for instante in ("now() AT TIME ZONE 'UTC' - interval '3 hours'", "now() AT TIME ZONE 'UTC' + interval '1 hour'", "NULL::timestamp"):
             with self.assertRaises(psycopg2.errors.RaiseException, msg=instante):

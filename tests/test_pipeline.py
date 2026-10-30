@@ -787,7 +787,8 @@ class GoldSqlTests(unittest.TestCase):
     def test_so_a_projecao_le_gestao(self):
         # nada em api/api_cache/gold lê gestao, exceto a projeção do painel
         for arquivo in sorted(p.name for p in self.SQL_DIR.glob("*.sql")):
-            if arquivo in ("schema_gestao.sql", "schema_contratos.sql"):
+            # sondagem: diagnóstico do admin que lista os objetos de gestao; o setup_db não a aplica
+            if arquivo in ("schema_gestao.sql", "schema_contratos.sql", "sondagem_privilegios.sql"):
                 continue
             self.assertNotRegex(self.sql_sem_comentarios(arquivo), r"\b(gestao|contrato)\.", arquivo)
         criados = re.findall(r"CREATE (?:MATERIALIZED )?VIEW ((?:api|api_cache|gold)\.\w+)", self.sql_sem_comentarios("schema_contratos.sql"))

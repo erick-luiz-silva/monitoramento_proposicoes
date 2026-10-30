@@ -3,7 +3,7 @@
 -- Esperado: nenhuma linha com ok = false. Rodar depois de cada setup_db no banco de produção e
 -- de homologação, com o admin (DATABASE_URL conferida antes: current_database() e o ref do projeto).
 --   psql "$DATABASE_URL" -f sql/sondagem_privilegios.sql
--- Cobre: anon, authenticated e PUBLIC sem acesso a gestao, contrato e api_cache (schema, tabela e
+-- Cobre: os papéis legislativo_* (sem escrita em gestao/contrato/api_cache; funções que executam), anon, authenticated e PUBLIC sem acesso a gestao, contrato e api_cache (schema, tabela e
 -- função); a única relação exposta é api.vw_painel_decisoes, com as colunas aprovadas (CA12).
 
 WITH papeis(papel) AS (VALUES ('anon'), ('authenticated')),
@@ -71,6 +71,34 @@ checagens AS (
     SELECT 'gestao_dono: sem login, superusuário ou CREATEROLE',
            'false',
            coalesce((SELECT (rolcanlogin OR rolsuper OR rolcreaterole)::text FROM pg_roles WHERE rolname = 'gestao_dono'), 'ausente')
+    UNION ALL
+    -- papéis do sistema /legislativo: nenhuma escrita em gestao, contrato ou api_cache
+    SELECT 'papel ' || r.papel || ': INSERT/UPDATE/DELETE em gestao, contrato, api_cache',
+           'false',
+           EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace,
+                   unnest(array['INSERT', 'UPDATE', 'DELETE']) AS pr(priv)
+                   WHERE n.nspname IN ('gestao', 'contrato', 'api_cache') AND c.relkind IN ('r', 'v', 'm', 'p')
+                     AND has_table_privilege(r.papel, c.oid, pr.priv))::text
+    FROM (VALUES ('legislativo_app'), ('legislativo_n8n'), ('legislativo_n8n_leitura')) AS r(papel)
+    UNION ALL
+    -- funções de gestao que cada papel executa: exatamente as da aplicação e do fluxo (testes SQL)
+    SELECT 'papel legislativo_app: funções de gestao executáveis',
+           'gestao.avaliar(bigint,text,integer,uuid,text),gestao.confirmar_movimentacoes(uuid,jsonb,uuid,text),gestao.desfazer_avaliacao(bigint,uuid,text),gestao.salvar_decisao(uuid,bigint,integer,jsonb,uuid,text),gestao.solicitar_inclusao(text,text,uuid,text),gestao.tentar_inclusao_agora(bigint,uuid,text)',
+           coalesce((SELECT string_agg(p.oid::regprocedure::text, ',' ORDER BY p.oid::regprocedure::text) FROM pg_proc p
+                     WHERE p.pronamespace = 'gestao'::regnamespace AND p.prorettype <> 'trigger'::regtype
+                       AND has_function_privilege('legislativo_app', p.oid, 'EXECUTE')), '(nenhuma)')
+    UNION ALL
+    SELECT 'papel legislativo_n8n: funções de gestao executáveis',
+           'gestao.concluir_inclusoes(),gestao.falhar_inclusao(bigint,text,boolean),gestao.registrar_inclusao_resolvida(bigint,bigint),gestao.reivindicar_inclusao(bigint)',
+           coalesce((SELECT string_agg(p.oid::regprocedure::text, ',' ORDER BY p.oid::regprocedure::text) FROM pg_proc p
+                     WHERE p.pronamespace = 'gestao'::regnamespace AND p.prorettype <> 'trigger'::regtype
+                       AND has_function_privilege('legislativo_n8n', p.oid, 'EXECUTE')), '(nenhuma)')
+    UNION ALL
+    SELECT 'papel legislativo_n8n_leitura: funções de gestao executáveis',
+           'gestao.registrar_alerta_movimentacoes(text,integer,timestamp without time zone)',
+           coalesce((SELECT string_agg(p.oid::regprocedure::text, ',' ORDER BY p.oid::regprocedure::text) FROM pg_proc p
+                     WHERE p.pronamespace = 'gestao'::regnamespace AND p.prorettype <> 'trigger'::regtype
+                       AND has_function_privilege('legislativo_n8n_leitura', p.oid, 'EXECUTE')), '(nenhuma)')
 )
 SELECT verificacao, esperado, obtido, obtido = esperado AS ok
 FROM checagens
