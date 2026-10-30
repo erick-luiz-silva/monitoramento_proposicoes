@@ -1,6 +1,7 @@
 -- Papéis do sistema /legislativo. Idempotente e SEM senha: cria só os papéis (NOLOGIN).
 -- legislativo_app: papel da aplicação. LOGIN e senha são definidos à mão em cada ambiente
 --   (ALTER ROLE legislativo_app LOGIN PASSWORD '...'), e a senha fica apenas no .env do ambiente.
+-- legislativo_n8n_leitura: papel do fluxo principal do n8n (e-mail diário; leituras e checkpoint, ver schema_contratos.sql).
 -- legislativo_n8n: papel do n8n no fluxo de inclusão (RF08). Mesmo esquema: LOGIN e senha à mão,
 --   e a senha fica só na credencial Postgres do n8n.
 -- gestao_dono: dono restrito das funções SECURITY DEFINER de gestao (PRD §5). Nunca loga; os
