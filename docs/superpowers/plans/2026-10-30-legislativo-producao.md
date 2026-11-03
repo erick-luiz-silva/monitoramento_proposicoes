@@ -110,18 +110,18 @@ Cenários que o PRD implica mas nenhuma tarefa de código cobre; cada um tem tes
 **Consome:** projeto de produção novo (sa-east-1); `DATABASE_URL_SP` (admin) no `src/.env`; PR #13 no commit registrado no Registro de revisão, com a Tarefa 1 passo 7 verde (0 skipped) e a sondagem do passo 3 da Tarefa 1 pronta (sem isso o `setup_db` e o passo 6 não têm de que commit rodar).
 **Produz:** schemas aplicados, papéis com login, conexões testadas; ainda sem dados oficiais.
 
-- [ ] **Passo 1: Confirmar o destino antes de qualquer escrita**
+- [x] **Passo 1: Confirmar o destino antes de qualquer escrita**
   Anotar o ref do projeto novo (do `src/.env`). Rodar `docker run --rm postgres:17 psql "$DATABASE_URL_SP" -Atc "select current_database(), current_user, (select count(*) from information_schema.schemata where schema_name in ('bronze','silver','gold','api','gestao'))"` e conferir que o ref novo aparece no usuário (`postgres.<ref>`; no Session pooler o host é só `aws-…pooler.supabase.com` e não identifica o projeto). A contagem é `0`. Se houver schemas, parar e perguntar ao Erick.
-- [ ] **Passo 2: Aplicar os schemas** **[PRODUÇÃO]**
+- [x] **Passo 2: Aplicar os schemas** **[PRODUÇÃO]**
   De `src/`, com `DATABASE_URL="$DATABASE_URL_SP"`: `python setup_db.py`
   Esperado: "Schemas bronze, silver, gestao, gold, api e contrato … aplicados com sucesso."
-- [ ] **Passo 3: Dimensões** **[PRODUÇÃO]**
+- [x] **Passo 3: Dimensões** **[PRODUÇÃO]**
   `python load_dimensoes.py` (carrega `dim_tema`/`dim_keyword` e atualiza o `api`).
-- [ ] **Passo 4: Papéis com login, à mão (M1/M2)** **[PRODUÇÃO]**
+- [x] **Passo 4: Papéis com login, à mão (M1/M2)** **[PRODUÇÃO]**
   Os três papéis nascem `NOLOGIN` (`sql/papel_legislativo_app.sql`). No `psql` interativo: `ALTER ROLE <papel> LOGIN;` (sem senha; I3 do Fable: sem isso as três conexões falham no passo 6) e depois `\password <papel>` para `legislativo_app`, `legislativo_n8n` e `legislativo_n8n_leitura`, com senhas novas e distintas das da homologação (nunca `ALTER ROLE … PASSWORD '…'` em linha de comando ou histórico). No pooler do Supabase o usuário é `papel.<ref>`; anotar esse formato. Guardar as URLs no `src/.env` e no cofre.
-- [ ] **Passo 5: Supabase: Data API e Auth (M3)** **[PRODUÇÃO]**
+- [x] **Passo 5: Supabase: Data API e Auth (M3)** **[PRODUÇÃO]**
   Painel do projeto: schemas expostos = `gold, api` (nunca `gestao`/`contrato`); cadastro aberto do Auth **desligado**; TLS exigido; backup diário ligado e, se o plano permitir, PITR. Guardar captura de tela dessas três configurações como evidência.
-- [ ] **Passo 6: Testar as conexões, o ambiente e os privilégios**
+- [x] **Passo 6: Testar as conexões, o ambiente e os privilégios**
   - Admin: `python check_environment.py` com `DATABASE_URL="$DATABASE_URL_SP"`. Esperado: schemas presentes e keywords não vazias.
   - Sondagem: `sql/sondagem_privilegios.sql` rodada no banco novo. Esperado: zero divergência.
   - `legislativo_app`: `select 1` e uma chamada a uma função de `gestao` permitida; `insert` direto em tabela de `gestao` deve falhar.
@@ -130,6 +130,8 @@ Cenários que o PRD implica mas nenhuma tarefa de código cobre; cada um tem tes
   - `legislativo_n8n_leitura`: as leituras do inventário da Tarefa 1, passo 2, funcionam; `gestao` por tabela falha.
   - Anônimo (chave anon do projeto novo): `GET /rest/v1/…` com `Accept-Profile: gestao` ou `contrato` deve dar erro de schema; `Accept-Profile: api` lê só a projeção esperada.
   Esperado: tudo conforme o PRD §5; anotar o modo do pooler (sessão ou transação) usado em cada conexão.
+
+**Execução (30/10/2026, com o "pode" do Erick):** destino `postgres.pwyupgfyholqquuhmlgm` vazio; `setup_db`, `load_dimensoes` (32 temas, 22 termos) e `check_environment` ok; sondagem com 139 verificações e 0 divergência; os três papéis conectam pelo Session pooler (porta 5432) e passaram nos limites (escrita e leitura direta em `gestao`/`contrato` negadas, checkpoint `pautas` devolve `false`, inventário de leitura do fluxo principal ok), tudo em transação desfeita; HTTP anônimo: `gestao`, `contrato`, `api_cache` e `silver` dão PGRST106 (expostos só `api, gold`) e `api.vw_painel_decisoes` responde 200. Diferença da produção atual: lá o `anon` tem `USAGE` em `gold` (grant manual, fora do código); no banco novo não tem e o REST anônimo em `gold` dá 401. O Power BI só lê `Accept-Profile: api`, então fica como o código define.
 
 ---
 
