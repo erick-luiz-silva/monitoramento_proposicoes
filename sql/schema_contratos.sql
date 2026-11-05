@@ -1365,10 +1365,12 @@ TO legislativo_n8n;
 -- Papel de leitura do fluxo principal do n8n (inventário do 4F6Y2cOHhqNuhdYm, 30/10/2026). Cobre
 -- o que o fluxo atual lê e grava: gold (views, que rodam com o dono e não precisam de grant em
 -- tabela), silver.evento e silver.proposicao_acompanhada (confirmada_em é a única coluna escrita),
--- bronze.alerta_pauta (lê, grava e apaga o aviso diário de pautas). Não lê gestao/contrato: essas
--- leituras entram na Tarefa 5, quando o rascunho do fluxo novo existir. O controle_execucao só é
--- escrito pela função de checkpoint, nunca por INSERT direto.
-GRANT USAGE ON SCHEMA gestao, gold, silver, bronze TO legislativo_n8n_leitura;
+-- bronze.alerta_pauta (lê, grava e apaga o aviso diário de pautas). Relevância das decisões só pela
+-- projeção pública api.vw_painel_decisoes (a mesma do painel, sem ação, parecer nem observações):
+-- nunca gestao/contrato por tabela ou view. O controle_execucao só é escrito pela função de
+-- checkpoint, nunca por INSERT direto.
+GRANT USAGE ON SCHEMA gestao, gold, silver, bronze, api TO legislativo_n8n_leitura;
+GRANT SELECT ON api.vw_painel_decisoes TO legislativo_n8n_leitura;
 GRANT SELECT ON gold.vw_grupo_projeto, gold.vw_monitoramento, gold.vw_pautas_monitoradas,
     gold.vw_movimentacoes, gold.vw_audiencias_de_interesse TO legislativo_n8n_leitura;
 GRANT SELECT ON silver.evento, silver.proposicao_acompanhada TO legislativo_n8n_leitura;

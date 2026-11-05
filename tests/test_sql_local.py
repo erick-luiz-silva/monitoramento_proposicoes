@@ -736,6 +736,8 @@ class PrivilegiosContratosTests(_ComDados):
         self.cur.execute("SET ROLE legislativo_n8n_leitura")
         self.cur.execute("SELECT count(*) FROM gold.vw_monitoramento")
         self.cur.execute("SELECT count(*) FROM gold.vw_movimentacoes")
+        # relevância das decisões (Tarefa 5): só pela projeção pública do painel, nunca gestao/contrato
+        self.cur.execute("SELECT id_proposicao, relevancia FROM api.vw_painel_decisoes LIMIT 1")
         self.cur.execute("SELECT localtimestamp::text")
         instante = self.cur.fetchone()[0]
         self.cur.execute("SELECT gestao.registrar_alerta_movimentacoes('pautas', 5, localtimestamp)")
@@ -807,7 +809,7 @@ class PrivilegiosContratosTests(_ComDados):
             ORDER BY 1""")
         esperado = sorted(
             [f"gold.{v}:SELECT" for v in ("vw_grupo_projeto", "vw_monitoramento", "vw_pautas_monitoradas", "vw_movimentacoes", "vw_audiencias_de_interesse")]
-            + ["silver.evento:SELECT", "silver.proposicao_acompanhada:SELECT",
+            + ["api.vw_painel_decisoes:SELECT", "silver.evento:SELECT", "silver.proposicao_acompanhada:SELECT",
                "bronze.alerta_pauta:SELECT", "bronze.alerta_pauta:INSERT", "bronze.alerta_pauta:DELETE"])
         self.assertEqual([r[0] for r in self.cur.fetchall()], esperado)
         self.cur.execute("""SELECT table_schema || '.' || table_name || ':' || column_name
