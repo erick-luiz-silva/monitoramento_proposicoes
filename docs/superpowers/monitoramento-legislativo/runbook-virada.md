@@ -146,20 +146,31 @@ Num worktree fora do clone principal, o filtro `segredos-pbi` não encontra `BI/
 
 Fonte: plano de execução de 06/11 (Tarefa 4 do plano mestre com as correções da revisão alethe). Nenhum passo roda sem o "pode" do Erick naquele momento; todo comando de escrita confere `postgres.<ref>` antes.
 
-**Achado da Fase A (06/11):** as cargas diárias de 05/11 e 06/11 na produção atual **falharam no `dim_deputado`** (10 deputados com `Read timed out` na API da Câmara, após ~1h40 de job; bronze, eventos e silver concluíram, janela não avançou). Às 12h os mesmos ids respondiam em < 1 s. Risco direto no B8: a carga de verificação pode falhar pelo mesmo motivo. Como o B8 é o ponto a partir do qual se corrige para frente, uma falha **só no `dim_deputado`** (bronze/silver ok) não justifica reverter: repetir `modo=completo` (a janela não avançou) ou rodar `load_dim_deputado` à parte e então `modo=pautas`. API do Senado em timeout desde 30/10: carga segue com o aviso de "Senado não atualizado".
+**Achado da Fase A (06/11):** as cargas diárias de 05/11 e 06/11 na produção atual **falharam no `dim_deputado`** (10 deputados com `Read timed out` na API da Câmara, após ~1h40 de job; bronze, eventos e silver concluíram, janela não avançou). Às 12h os mesmos ids respondiam em < 1 s. Risco direto no B8: a carga de verificação pode falhar pelo mesmo motivo. Uma falha **só no `dim_deputado`** (bronze/silver ok, nenhum aviso ao n8n) não justifica reverter: repetir `modo=completo` uma vez (a janela não avançou; cabe no teto de 110 min do passo de carga só se a API estiver normal: medir `/deputados/<id>` antes). `load_dim_deputado` + `modo=pautas` **não** conclui o B8: `pautas` registra só `eventos`, então `incremental`/`reconciliacao` e `api.vw_ultima_carga` ficariam de ontem. Se a repetição também falhar no dim, decidir com o Erick entre reverter ou seguir para frente com a carga de segunda 07h17.
+
+**Fronteira da reversão:** reversível até o `notify_n8n` bem-sucedido do B8 (o aviso só roda com a carga concluída, `pipeline.yml`); um B8 que falha antes dele não tocou o n8n. Depois do aviso, corrige-se para frente.
+
+**Senado:** API em timeout desde 30/10. O plano manda adiar se a API falhar (A6) e também seguir com o aviso (A3); decisão do Erick na janela. O código trata a falha do Senado como aviso, sem bloquear a Câmara.
+
+**E-mails reais do B8:** o B8 é carga real: as movimentações enviadas avançam o `alerta_movimentacoes` e as pautas do dia ficam em `bronze.alerta_pauta`, então o que for ao Erick no B8 não volta a sair para a Ana. O Erick repassa à Ana o e-mail do B8 (decisão a confirmar na janela).
 
 | # | Passo | Conferência |
 |---|---|---|
 | B0 | `importar_decisoes.py` (relatório) contra o banco novo | 0 conflito; 360/372/360 (Fase A, 06/11 às 12h: igual) |
-| B1 | Despublicar Agendador `0sieqPDvsqoZcs31` e `23CyodhPlORNJ4xS`, anotar `versionId`; `gh run list` sem `in_progress`/`queued` (duas leituras); planilha protegida (Erick/Ana) | nenhum job pendente |
-| B2 | Sequência 1–7 acima (paridade, contagens, dump, `TRUNCATE`+restore, vínculo, `dim_keyword`); `gestao`: confirmações pendentes vazias | contagens destino = origem |
+| B1 | Despublicar Agendador `0sieqPDvsqoZcs31`, `23CyodhPlORNJ4xS` e o gatilho de planilha do fluxo de planilha, anotar `versionId`; `search_workflow_executions` com `running` até zerar (despublicar não interrompe execução em andamento); `gh run list --workflow pipeline.yml --limit 50 --json status --jq '[.[] \| select(.status != "completed")] \| length'` = 0 (inclui `pending`), medido de novo logo antes do B2; planilha protegida (Erick/Ana) | nada em execução no n8n nem no GitHub |
+| B2 | Sequência 1–7 acima (paridade, contagens, dump, `TRUNCATE`+restore, vínculo, `dim_keyword`); `count(*)` de `gold.vw_movimentacoes` origem = destino no instante da cópia; `silver.proposicao_acompanhada` com `confirmada_em is null and origem in ('sistema','inclusao_manual')` vazia | contagens destino = origem |
 | B3 | `setup_db.py` no banco novo; sondagem; HTTP anônimo em `gestao`/`contrato` negado | 0 divergência |
 | B3b | `gh pr merge 13 --merge`; `git tag legislativo-entrega-1-prod` + push só da tag; `ambiente` padrão `producao` | CI da `main` verde |
-| B4 | importador: relatório, `--aplicar`, `--aplicar` | 0 conflito; 2º não grava; totais = `gestao.decisao_projeto` |
-| B5 | `UPDATE gestao.parametro SET valor = clock_timestamp()::text WHERE chave = 'data_implantacao' AND valor IS NULL` | 1 linha; anotar instante |
+| B4 | importador: relatório; consulta das decisões fora do cache com versão irmã no cache (`data/fora_do_monitoramento.csv` × `gold.vw_grupo_projeto` × `api_cache.vw_monitoramento`) = 0, senão parar; `--aplicar`; `--aplicar` | 0 conflito; 0 caso irmão; 2º não grava; totais por campo = `gestao.decisao_projeto` |
+| B5 | `UPDATE gestao.parametro SET valor = clock_timestamp()::text WHERE chave = 'data_implantacao' AND valor IS NULL` | 1 linha; anotar instante; nenhuma urgência/pendência de confirmação criada pela importação |
 | B6 | `DyzR…`: 7 credenciais Postgres → "Legislativo produção (legislativo_n8n_leitura)"; **destinatários continuam = abcsdata@abcsagro.com.br** (e-mails de teste só para o Erick); despublicar `4F6…`, publicar `DyzR…`. `s5Ve…`: desativar "A Cada 15 Minutos", publicar. `get_workflow_details` (connections) | ambos publicados |
 | B7 | Erick troca `DATABASE_URL` (environment `DATABASE_URL`) pela Session pooler do banco novo; guarda a antiga fora do repo | — |
-| B8 | `gh workflow run pipeline.yml -f modo=completo -f ambiente=producao`; medir duração | job verde, janelas registradas, `api.vw_ultima_carga` de hoje, e-mail chega **ao Erick** |
-| B9 | `DyzR…`: destinatários de volta (alerta: anapaula@implantaragro.com.br; falha: anapaula@implantaragro.com.br e abcsdata@abcsagro.com.br) e republicar; republicar Agendador; reativar cron do `s5Ve…`; arquivar `23Cy…` | `search_workflow_executions` sem Google Sheets; rodada seguinte ok |
+| B8 | `gh workflow run pipeline.yml -f modo=completo -f ambiente=producao`; medir duração | job verde (incl. `notify_n8n`); `controle_execucao` com `incremental`, `eventos`, `reconciliacao`; `api.vw_ultima_carga` de hoje; `gold.vw_movimentacoes` = origem no instante da cópia + o que veio depois; e-mail chega **ao Erick**, que repassa à Ana |
+| B9 | `DyzR…`: destinatários de volta (alerta: anapaula@implantaragro.com.br; falha: anapaula@implantaragro.com.br e abcsdata@abcsagro.com.br) e republicar; republicar Agendador; reativar cron do `s5Ve…`; arquivar `23Cy…`. **Prazo: antes de segunda 07h17** (sem o Agendador não há carga automática) | `search_workflow_executions` sem Google Sheets; rodada seguinte ok |
 
-Reversão: seção "Reversão (ensaio de 06/11/2026)" acima, válida até o B8.
+Reversão (Tarefa 8, sem Power BI), válida até o aviso do B8:
+1. Secret `DATABASE_URL` de volta à URL antiga; revert do merge e remoção da tag (comandos na seção do ensaio acima).
+2. Tirar a proteção da planilha.
+3. Despublicar `s5Ve…` e `DyzR…` (nessa ordem antes de qualquer republicação: colisão de webhook).
+4. Republicar `4F6…` pelo `versionId` anotado e conferir o caminho do webhook; republicar o Agendador, o `23Cy…` e o gatilho de planilha.
+5. Conferir o banco antigo (contagens e última carga).
