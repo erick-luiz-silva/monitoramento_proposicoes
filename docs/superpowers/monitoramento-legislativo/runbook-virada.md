@@ -110,3 +110,34 @@ Rodada localmente (`TZ=America/Sao_Paulo`, de `src/`: `check_environment.py` e `
 Nenhuma janela (`incremental`, `eventos`, `reconciliacao`) foi registrada nas tentativas que falharam. Pendente: repetir `dim_deputado` e Senado no banco novo com as APIs normais.
 
 **Para a janela:** medir a API antes de começar (`curl -m 60 -w '%{http_code} %{time_total}'` em `/api/v2/deputados/<id>` da Câmara e em `/dadosabertos/processo/classes` do Senado). Com 504 ou timeout, não começar: a carga de verificação do passo 8 falharia e a reversão ficaria no caminho.
+
+## Reversão (ensaio de 06/11/2026, sem Power BI)
+
+Vale até a carga de verificação (B8); depois dela corrige-se para frente.
+
+**n8n — colisão de webhook** (dois fluxos descartáveis no caminho `teste-virada-colisao`, criados, testados e arquivados pelo MCP; o caminho de produção não foi tocado):
+
+| Passo | Resultado | Tempo |
+|---|---|---|
+| Publicar A; `POST` no caminho | execução em A | — |
+| Publicar B com A ativo | **recusado**: `There is a conflict with one of the webhooks.` (nada muda; A segue ativo) | imediato |
+| Despublicar A, publicar B; `POST` | execução em B | ~10 s |
+| Despublicar B, `restore_workflow_version` de A, `publish_workflow` com o `versionId`; `POST` | execução em A | ~20 s |
+
+Consequência para a janela: no B6, **despublicar o `4F6…` antes** de publicar o `DyzR…` (senão a publicação falha). Na reversão, **despublicar o `DyzR…` antes** de republicar o `4F6…`. Conferir pelo `search_workflow_executions` qual fluxo recebeu a primeira chamada real. Anotar o `versionId` ativo de cada fluxo no B1 para o `publish_workflow(versionId)` da volta.
+
+**GitHub — revert do merge** (worktree descartável, sem push):
+
+```bash
+git merge --no-ff origin/legislativo-fundacao          # o merge do PR #13 (na janela: pelo gh pr merge 13 --merge)
+git revert --no-edit -m 1 <sha-do-merge>               # sem -q (não é aceito)
+git diff origin/main-anterior HEAD | wc -l             # ensaio: 0 linha (volta exata)
+git push origin main
+git tag -d legislativo-entrega-1-prod && git push origin :refs/tags/legislativo-entrega-1-prod
+```
+
+Num worktree fora do clone principal, o filtro `segredos-pbi` não encontra `BI/filtro_segredos.py`; no clone principal ele funciona normalmente.
+
+**Secret `DATABASE_URL`:** a troca é manual pelo Erick (Settings → Environments → `DATABASE_URL`); a URL antiga fica guardada fora do repositório para a volta. Tempo medido no ensaio pelo Erick no environment `homologacao`: _a preencher_.
+
+**E-mails de teste:** todo e-mail disparado em teste ou na carga de verificação vai só para abcsdata@abcsagro.com.br (decisão do Erick, 06/11). No B6 o `DyzR…` é publicado com destinatários = Erick; os destinatários da Ana entram no B9, depois do B8 verde.
