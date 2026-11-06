@@ -66,6 +66,36 @@ class BancoLimpoTests(unittest.TestCase):
         aplicar_schemas(self.cur)
         self.conn.commit()
 
+    def test_alerta_pauta_distingue_o_status_avisado(self):
+        # Pauta avisada como Agendado de manhã e que vira Adiada no mesmo horário precisa sair de novo.
+        # O fluxo antigo grava sem status: o padrão é 'Agendado'.
+        self.cur.execute("""INSERT INTO bronze.alerta_pauta (dia, id_evento, id_proposicao, data_hora_inicio)
+            VALUES (current_date, 1, 2, '2026-11-06 10:00')""")
+        self.cur.execute("""INSERT INTO bronze.alerta_pauta (dia, id_evento, id_proposicao, data_hora_inicio, status_alerta)
+            VALUES (current_date, 1, 2, '2026-11-06 10:00', 'Adiada')""")
+        self.cur.execute("SELECT status_alerta FROM bronze.alerta_pauta ORDER BY status_alerta")
+        self.assertEqual([r[0] for r in self.cur.fetchall()], ["Adiada", "Agendado"])
+        self.conn.commit()
+
+    def test_alerta_pauta_migra_a_chave_antiga(self):
+        # Banco já em produção tem a chave sem status: o setup_db migra sem perder linhas.
+        from setup_db import aplicar_schemas
+
+        self.cur.execute("ALTER TABLE bronze.alerta_pauta DROP CONSTRAINT alerta_pauta_pkey")
+        self.cur.execute("ALTER TABLE bronze.alerta_pauta DROP COLUMN status_alerta")
+        self.cur.execute("ALTER TABLE bronze.alerta_pauta ADD PRIMARY KEY (dia, id_evento, id_proposicao, data_hora_inicio)")
+        self.cur.execute("""INSERT INTO bronze.alerta_pauta (dia, id_evento, id_proposicao, data_hora_inicio)
+            VALUES (current_date, 1, 2, '2026-11-06 10:00')""")
+        self.conn.commit()
+        aplicar_schemas(self.cur)
+        self.conn.commit()
+        self.cur.execute("SELECT status_alerta FROM bronze.alerta_pauta")
+        self.assertEqual(self.cur.fetchall(), [("Agendado",)])
+        self.cur.execute("""SELECT array_agg(a.attname::text ORDER BY a.attname) FROM pg_constraint c
+            JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey)
+            WHERE c.conrelid = 'bronze.alerta_pauta'::regclass AND c.contype = 'p'""")
+        self.assertEqual(self.cur.fetchone()[0], ["data_hora_inicio", "dia", "id_evento", "id_proposicao", "status_alerta"])
+
     def test_gestao_sobrevive_a_novo_setup(self):
         from setup_db import aplicar_schemas
 
