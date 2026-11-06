@@ -214,7 +214,7 @@ o endpoint escolhido.
 - O processo Python usa `TZ=America/Sao_Paulo` para calcular as janelas de datas.
   Para ajustar os horários, altere os Schedule Triggers do agendador no n8n.
 - O workflow permite execução manual e serializa as execuções desse pipeline,
-  sem cancelar uma carga em andamento. O limite de duração é de 120 minutos.
+  sem cancelar uma carga em andamento. O limite de duração é de 180 minutos (170 na etapa de carga): a API da Câmara leva ~5,5 s por proposição no Actions e a carga diária passa de 1h40 quando a janela se alarga.
 - O environment precisa permitir a branch padrão. Se tiver revisão obrigatória,
   os jobs aguardarão aprovação antes de acessar o secret; para execução autônoma,
   configure regras compatíveis com esse uso.
