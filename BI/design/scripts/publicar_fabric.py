@@ -72,7 +72,7 @@ elif ETAPA == "relatorio":
     modelo_id = sys.argv[4]
     raiz = BI / f"{NOME}.Report"
     pbir = {"version": "4.0", "datasetReference": {"byConnection": {
-        "connectionString": f"Data Source=\"powerbi://api.powerbi.com/v1.0/myorg/Dados e Analytics - ABCS\";initial catalog={NOME};"
+        "connectionString": f"Data Source=\"powerbi://api.powerbi.com/v1.0/myorg/Dados e Inteligência de Negócios - ABCS\";initial catalog={NOME};"
                             f"access mode=readonly;integrated security=ClaimsToken;semanticmodelid={modelo_id}",
         "pbiServiceModelId": None, "pbiModelVirtualServerName": "sobe_wowvirtualserver",
         "pbiModelDatabaseName": modelo_id, "name": "EntityDataSource", "connectionType": "pbiServiceXmlaStyleLive"}}}

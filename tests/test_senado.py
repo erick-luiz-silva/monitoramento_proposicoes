@@ -481,7 +481,7 @@ class SeedSenadoTests(unittest.TestCase):
             8283772, 8992504, 8900340, 7376720, 7403160, 2913579, 2916834, 2916662, 8537155)))
         self.assertIn("INSERT INTO silver.proposicao_vinculo", seed)
         self.assertIn("(2092191, 1007364805, 'manual')", seed)
-        self.assertIn("(2344901, 1007403160, 'manual')", seed)
+        self.assertNotIn("(2344901, 1007403160, 'manual')", seed)
         self.assertEqual(seed.count("ON CONFLICT"), 3)
 
 

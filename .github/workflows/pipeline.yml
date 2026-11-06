@@ -3,8 +3,13 @@ name: Pipeline diário e pautas
 # Agendamento feito pelo n8n (workflow "Agendador – Monitoramento de Proposições"),
 # que chama workflow_dispatch às 07h17 (completo) e 10h/14h (pautas) de São Paulo.
 # O modo "inclusao" é disparado pelo n8n "Inclusão manual de proposições" quando a
-# responsável inclui uma proposição pela planilha.
+# responsável inclui uma proposição pela planilha, e pelo n8n "Legislativo — inclusão"
+# quando o pedido vem do /legislativo.
 # O cron nativo do GitHub foi removido porque atrasava ou descartava disparos.
+# "ambiente" escolhe o environment do GitHub (e com ele DATABASE_URL e o webhook do n8n):
+# produção por padrão, para os disparos que não informam; homologação só por pedido explícito.
+# A fila (concurrency) é por ambiente: um disparo da homologação nunca substitui o pendente
+# da produção.
 on:
   workflow_dispatch:
     inputs:
@@ -16,6 +21,13 @@ on:
           - pautas
           - inclusao
         default: completo
+      ambiente:
+        description: Banco de destino
+        type: choice
+        options:
+          - producao
+          - homologacao
+        default: producao
       somente_notificar_n8n:
         description: Reenviar ao n8n usando os dados já carregados, sem executar nova carga
         type: boolean
@@ -25,13 +37,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: monitoramento-proposicoes-pipeline
+  group: monitoramento-proposicoes-pipeline-${{ inputs.ambiente || 'producao' }}
   cancel-in-progress: false
 
 jobs:
   pipeline:
     runs-on: ubuntu-latest
-    environment: DATABASE_URL
+    environment: ${{ inputs.ambiente == 'homologacao' && 'homologacao' || 'DATABASE_URL' }}
     timeout-minutes: 120
     env:
       TZ: America/Sao_Paulo

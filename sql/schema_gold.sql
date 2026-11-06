@@ -208,7 +208,10 @@ ORDER BY e.data_hora_inicio DESC;
 -- com ON CONFLICT DO NOTHING), então pega também as indexadas com atraso, sem repetir.
 -- A marca 'alerta_movimentacoes' em controle_execucao é gravada pelo n8n só depois que
 -- o e-mail sai (com o instante capturado ANTES da consulta): run ou e-mail que falhe
--- não faz perder alerta. O instante deve vir do próprio banco (SELECT localtimestamp),
+-- não faz perder alerta. O instante é UTC e supõe sessão do banco em UTC (padrão do Supabase
+-- e do projeto): vem do próprio banco (SELECT localtimestamp); a função
+-- gestao.registrar_alerta_movimentacoes rejeita instante fora de 1 h atrás até agora (UTC),
+-- o que pega a sessão em Brasília (3 h de atraso). Ele deve vir do próprio banco (SELECT localtimestamp),
 -- nunca do relógio do n8n: as colunas são TIMESTAMP sem fuso e um ISO com -03:00 teria
 -- o offset descartado, deixando a marca 3 h atrás (alertas repetidos). O limite de 30 dias evita despejar o histórico de proposições
 -- recém-carregadas.

@@ -1,0 +1,1157 @@
+<title>Legislativo ABCS · Mockup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: casca da Plataforma ABCS (barra lateral + cabeçalho), conteúdo em coluna única; tabelas roláveis */
+:root {
+  --bg: oklch(1 0 0);
+  --surface: oklch(1 0 0);
+  --sidebar: oklch(0.985 0 0);
+  --fg: oklch(0.145 0 0);
+  --muted: oklch(0.556 0 0);
+  --border: oklch(0.922 0 0);
+  --soft: oklch(0.97 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-fg: oklch(0.985 0 0);
+  --accent: oklch(0.55 0.13 155);
+  --accent-soft: oklch(0.95 0.035 155);
+  --warn: oklch(0.6 0.14 70);
+  --warn-soft: oklch(0.96 0.05 85);
+  --danger: oklch(0.577 0.245 27.325);
+  --danger-soft: oklch(0.965 0.03 27);
+  --info: oklch(0.5 0.12 250);
+  --info-soft: oklch(0.96 0.025 250);
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: oklch(0.145 0 0); --surface: oklch(0.205 0 0); --sidebar: oklch(0.205 0 0); --fg: oklch(0.985 0 0);
+  --muted: oklch(0.708 0 0); --border: oklch(1 0 0 / 10%); --soft: oklch(0.269 0 0); --primary: oklch(0.922 0 0);
+  --primary-fg: oklch(0.205 0 0); --accent: oklch(0.72 0.14 155); --accent-soft: oklch(0.3 0.05 155);
+  --warn: oklch(0.8 0.13 80); --warn-soft: oklch(0.3 0.05 80); --danger: oklch(0.704 0.191 22.216);
+  --danger-soft: oklch(0.3 0.06 25); --info: oklch(0.75 0.11 250); --info-soft: oklch(0.29 0.05 250); color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: oklch(0.145 0 0); --surface: oklch(0.205 0 0); --sidebar: oklch(0.205 0 0); --fg: oklch(0.985 0 0);
+  --muted: oklch(0.708 0 0); --border: oklch(1 0 0 / 10%); --soft: oklch(0.269 0 0); --primary: oklch(0.922 0 0);
+  --primary-fg: oklch(0.205 0 0); --accent: oklch(0.72 0.14 155); --accent-soft: oklch(0.3 0.05 155);
+  --warn: oklch(0.8 0.13 80); --warn-soft: oklch(0.3 0.05 80); --danger: oklch(0.704 0.191 22.216);
+  --danger-soft: oklch(0.3 0.06 25); --info: oklch(0.75 0.11 250); --info-soft: oklch(0.29 0.05 250); color-scheme: dark }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-sans); font-size: 14px; line-height: 1.45; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: inherit; text-underline-offset: 2px; }
+a.lnk { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-mono); font-size: 12.5px; }
+.muted { color: var(--muted); }
+.small { font-size: 12.5px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.app { display: flex; min-height: 100%; }
+.side { width: 240px; flex-shrink: 0; background: var(--sidebar); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 12px; padding: 12px; padding-left: max(12px, env(safe-area-inset-left, 0px)); }
+.brand { font-weight: 600; padding: 6px 12px; }
+.brand small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav a { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 12px; border-radius: 8px; text-decoration: none; }
+.nav a:hover { background: var(--soft); }
+.nav a[aria-current="page"] { background: var(--soft); font-weight: 600; }
+.count { font-size: 11.5px; padding: 0 7px; border-radius: 99px; background: var(--soft); color: var(--muted); border: 1px solid var(--border); }
+.count.hot { background: var(--danger); border-color: var(--danger); color: var(--primary-fg); }
+
+.simbox { margin-top: auto; border: 1px dashed var(--border); border-radius: var(--radius); padding: 8px 10px; font-size: 12.5px; }
+.simbox summary { cursor: pointer; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 2px 0; }
+.simbox .simgrid { display: flex; flex-direction: column; gap: 7px; margin-top: 8px; }
+.simbox label { display: flex; gap: 8px; align-items: flex-start; }
+.simbox select { width: 100%; padding: 5px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+.simbox h4 { margin: 6px 0 0; font-size: 11.5px; color: var(--muted); font-weight: 500; }
+
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.top { display: flex; align-items: center; gap: 10px; height: 56px; border-bottom: 1px solid var(--border); background: var(--bg);
+  padding-block: 0; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.top .search { flex: 1; max-width: 460px; margin: 0 auto; }
+.top .search input { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.user { display: flex; align-items: center; gap: 8px; font-size: 13px; white-space: nowrap; }
+.avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--soft); border: 1px solid var(--border); display: grid; place-items: center; font-weight: 600; font-size: 12px; }
+
+.demo { background: var(--info-soft); font-size: 12.5px; padding-block: 6px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); border-bottom: 1px solid var(--border); }
+.fresh { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12.5px; color: var(--muted); padding-block: 8px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); border-bottom: 1px solid var(--border); }
+.fresh b { color: var(--fg); font-weight: 500; }
+.fresh .bad, .fresh .bad b { color: var(--danger); }
+.alert { border-radius: var(--radius); padding: 10px 12px; display: flex; gap: 8px; flex-direction: column; }
+.alert.danger { background: var(--danger-soft); border: 1px solid color-mix(in oklch, var(--danger) 35%, transparent); }
+.alert.warn { background: var(--warn-soft); border: 1px solid color-mix(in oklch, var(--warn) 35%, transparent); }
+.alert.info { background: var(--info-soft); border: 1px solid color-mix(in oklch, var(--info) 30%, transparent); }
+.alert.ok { background: var(--accent-soft); border: 1px solid color-mix(in oklch, var(--accent) 35%, transparent); }
+.alert .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.content { padding-block: 20px 72px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 18px; max-width: 1240px; width: 100%; }
+h1 { font-size: 22px; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+h2 { font-size: 15px; margin: 0; }
+.head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.head p { margin: 4px 0 0; color: var(--muted); max-width: 72ch; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.kpi:hover { background: var(--soft); }
+.kpi .lbl { font-size: 12.5px; color: var(--muted); }
+.kpi .val { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kpi .sub { font-size: 12px; color: var(--muted); }
+.kpi.hot .val { color: var(--danger); }
+
+.grid2 { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.grid-proj { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr); gap: 16px; align-items: start; }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.panel-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.list { display: flex; flex-direction: column; }
+.row { display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); align-items: flex-start; }
+.row:first-child { border-top: 0; }
+.row .grow { flex: 1; min-width: 0; }
+.ement { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--border); white-space: nowrap; }
+.chip.casa { font-family: var(--font-mono); font-size: 11px; }
+.chip.urg { background: var(--danger-soft); border-color: color-mix(in oklch, var(--danger) 40%, transparent); color: var(--danger); font-weight: 500; }
+.chip.prio { background: var(--warn-soft); border-color: color-mix(in oklch, var(--warn) 45%, transparent); }
+.chip.yes { background: var(--accent-soft); border-color: color-mix(in oklch, var(--accent) 40%, transparent); }
+.chip.no { background: var(--soft); color: var(--muted); }
+.chip.kw { background: var(--soft); }
+.chip.info { background: var(--info-soft); border-color: color-mix(in oklch, var(--info) 35%, transparent); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-weight: 500; font-size: 13px; text-decoration: none; }
+.btn:hover { background: var(--soft); }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); }
+.btn.primary:hover { opacity: .9; }
+.btn.danger { color: var(--danger); }
+.btn.sm { padding: 3px 9px; font-size: 12.5px; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.btn.bsim { border-color: color-mix(in oklch, var(--accent) 55%, transparent); color: var(--accent); }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.tabs [role="tab"] { background: none; border: 0; padding: 8px 12px; border-bottom: 2px solid transparent; cursor: pointer; color: var(--muted); white-space: nowrap; }
+.tabs [role="tab"][aria-selected="true"] { color: var(--fg); border-bottom-color: var(--fg); font-weight: 600; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filters input, .filters select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.filters input[type="search"] { min-width: 220px; flex: 1; }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 920px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 13px; }
+th { font-size: 12px; color: var(--muted); font-weight: 500; white-space: nowrap; }
+tbody tr:hover { background: var(--soft); }
+tbody tr:last-child td { border-bottom: 0; }
+td .ement { max-width: 360px; }
+
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field > span { font-size: 12.5px; color: var(--muted); }
+.field select, .field textarea, .field input { padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.field textarea { resize: vertical; min-height: 58px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; width: fit-content; }
+.seg button { border: 0; background: var(--surface); padding: 6px 12px; cursor: pointer; border-left: 1px solid var(--border); }
+.seg button:first-child { border-left: 0; }
+.seg button[aria-pressed="true"] { background: var(--primary); color: var(--primary-fg); font-weight: 600; }
+.dirty { font-size: 12px; color: var(--warn); font-weight: 500; }
+
+.dl { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 6px 12px; margin: 0; font-size: 13px; }
+.dl dt { color: var(--muted); }
+.dl dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+.tl { display: flex; flex-direction: column; }
+.tl .item { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); }
+.tl .item:first-child { border-top: 0; }
+.tl .item.rot { color: var(--muted); }
+.tl .item.rot .t { font-weight: 400; }
+.tl .t { font-weight: 500; }
+.dotmaior { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); margin-right: 6px; vertical-align: middle; }
+
+.queue { display: flex; flex-direction: column; gap: 8px; }
+.q { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.q.sel { border-color: var(--fg); box-shadow: 0 0 0 1px var(--fg); }
+.q .acts { display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap; justify-content: flex-end; }
+kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--soft); }
+
+.modal-bg { position: fixed; inset: 0; background: oklch(0 0 0 / 45%); display: grid; place-items: center; z-index: 50; padding: 16px; }
+.modal { background: var(--surface); border-radius: 12px; border: 1px solid var(--border); max-width: 560px; width: 100%; padding: 18px; display: flex; flex-direction: column; gap: 12px; max-height: 90vh; overflow: auto; }
+.modal h2 { font-size: 16px; }
+.modal p { margin: 0; }
+.modal .acts { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.modal pre { background: var(--soft); padding: 10px; border-radius: 8px; overflow: auto; font-family: var(--font-mono); font-size: 12px; white-space: pre; margin: 0; }
+
+.toasts { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(64px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; z-index: 60; }
+.toast { background: var(--primary); color: var(--primary-fg); padding: 10px 14px; border-radius: 10px; font-size: 13px; display: flex; gap: 12px; align-items: center; max-width: 400px; }
+.toast button { background: none; border: 0; color: var(--primary-fg); text-decoration: underline; cursor: pointer; font-weight: 600; }
+
+.fab { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 40; }
+.drawer { position: fixed; right: 0; top: 0; bottom: 0; width: min(420px, 100%); background: var(--surface); border-left: 1px solid var(--border); z-index: 55;
+  padding: 18px; padding-right: max(18px, env(safe-area-inset-right, 0px)); padding-top: calc(18px + env(safe-area-inset-top, 0px)); display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+.drawer textarea { width: 100%; min-height: 110px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.note { border-top: 1px solid var(--border); padding-top: 8px; font-size: 13px; }
+
+.pbi { border: 1px dashed var(--border); border-radius: var(--radius); min-height: 380px; display: grid; place-items: center; padding: 24px; background: var(--soft); }
+.pbi > div { max-width: 64ch; display: flex; flex-direction: column; gap: 10px; }
+.versions { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.version { border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.empty { color: var(--muted); padding: 18px; text-align: center; }
+.hist .h { border-top: 1px solid var(--border); padding: 8px 0; font-size: 13px; }
+.hist .h:first-child { border-top: 0; }
+.diff { font-size: 12.5px; color: var(--muted); }
+.diff del { color: var(--danger); }
+.diff ins { color: var(--accent); text-decoration: none; }
+.cmp { width: 100%; min-width: 0; border-collapse: collapse; }
+.cmp th, .cmp td { font-size: 12.5px; padding: 6px; border-bottom: 1px solid var(--border); }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+
+@media (max-width: 900px) {
+  .app { flex-direction: column; }
+  .side { width: auto; border-right: 0; border-bottom: 1px solid var(--border); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+  .nav { flex-direction: row; flex-wrap: wrap; }
+  .simbox { margin-top: 0; }
+  .grid2, .grid-proj { grid-template-columns: minmax(0, 1fr); }
+  .top .user .nm { display: none; }
+}
+</style>
+
+<div class="app">
+  <aside class="side" aria-label="Navegação">
+    <div class="brand">Plataforma ABCS<small>Monitoramento legislativo</small></div>
+    <nav class="nav" id="nav" aria-label="Legislativo"></nav>
+    <details class="simbox" id="simbox" open>
+      <summary>Simular cenários (protótipo)</summary>
+      <div class="simgrid">
+        <label for="simPerfil" style="flex-direction:column;gap:4px">Entrar como
+          <select id="simPerfil">
+            <option value="ana">Ana, editora</option>
+            <option value="equipe">Pessoa da equipe, só leitura</option>
+          </select>
+        </label>
+        <h4>Falhas</h4>
+        <label><input type="checkbox" id="simFalhaCarga"> Coleta diária de hoje falhou</label>
+        <label><input type="checkbox" id="simErroSalvar"> Erro ao salvar decisões</label>
+        <label><input type="checkbox" id="simFalhaInclusao"> Câmara indisponível na inclusão</label>
+        <label><input type="checkbox" id="simFalhaEmail"> E-mail de confirmação falha</label>
+        <h4>Concorrência</h4>
+        <label><input type="checkbox" id="simConcorrencia"> Outra pessoa salva enquanto você edita</label>
+        <label><input type="checkbox" id="simMovDurante"> Movimentação chega durante a confirmação</label>
+        <h4>Eventos (PL 2417/2024 e PL 980/2023)</h4>
+        <button class="btn sm" type="button" data-ev="cancelar">Cancelar a pauta de 04/11</button>
+        <button class="btn sm" type="button" data-ev="reagendar">Reagendar a pauta para 20/11</button>
+        <button class="btn sm" type="button" data-ev="restaurar">Restaurar a pauta de 04/11</button>
+        <button class="btn sm" type="button" data-ev="encerrar">Arquivar ou reabrir a versão do Senado do PL 980/2023</button>
+        <h4>Fora do menu da Ana</h4>
+        <a class="btn sm" href="#conferencia">Lista do mantenedor: a conferir</a>
+        <h4>Para testar a inclusão</h4>
+        <span class="muted">PL 1888/2026 (nova), PL 3456/2019 (antiga), PL 760/2026 (marcada NÃO), PL 9999/2026 (inexistente), link com idProposicao=2401001 (já monitorada).</span>
+        <button class="btn sm" type="button" id="simReset">Reiniciar dados</button>
+      </div>
+    </details>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <div class="search"><input id="buscaGlobal" type="search" placeholder="Buscar proposição (Enter)" aria-label="Busca global"></div>
+      <div class="user"><div class="avatar" id="avatar" aria-hidden="true">A</div><span class="nm" id="userName">Ana</span></div>
+    </header>
+    <div class="demo">Protótipo com <b>dados fictícios</b>. Nada aqui grava no banco. Use “Simular cenários” para testar falhas, eventos e permissões, e o botão <b>Sugestão</b> para anotar mudanças.</div>
+    <div class="fresh" id="fresh" aria-label="Atualização dos dados"></div>
+    <main class="content" id="view"></main>
+  </div>
+</div>
+
+<button class="btn primary fab" id="fab" type="button">Sugestão</button>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div id="modalRoot"></div>
+<div id="drawerRoot"></div>
+
+<script>
+(() => {
+"use strict";
+// ---------- relógio fictício ----------
+const HOJE = new Date(2026, 9, 28, 15, 0);
+const T0 = performance.now();
+const agora = () => new Date(HOJE.getTime() + (performance.now() - T0));
+const hoje0 = new Date(HOJE.getFullYear(), HOJE.getMonth(), HOJE.getDate());
+const somaDias = (dt, n) => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + n);
+const d = s => { const [a, m, dd] = s.split("-").map(Number); return new Date(a, m - 1, dd, 12); };
+const fmt = dt => dt ? dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "Sem data";
+const fmtC = dt => dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+const hora = dt => dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const POSICOES = ["", "Acompanhar", "A favor", "A favor com ressalvas", "Contra", "Em análise"];
+const BASELINE_MIGRACAO = d("2026-10-15");      // carga inicial e migração não abrem urgência
+const JANELA_FIM = somaDias(hoje0, 15);           // do início de hoje ao início do 15º dia, exclusivo
+const SETE_DIAS = somaDias(hoje0, -6);            // hoje e os 6 dias anteriores
+const CORTE_12M = new Date(HOJE.getFullYear() - 1, HOJE.getMonth(), HOJE.getDate());
+
+// ---------- dados fictícios ----------
+let seq = 100;
+function seed() {
+  let tid = 1;
+  const T = (data, casa, tipo, maior, desc, conf, orgao) => ({ id: tid++, data: d(data), casa, tipo, maior, desc, confirmado: conf, orgao });
+  const V = (casa, sigla, num, ano, idCasa, situacao, orgao, autor, extra = {}) => ({ casa, ident: `${sigla} ${num}/${ano}`, idCasa, situacao, orgao, autor, encerrada: false, remessa: false, ...extra });
+  const P = o => Object.assign({ revisao: 1, acompanhada: false, emRadar: false, acao: "", parecer: "", observacoes: "", posicao: "", prioridade: "", prioridadeDesde: null, pautas: [], historico: [], grupo: null, keywords: [], tram: [] }, o);
+  const H = (data, quem, origem, mud) => ({ quando: d(data), quem, origem, mud });
+  const MIG = mud => H("2026-10-15", "Migração da planilha", "planilha", mud);
+  const proj = [
+    P({ id: "p01", ementa: "Dispõe sobre a rastreabilidade individual de suínos destinados ao abate e cria o cadastro nacional de granjas.",
+      versoes: [V("CD", "PL", 2417, 2024, 2401001, "Aguardando Deliberação", "CAPADR", "Dep. Helena Prado (PSD/PR)")],
+      keywords: ["suínos", "rastreabilidade"], relevancia: "SIM", posicao: "A favor", prioridade: "SIM", prioridadeDesde: d("2026-10-20"),
+      acao: "Pedir audiência com o relator antes da votação.", parecer: "Texto alinhado com o programa de sanidade da ABCS.", observacoes: "Acompanhar emendas sobre prazo de adaptação.", revisao: 4, acompanhada: true,
+      tram: [T("2026-10-26", "CD", "Parecer do(a) Relator(a)", true, "Parecer do relator pela aprovação com substitutivo.", false, "CAPADR"),
+             T("2026-10-27", "CD", "Publicação de Proposição", false, "Publicação do parecer.", true, "CAPADR"),
+             T("2026-10-21", "CD", "Designação de Relator(a)", true, "Designado relator Dep. Otávio Lins (MDB/SC).", false, "CAPADR"),
+             T("2026-09-10", "CD", "Recebimento", false, "Recebimento pela comissão.", true, "CAPADR")],
+      pautas: [{ data: d("2026-11-04"), orgao: "CAPADR", casa: "CD", status: "Agendada", relator: "Dep. Otávio Lins (MDB/SC)" }],
+      historico: [H("2026-10-20", "Ana", "sistema", [["prioridade", "Não informada", "SIM"]]), MIG([["relevância", "Pendente", "SIM"], ["posição", "", "A favor"]])] }),
+    P({ id: "p02", ementa: "Altera a Lei de Defesa Sanitária Animal para prever indenização ao produtor em caso de abate sanitário de suínos.",
+      versoes: [V("CD", "PL", 980, 2023, 2302002, "Arquivada (remetida ao Senado)", "MESA", "Dep. Rui Vasconcelos (PL/SC)", { encerrada: true, remessa: true }),
+                V("SF", "PL", 980, 2023, 1009002, "Aguardando designação do relator", "CRA", "Câmara dos Deputados")],
+      keywords: ["abate", "defesa sanitária"], relevancia: "SIM", posicao: "A favor com ressalvas", prioridade: "SIM", prioridadeDesde: d("2026-10-15"), acao: "Preparar nota técnica para o relator no Senado.", revisao: 6,
+      tram: [T("2026-09-30", "SF", "Recebimento", false, "Recebido na CRA.", true, "CRA"),
+             T("2026-09-12", "CD", "Remessa ao Senado Federal", true, "Remessa ao Senado Federal.", true, "MESA"),
+             T("2026-08-20", "CD", "Aprovação de Proposição (Plenário)", true, "Aprovado o substitutivo em Plenário.", true, "PLEN")],
+      historico: [MIG([["relevância", "Pendente", "SIM"], ["prioridade", "Não informada", "SIM"]])] }),
+    P({ id: "p03", ementa: "Institui o Programa Nacional de Sanidade Suídea e dá outras providências.",
+      versoes: [V("CD", "PL", 5530, 2019, 2219003, "Aguardando Designação de Relator(a)", "CMADS", "Dep. Clara Bastos (PT/RS)")],
+      keywords: ["sanidade suídea"], relevancia: "SIM", posicao: "A favor", prioridade: "SIM", prioridadeDesde: d("2026-10-15"), revisao: 2, acompanhada: true,
+      tram: [T("2022-05-11", "CD", "Saída de Relator(a) da Comissão - Sem Parecer Apresentado", true, "Saída do relator da comissão.", true, "CMADS")],
+      historico: [MIG([["relevância", "Pendente", "SIM"], ["prioridade", "Não informada", "SIM"]])] }),
+    P({ id: "p04", ementa: "Estabelece normas para o transporte de animais de produção em longas distâncias.",
+      versoes: [V("CD", "PL", 3102, 2025, 2525004, "Aguardando Parecer do Relator(a)", "CCJC", "Dep. Ivo Ramalho (PP/MG)")],
+      keywords: ["bem-estar animal", "transporte de animais"], relevancia: "SIM", posicao: "Acompanhar", revisao: 3,
+      tram: [T("2026-10-23", "CD", "Recebimento - Relator(a)", false, "Recebimento pela relatora.", true, "CCJC"),
+             T("2026-10-22", "CD", "Designação de Relator(a)", true, "Designada relatora Dep. Sara Moura (UNIÃO/GO).", false, "CCJC")] }),
+    P({ id: "p05", ementa: "Dispõe sobre a rotulagem de produtos cárneos com informação de origem.",
+      versoes: [V("CD", "PL", 1175, 2021, 2121005, "Aguardando Parecer do Relator(a)", "CDEIC", "Dep. Paulo Arantes (REPUBLICANOS/SP)")],
+      keywords: ["produtos cárneos"], relevancia: "SIM",
+      tram: [T("2024-03-14", "CD", "Designação de Relator(a)", true, "Designado relator.", true, "CDEIC")] }),
+    P({ id: "p06", ementa: "Susta os efeitos de portaria que altera prazos de vacinação obrigatória em rebanhos.",
+      versoes: [V("CD", "PDL", 88, 2026, 2626006, "Aguardando Parecer do Relator(a)", "CAPADR", "Dep. Joana Teles (PSB/PE)")],
+      keywords: ["vacinação"], relevancia: "SIM", posicao: "Em análise", prioridade: "NÃO",
+      tram: [T("2026-10-24", "CD", "Distribuição", true, "Às comissões CAPADR e CCJC.", true, "MESA")] }),
+    P({ id: "p07", ementa: "Cria incentivo fiscal para tratamento de dejetos da suinocultura com geração de biogás.",
+      versoes: [V("CD", "PL", 4410, 2018, 2018007, "Transformado em Norma Jurídica", "PLEN", "Dep. Marcos Feitosa (PSD/MT)", { encerrada: true })],
+      keywords: ["suinocultura", "biogás"], relevancia: "SIM", posicao: "A favor", prioridade: "SIM", prioridadeDesde: d("2026-10-15"), acompanhada: true,
+      tram: [T("2025-12-02", "CD", "Transformação em Norma Jurídica", true, "Transformado em lei.", true, "PLEN")] }),
+    P({ id: "p08", ementa: "Regulamenta o uso de antimicrobianos na produção animal.",
+      versoes: [V("CD", "PL", 2290, 2022, 2222008, "Arquivada", "MESA", "Dep. Lúcia Andrade (MDB/PR)", { encerrada: true }),
+                V("SF", "PL", 2290, 2022, 1009008, "Em tramitação na CRA", "CRA", "Câmara dos Deputados")],
+      keywords: ["antimicrobianos"], relevancia: "SIM", posicao: "Contra",
+      tram: [T("2026-10-08", "SF", "Designação de Relator(a)", true, "Designada relatora na CRA.", true, "CRA"),
+             T("2026-06-30", "CD", "Arquivamento", true, "Arquivado na Câmara.", true, "MESA")] }),
+    P({ id: "p09", ementa: "Dispõe sobre a criação de animais de estimação em condomínios.",
+      versoes: [V("CD", "PL", 760, 2026, 2626009, "Aguardando Designação de Relator(a)", "CDC", "Dep. Rita Maia (PDT/RJ)")],
+      keywords: ["bem-estar animal"], relevancia: "NÃO",
+      tram: [T("2026-10-05", "CD", "Apresentação de Proposição", false, "Apresentação.", true, "PLEN")],
+      historico: [H("2026-10-06", "Ana", "avaliação", [["relevância", "Pendente", "NÃO"]])] }),
+    P({ id: "p10", ementa: "Altera regras de inspeção sanitária em abatedouros de pequeno porte.",
+      versoes: [V("CD", "PL", 3888, 2025, 2525010, "Arquivada (remetida ao Senado)", "MESA", "Dep. Hugo Leme (PL/GO)", { encerrada: true, remessa: true })],
+      keywords: ["abate", "inspeção"], relevancia: "SIM", posicao: "A favor com ressalvas",
+      tram: [T("2026-10-02", "CD", "Remessa ao Senado Federal", true, "Remessa ao Senado Federal.", true, "MESA")] }),
+    P({ id: "p11", ementa: "Requer informações ao Ministério da Agricultura sobre o plano de contingência para peste suína africana.",
+      versoes: [V("CD", "RIC", 412, 2026, 2626011, "Aguardando Resposta", "MESA", "Dep. Helena Prado (PSD/PR)")],
+      relevancia: "SIM", posicao: "Acompanhar", acompanhada: true,
+      tram: [T("2026-10-18", "CD", "Remessa a Ministério", false, "Encaminhado ao Ministério.", true, "MESA")] }),
+    P({ id: "p12", ementa: "Dispõe sobre o licenciamento ambiental simplificado de granjas de suínos.",
+      versoes: [V("CD", "PL", 1450, 2026, 2626012, "Pronta para Pauta", "CMADS", "Dep. Otávio Lins (MDB/SC)")],
+      keywords: ["suínos", "licenciamento"], relevancia: "SIM", posicao: "A favor", prioridade: "SIM", prioridadeDesde: d("2026-10-15"), revisao: 5,
+      tram: [T("2026-10-21", "CD", "Retirada de Pauta", true, "Retirado de pauta a pedido do relator.", true, "CMADS")],
+      pautas: [{ data: d("2026-10-30"), orgao: "CMADS", casa: "CD", status: "Cancelada", relator: "Dep. Sara Moura (UNIÃO/GO)" }] }),
+    P({ id: "p13", ementa: "Cria linha de crédito rural para modernização de granjas de pequeno e médio porte.",
+      versoes: [V("CD", "PL", 3307, 2024, 2424013, "Aguardando Parecer do Relator(a)", "CFT", "Dep. Ana Cecília Rocha (PSD/BA)")],
+      keywords: ["produtor rural", "crédito rural"], relevancia: "SIM", posicao: "A favor com ressalvas",
+      tram: [T("2026-10-15", "CD", "Abertura de Prazo", false, "Prazo para emendas: 5 sessões.", true, "CFT")] }),
+    P({ id: "p14", ementa: "Proíbe o uso de gaiolas de gestação na suinocultura a partir de 2035.",
+      versoes: [V("CD", "PL", 612, 2025, 2525014, "Aguardando Parecer do Relator(a)", "CAPADR", "Dep. Rita Maia (PDT/RJ)")],
+      keywords: ["suinocultura", "bem-estar animal"], relevancia: "SIM", posicao: "Contra", grupo: "g612",
+      tram: [T("2026-10-19", "CD", "Designação de Relator(a)", true, "Designado relator na CAPADR.", true, "CAPADR")] }),
+    P({ id: "p14s", ementa: "Proíbe o uso de gaiolas de gestação na suinocultura a partir de 2035.",
+      versoes: [V("SF", "PL", 612, 2025, 1009014, "Em tramitação na CMA", "CMA", "Câmara dos Deputados")],
+      keywords: ["suinocultura"], relevancia: "NÃO", grupo: "g612",
+      tram: [T("2026-10-12", "SF", "Recebimento", false, "Recebido na CMA.", true, "CMA")],
+      historico: [H("2026-10-16", "Ana", "avaliação", [["relevância", "Pendente", "NÃO"]])] }),
+    P({ id: "p15", ementa: "Cria o fundo de defesa sanitária para emergências na suinocultura.",
+      versoes: [V("CD", "PL", 3071, 2020, 2020015, "Aguardando Designação de Relator(a)", "CAPADR", "Dep. Marcos Feitosa (PSD/MT)")],
+      keywords: ["suinocultura"], relevancia: "SIM", posicao: "A favor", prioridade: "SIM", prioridadeDesde: d("2026-10-15"), acompanhada: true,
+      historico: [MIG([["relevância", "Pendente", "SIM"], ["prioridade", "Não informada", "SIM"]])] }),
+    P({ id: "p16", ementa: "Dispõe sobre a destinação de carcaças de animais mortos em propriedades rurais.",
+      versoes: [V("CD", "PL", 4120, 2020, 2020016, "Aguardando Parecer do Relator(a)", "CMADS", "Dep. Clara Bastos (PT/RS)")],
+      keywords: ["carcaças"], relevancia: "SIM", acompanhada: true }),
+  ];
+  const R = (idCasa, casa, sigla, num, ano, ementa, kws, apres, autor) => P({ id: null, emRadar: true, relevancia: "pendente", ementa, keywords: kws,
+    versoes: [V(casa, sigla, num, ano, idCasa, "Aguardando Designação de Relator(a)", casa === "CD" ? "MESA" : "SF-SEADI", autor)],
+    tram: [T(apres, casa, "Apresentação de Proposição", false, "Apresentação.", true, "PLEN")] });
+  proj.push(
+    R(2626101, "CD", "PL", 4950, 2026, "Estabelece requisitos de biosseguridade para granjas comerciais de suínos.", ["suínos", "biosseguridade"], "2026-10-21", "Dep. Caio Barreto (PSD/SC)"),
+    R(2626102, "CD", "PL", 5012, 2026, "Altera o Código Florestal para dispor sobre reservatórios de dejetos animais.", ["dejetos"], "2026-10-22", "Dep. Lívia Torres (PT/MG)"),
+    R(1009103, "SF", "PL", 3120, 2026, "Dispõe sobre compras públicas de carne suína da agricultura familiar.", ["carne suína"], "2026-10-16", "Sen. Jorge Amaral (PSD/PR)"),
+    R(2626104, "CD", "PL", 5066, 2026, "Institui o Dia Nacional do Produtor Rural.", ["produtor rural"], "2026-10-24", "Dep. Rui Vasconcelos (PL/SC)"),
+    R(2626105, "CD", "PDL", 120, 2026, "Susta resolução que altera tributos sobre rações animais.", ["rações animais"], "2026-10-25", "Dep. Ivo Ramalho (PP/MG)"),
+    R(2626106, "CD", "PL", 5101, 2026, "Dispõe sobre a guarda responsável de aves ornamentais.", ["aves"], "2026-10-26", "Dep. Joana Teles (PSB/PE)"));
+  return proj;
+}
+// Resolução simulada de links da Câmara (idProposicao → identificação)
+const RESOLVE_LINK = { 2401001: "PL 2417/2024", 2302002: "PL 980/2023", 2626009: "PL 760/2026", 2121005: "PL 1175/2021", 2626101: "PL 4950/2026", 2650777: "PL 1888/2026", 2019888: "PL 3456/2019" };
+function seedInclusoes() {
+  return [
+    { id: 1, chave: "CD:PL 2417/2024", ident: "PL 2417/2024", casa: "CD", quem: "Ana", quando: d("2026-10-15"), estado: "concluída", passo: "", tentativas: 1, email: "enviado", erro: "", rid: "p01", rodando: false, auto: 0 },
+    { id: 2, chave: "CD:PL 9999/2026", ident: "PL 9999/2026", casa: "CD", quem: "Ana", quando: d("2026-10-27"), estado: "falhou", passo: "", tentativas: 1, email: "—", erro: "Proposição não encontrada na Câmara. Confira o número e o ano.", rid: null, rodando: false, auto: 0 },
+  ];
+}
+const FILTRO0 = () => ({ q: "", prioridade: "", posicao: "", situacao: "", orgao: "", kw: "", casa: "", preset: "", motivo: "" });
+let S, drafts = {};
+function lerPersistido() { try { return JSON.parse(sessionStorage.getItem("leg-carteira") || "null"); } catch { return null; } }
+function persistir() { try { sessionStorage.setItem("leg-carteira", JSON.stringify({ tab: S.carteiraTab, filtros: S.filtros })); } catch { /* sem armazenamento */ } }
+function reset() {
+  const p = lerPersistido();
+  S = { projetos: seed(), inclusoes: seedInclusoes(), carteiraTab: p?.tab || "ativas", filtros: { ...FILTRO0(), ...(p?.filtros || {}) }, soMaiores: false, selQ: 0 };
+  drafts = {};
+}
+reset();
+
+// ---------- regras (as mesmas do PRD) ----------
+const rid = p => p.id || "prop" + p.versoes[0].idCasa;
+const porRid = r => S.projetos.find(p => rid(p) === r);
+const ultimaMov = p => p.tram.length ? p.tram.reduce((m, t) => t.data > m ? t.data : m, p.tram[0].data) : null;
+// remessa pendente: a versão foi remetida e a versão de destino ainda não foi carregada no grupo
+const remessaPendente = p => p.versoes.some(v => v.remessa && !p.versoes.some(o => o.casa !== v.casa));
+const encerrado = p => p.versoes.every(v => v.encerrada) && !remessaPendente(p);
+const naFila = p => p.relevancia === "pendente" && p.emRadar;
+const elegivel = p => (p.acompanhada || p.relevancia === "SIM" || p.prioridade === "SIM") && p.relevancia !== "NÃO" && !encerrado(p);
+const dentroCorte = p => { const u = ultimaMov(p); return !!u && u >= CORTE_12M; };
+const ativa = p => elegivel(p) && (p.prioridade === "SIM" || dentroCorte(p));
+const pautaJanela = p => p.pautas.find(x => x.status === "Agendada" && x.data >= hoje0 && x.data < JANELA_FIM);
+const refUrgencia = p => p.prioridadeDesde && p.prioridadeDesde > BASELINE_MIGRACAO ? p.prioridadeDesde : BASELINE_MIGRACAO;
+const naoConf = p => p.prioridade === "SIM" ? p.tram.filter(t => t.maior && !t.confirmado && t.data >= refUrgencia(p)) : [];
+const urgente = p => p.prioridade === "SIM" && ativa(p) && (naoConf(p).length > 0 || !!pautaJanela(p));
+function motivos(p) {
+  if (!urgente(p)) return [];
+  const m = []; const n = naoConf(p).length;
+  if (n) m.push(`${n} movimentação${n > 1 ? "ões" : ""} maior${n > 1 ? "es" : ""} não confirmada${n > 1 ? "s" : ""}`);
+  const pj = pautaJanela(p);
+  if (pj) m.push(`pauta em ${fmtC(pj.data)} na ${pj.orgao}`);
+  return m;
+}
+function conferencias() {
+  const out = [];
+  S.projetos.filter(p => p.versoes.every(v => v.encerrada) && remessaPendente(p))
+    .forEach(p => out.push({ tipo: "Encerramento", projetos: [p], motivo: "Arquivada na Câmara por remessa ao Senado, mas a versão do Senado ainda não foi carregada. O projeto continua ativo até a conferência." }));
+  const grupos = {};
+  S.projetos.filter(p => p.grupo).forEach(p => (grupos[p.grupo] ||= []).push(p));
+  Object.values(grupos).filter(g => g.length > 1 && new Set(g.map(p => `${p.relevancia}|${p.posicao}|${p.prioridade}`)).size > 1)
+    .forEach(g => out.push({ tipo: "Agrupamento", projetos: g, motivo: "Um vínculo novo entre as casas ligou projetos que já têm decisões diferentes. Cada um mantém a sua até o mantenedor reconciliar." }));
+  return out;
+}
+const aConferir = p => conferencias().some(c => c.projetos.includes(p));
+function motivoHist(p) {
+  if (encerrado(p)) return "Encerrado";
+  if (p.relevancia === "NÃO") return "Marcado NÃO";
+  if (!ultimaMov(p)) return "Sem data";
+  if (!dentroCorte(p)) return "Parado há mais de 12 meses";
+  return "Fora da carteira";
+}
+const ident = p => p.versoes[0].ident;
+const casas = p => p.versoes.map(v => v.casa);
+const orgaos = p => [...new Set(p.versoes.map(v => v.orgao))];
+const podeEditar = () => document.getElementById("simPerfil").value === "ana";
+const sim = id => document.getElementById(id).checked;
+const linkOficial = v => v.casa === "CD" ? `https://www.camara.leg.br/proposicoesWeb/fichadetramitacao?idProposicao=${v.idCasa}` : "https://www25.senado.leg.br/web/atividade/materias";
+const rotRel = v => v === "pendente" || !v ? "Pendente" : v;
+const rotPrio = v => v || "Não informada";
+
+// ---------- componentes ----------
+function toast(msg, acao) {
+  const el = document.createElement("div");
+  el.className = "toast"; el.innerHTML = `<span>${msg}</span>`;
+  if (acao) { const b = document.createElement("button"); b.type = "button"; b.textContent = acao.rotulo; b.onclick = () => { acao.fn(); el.remove(); }; el.appendChild(b); }
+  document.getElementById("toasts").appendChild(el);
+  setTimeout(() => el.remove(), acao ? 8000 : 4500);
+}
+let modalOrigem = null;
+function modal(titulo, corpo, botoes) {
+  modalOrigem = document.activeElement;
+  const root = document.getElementById("modalRoot");
+  root.innerHTML = `<div class="modal-bg"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTit"><h2 id="mTit">${titulo}</h2>${corpo}<div class="acts"></div></div></div>`;
+  const acts = root.querySelector(".acts");
+  botoes.forEach(b => {
+    const el = document.createElement("button");
+    el.type = "button"; el.className = "btn " + (b.cls || ""); el.textContent = b.rotulo;
+    el.onclick = () => { fecharModal(); b.fn && b.fn(); };
+    acts.appendChild(el);
+  });
+  const dlg = root.querySelector(".modal");
+  dlg.addEventListener("keydown", e => {
+    if (e.key !== "Tab") return;
+    const f = [...dlg.querySelectorAll("button,a,input,select,textarea")].filter(x => !x.disabled);
+    if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { f[f.length - 1].focus(); e.preventDefault(); }
+    else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { f[0].focus(); e.preventDefault(); }
+  });
+  root.querySelector(".modal-bg").addEventListener("click", e => { if (e.target.classList.contains("modal-bg")) fecharModal(); });
+  acts.firstChild?.focus();
+}
+function fecharModal() { document.getElementById("modalRoot").innerHTML = ""; if (modalOrigem && document.contains(modalOrigem)) modalOrigem.focus(); modalOrigem = null; }
+const chipCasa = c => `<span class="chip casa" title="${c === "CD" ? "Câmara dos Deputados" : "Senado Federal"}">${c === "CD" ? "Câmara" : "Senado"}</span>`;
+const chipRel = r => r === "SIM" ? `<span class="chip yes">SIM</span>` : r === "NÃO" ? `<span class="chip no">NÃO</span>` : `<span class="chip">Pendente</span>`;
+function chipsAtencao(p) {
+  const out = [];
+  if (urgente(p)) out.push(`<span class="chip urg">Urgente</span>`);
+  if (p.prioridade === "SIM") out.push(`<span class="chip prio">Prioridade</span>`);
+  if (aConferir(p)) out.push(`<span class="chip info">A conferir</span>`);
+  return out.join(" ") || `<span class="muted">—</span>`;
+}
+const linkProj = (p, txt) => `<a class="lnk" href="#projeto-${rid(p)}">${txt ?? `<b>${esc(ident(p))}</b>`}</a>`;
+function tabsHtml(itens, sel, nome) {
+  return `<div class="tabs" role="tablist" aria-label="${nome}">${itens.map(([id, r, n]) => `<button type="button" role="tab" id="tab-${id}" aria-selected="${sel === id}" tabindex="${sel === id ? 0 : -1}" data-tab="${id}">${r}${n != null ? ` <span class="count">${n}</span>` : ""}</button>`).join("")}</div>`;
+}
+function ligarTabs(onSel) {
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  tabs.forEach((t, i) => {
+    t.onclick = () => onSel(t.dataset.tab);
+    t.onkeydown = e => {
+      let j = null;
+      if (e.key === "ArrowRight") j = (i + 1) % tabs.length; else if (e.key === "ArrowLeft") j = (i - 1 + tabs.length) % tabs.length;
+      else if (e.key === "Home") j = 0; else if (e.key === "End") j = tabs.length - 1;
+      if (j != null) { e.preventDefault(); onSel(tabs[j].dataset.tab); }
+    };
+  });
+}
+
+// ---------- frescor ----------
+function renderFresh() {
+  const el = document.getElementById("fresh");
+  if (sim("simFalhaCarga")) {
+    el.className = "fresh";
+    el.innerHTML = `<span class="bad"><b>A coleta de hoje (07:17) falhou.</b> Os dados mostrados são de ontem, 27/10 às 07:41.</span>`;
+  } else {
+    el.className = "fresh";
+    el.innerHTML = `<span title="Coleta diária da Câmara e do Senado">Dados atualizados hoje às 07:39</span>`;
+  }
+}
+
+const VIEWS = [
+  { id: "inicio", rotulo: "Início" },
+  { id: "avaliacao", rotulo: "Avaliação", count: () => S.projetos.filter(naFila).length },
+  { id: "carteira", rotulo: "Carteira" },
+  { id: "inclusao", rotulo: "Incluir proposição" },
+  { id: "paineis", rotulo: "Painéis (Power BI)" },
+];
+function renderNav(cur) {
+  const nUrg = S.projetos.filter(urgente).length;
+  document.getElementById("nav").innerHTML = VIEWS.map(v => {
+    let badge = "";
+    if (v.id === "inicio" && nUrg) badge = `<span class="count hot" title="Urgentes">${nUrg}</span>`;
+    else if (v.count) { const n = v.count(); if (n) badge = `<span class="count">${n}</span>`; }
+    return `<a href="#${v.id}" ${cur === v.id ? 'aria-current="page"' : ""}>${v.rotulo}${badge}</a>`;
+  }).join("");
+}
+
+// ---------- Início ----------
+const kpi = (l, v) => `<span class="lbl">${l}</span><span class="val">${v}</span>`;
+function vInicio() {
+  const ativos = S.projetos.filter(ativa);
+  const urg = ativos.filter(urgente);
+  const fila = S.projetos.filter(naFila);
+  const todas = ativos.map(p => ({ p, t: [...p.tram].sort((a, b) => b.data - a.data)[0] })).filter(o => o.t && o.t.data >= somaDias(hoje0, -29)).sort((a, b) => b.t.data - a.t.data);
+  const movs = todas.slice(0, 10);
+  return `
+  <div class="head"><h1>Início</h1></div>
+  <div class="kpis" title="Os números contam projetos: as versões da Câmara e do Senado de um mesmo projeto contam uma vez.">
+    <button type="button" class="kpi ${urg.length ? "hot" : ""}" data-go="carteira" data-preset="urg">${kpi("Urgentes", urg.length)}</button>
+    <button type="button" class="kpi" data-go="avaliacao">${kpi("Pendentes de avaliação", fila.length)}</button>
+    <button type="button" class="kpi" data-go="carteira" data-preset="">${kpi("Monitorados", ativos.length)}</button>
+  </div>
+  <section class="panel"><h2>Fila de atenção</h2>
+    <div class="list">${urg.length ? urg.map(p => `
+      <div class="row"><div class="grow">${linkProj(p)} ${casas(p).map(chipCasa).join(" ")}
+        <div class="ement">${esc(p.ementa)}</div>
+        <div class="chips" style="margin-top:4px">${motivos(p).map(m => `<span class="chip urg">${esc(m)}</span>`).join("")}</div></div></div>`).join("") : `<div class="muted">Nada urgente agora.</div>`}</div>
+  </section>
+  <section class="panel"><div class="panel-h"><h2>Últimas movimentações</h2>${todas.length > 10 ? `<button type="button" class="btn sm" data-go="carteira" data-preset="">Ver todas</button>` : ""}</div>
+    <div class="list">${movs.map(({ p, t }) => `
+      <div class="row"><div class="num mono" style="width:44px">${fmtC(t.data)}</div><div class="grow">${linkProj(p, esc(ident(p)))} ${chipCasa(t.casa)} ${t.maior ? `<span class="dotmaior" title="Movimentação maior" aria-label="maior"></span>` : ""}
+        <div class="ement">${esc(p.ementa)}</div>
+        <div class="small" style="margin-top:2px">${esc(t.tipo)}</div></div></div>`).join("") || `<div class="muted">Sem movimentações nos últimos 30 dias.</div>`}</div>
+  </section>`;
+}
+
+// ---------- Avaliação ----------
+function vAvaliacao() {
+  const L = S.projetos.filter(naFila);
+  if (S.selQ >= L.length) S.selQ = Math.max(0, L.length - 1);
+  const ed = podeEditar();
+  return `
+  <div class="head"><div><h1>Avaliação</h1><p>SIM marca como relevante. NÃO descarta.</p></div>
+  ${ed && L.length ? `<span class="muted small" title="↑ ↓ navegar · S = SIM · N = NÃO · Enter abre o detalhe">Atalhos de teclado</span>` : ""}</div>
+  <div class="queue" id="queue">${L.length ? L.map((p, i) => { const v = p.versoes[0]; return `
+    <div class="q ${i === S.selQ ? "sel" : ""}" data-i="${i}" id="q${i}">
+      <div style="min-width:0"><a class="lnk" href="#projeto-${rid(p)}"><b>${esc(v.ident)}</b></a> ${chipCasa(v.casa)} <span class="muted small">· ${fmt(ultimaMov(p))} · ${esc(v.autor)}</span>
+        <div class="ement" style="margin:4px 0">${esc(p.ementa)}</div>
+        <div class="chips">${p.keywords.map(k => `<span class="chip kw">${esc(k)}</span>`).join("")}</div></div>
+      ${ed ? `<div class="acts">
+        <button type="button" class="btn bsim" data-av="SIM" data-r="${rid(p)}">SIM</button>
+        <button type="button" class="btn" data-av="NÃO" data-r="${rid(p)}">NÃO</button>
+        <a class="btn" href="#projeto-${rid(p)}">Abrir</a>
+      </div>` : ""}</div>`; }).join("") : `<div class="panel empty">Nada para avaliar.</div>`}</div>`;
+}
+function novoUuid(p, quem) {
+  if (p.id) return false;
+  const antes = rid(p);
+  p.id = "p" + (++seq);
+  if (drafts[antes]) { drafts[p.id] = drafts[antes]; delete drafts[antes]; }
+  p.historico.push({ quando: agora(), quem, origem: "sistema", mud: [["identificador do projeto", "", `criado na primeira decisão (${p.id})`]] });
+  return true;
+}
+function avaliar(r, valor) {
+  if (!podeEditar()) return;
+  const p = porRid(r); if (!p || !naFila(p)) return;
+  const antes = p.relevancia;
+  novoUuid(p, "Ana");
+  p.relevancia = valor; p.revisao += 1;
+  p.historico.push({ quando: agora(), quem: "Ana", origem: "avaliação", mud: [["relevância", rotRel(antes), valor]] });
+  const revisaoFeita = p.revisao;
+  render();
+  toast(`${esc(ident(p))} marcada ${valor}.`, { rotulo: "Desfazer", fn: () => {
+    if (p.revisao !== revisaoFeita || p.relevancia !== valor) { toast(`Não foi desfeito: a decisão de ${esc(ident(p))} mudou depois.`); return; }
+    p.relevancia = antes; p.revisao += 1;
+    p.historico.push({ quando: agora(), quem: "Ana", origem: "avaliação", mud: [["relevância", valor, rotRel(antes)]] });
+    render(); toast(`${esc(ident(p))} voltou para a fila.`);
+  } });
+}
+
+// ---------- Carteira ----------
+function universo(tab) {
+  const todos = S.projetos.filter(p => !naFila(p));
+  if (tab === "ativas") return todos.filter(ativa);
+  return todos.filter(p => !ativa(p));
+}
+function aplicaFiltros(L, f = S.filtros) {
+  const q = f.q.trim().toLowerCase();
+  return L.filter(p =>
+    (!q || p.versoes.some(v => v.ident.toLowerCase().includes(q)) || p.ementa.toLowerCase().includes(q)) &&
+    (!f.prioridade || (f.prioridade === "NI" ? !p.prioridade : p.prioridade === f.prioridade)) &&
+    (!f.posicao || (f.posicao === "—" ? !p.posicao : p.posicao === f.posicao)) &&
+    (!f.situacao || p.versoes.some(v => v.situacao === f.situacao)) &&
+    (!f.orgao || orgaos(p).includes(f.orgao)) &&
+    (!f.kw || p.keywords.includes(f.kw)) &&
+    (!f.casa || casas(p).includes(f.casa)) &&
+    (!f.motivo || motivoHist(p) === f.motivo) &&
+    (f.preset !== "prio" || p.prioridade === "SIM") &&
+    (f.preset !== "urg" || urgente(p)) &&
+    (f.preset !== "mov7" || (ultimaMov(p) && ultimaMov(p) >= SETE_DIAS)));
+}
+function opcoes(vals, sel, todos) { return `<option value="">${todos}</option>` + vals.map(v => `<option ${v === sel ? "selected" : ""} value="${esc(v)}">${esc(v)}</option>`).join(""); }
+function vCarteira() {
+  if (!["ativas", "historico"].includes(S.carteiraTab)) S.carteiraTab = "ativas";
+  const tab = S.carteiraTab, f = S.filtros;
+  f.motivo = "";
+  const L = aplicaFiltros(universo(tab)).sort((a, b) => (ultimaMov(b) || 0) - (ultimaMov(a) || 0));
+  const all = S.projetos.filter(p => !naFila(p));
+  const sits = [...new Set(all.flatMap(p => p.versoes.map(v => v.situacao)))].sort();
+  const orgs = [...new Set(all.flatMap(orgaos))].sort();
+  const kws = [...new Set(all.flatMap(p => p.keywords))].sort();
+  const presetTxt = { prio: "Só prioridades", urg: "Só urgentes", mov7: "Movimentados em 7 dias" }[f.preset];
+  const outra = tab === "ativas" ? "historico" : "ativas";
+  const nOutra = f.q ? aplicaFiltros(universo(outra)).length : 0;
+  const filaQ = f.q ? S.projetos.filter(naFila).filter(p => aplicaFiltros([p], { ...FILTRO0(), q: f.q }).length).length : 0;
+  const maisAberto = !!(f.situacao || f.orgao || f.kw || f.casa);
+  return `
+  <div class="head"><h1>Carteira</h1><button type="button" class="btn" id="btnCsv">Exportar CSV</button></div>
+  <div class="tabs" role="tablist" aria-label="Recorte da carteira">
+    <button type="button" role="tab" id="tab-ativas" aria-selected="${tab === "ativas"}" tabindex="${tab === "ativas" ? 0 : -1}" data-tab="ativas" title="Elegíveis com movimentação nos últimos 12 meses, mais as prioridades de qualquer idade">Ativas <span class="count">${universo("ativas").length}</span></button>
+    <button type="button" role="tab" id="tab-historico" aria-selected="${tab === "historico"}" tabindex="${tab === "historico" ? 0 : -1}" data-tab="historico" title="Encerradas, marcadas NÃO, paradas há mais de 12 meses ou sem data">Histórico <span class="count">${universo("historico").length}</span></button>
+  </div>
+  <div class="filters" role="search">
+    <input type="search" id="fQ" placeholder="Buscar por número ou ementa" value="${esc(f.q)}" aria-label="Buscar na carteira">
+    <select id="fPrio" aria-label="Prioridade"><option value="">Prioridade</option>${[["SIM", "SIM"], ["NÃO", "NÃO"], ["NI", "Não informada"]].map(([v, r]) => `<option value="${v}" ${f.prioridade === v ? "selected" : ""}>${r}</option>`).join("")}</select>
+    <select id="fPos" aria-label="Posição"><option value="">Posição</option>${["—", ...POSICOES.slice(1)].map(v => `<option value="${v}" ${f.posicao === v ? "selected" : ""}>${v === "—" ? "Sem posição" : v}</option>`).join("")}</select>
+    ${presetTxt ? `<span class="chip info">${presetTxt} <button type="button" class="btn sm" style="border:0;padding:0 2px;background:none" id="clrPreset" aria-label="Remover filtro ${presetTxt}">×</button></span>` : ""}
+    <details id="maisFiltros" ${maisAberto ? "open" : ""}><summary class="btn sm">Mais filtros</summary>
+      <div class="filters" style="margin-top:8px">
+        <select id="fSit" aria-label="Situação">${opcoes(sits, f.situacao, "Situação")}</select>
+        <select id="fOrg" aria-label="Órgão">${opcoes(orgs, f.orgao, "Órgão")}</select>
+        <select id="fKw" aria-label="Palavra-chave">${opcoes(kws, f.kw, "Palavra-chave")}</select>
+        <select id="fCasa" aria-label="Casa"><option value="">Casa</option><option value="CD" ${f.casa === "CD" ? "selected" : ""}>Câmara</option><option value="SF" ${f.casa === "SF" ? "selected" : ""}>Senado</option></select>
+      </div></details>
+    ${f.q || f.prioridade || f.posicao || maisAberto || f.preset ? `<button type="button" class="btn sm" id="clrAll">Limpar</button>` : ""}
+  </div>
+  ${nOutra || filaQ ? `<div class="muted small">Também em: ${nOutra ? `<button type="button" class="btn sm" data-tab-go="${outra}">${outra === "ativas" ? "Ativas" : "Histórico"} (${nOutra})</button>` : ""} ${filaQ ? `<a class="lnk" href="#avaliacao">Avaliação (${filaQ})</a>` : ""}</div>` : ""}
+  <div class="tablewrap"><table>
+    <thead><tr><th scope="col">Identificação</th><th scope="col">Ementa</th><th scope="col">Posição</th><th scope="col">Órgão</th><th scope="col">Última mov.</th><th scope="col">${tab === "ativas" ? "Ação" : "Motivo"}</th><th scope="col">Link oficial</th></tr></thead>
+    <tbody>${L.length ? L.map(p => { const at = chipsAtencaoCurto(p); return `
+      <tr>
+        <td>${linkProj(p)}<div class="chips" style="margin-top:3px">${casas(p).map(chipCasa).join("")}${at}</div></td>
+        <td><div class="ement">${esc(p.ementa.length > 110 ? p.ementa.slice(0, 108) + "…" : p.ementa)}</div></td>
+        <td>${esc(p.posicao) || '<span class="muted">—</span>'}</td>
+        <td>${orgaos(p).map(esc).join(", ")}</td>
+        <td class="num">${fmt(ultimaMov(p))}</td>
+        <td><div class="ement">${tab === "ativas" ? (esc(p.acao) || "—") : esc(motivoHist(p))}</div></td>
+        <td>${p.versoes.map(v => `<a class="lnk" href="${linkOficial(v)}" target="_blank" rel="noopener">${v.casa === "CD" ? "Câmara" : "Senado"} ↗</a>`).join("<br>")}</td>
+      </tr>`; }).join("") : `<tr><td colspan="7" class="empty">Nenhum projeto encontrado.</td></tr>`}</tbody>
+  </table></div>`;
+}
+function chipsAtencaoCurto(p) {
+  const out = [];
+  if (urgente(p)) out.push(`<span class="chip urg">Urgente</span>`);
+  else if (p.prioridade === "SIM") out.push(`<span class="chip prio">Prioridade</span>`);
+  return out.join("");
+}
+function csvCarteira() {
+  const L = aplicaFiltros(universo(S.carteiraTab));
+  const q = s => `"${String(s ?? "").replace(/"/g, '""')}"`;
+  const txt = [["identificacao", "casas", "ementa", "relevancia", "posicao", "prioridade", "orgao", "ultima_movimentacao", "acao"].join(";")]
+    .concat(L.map(p => [q(ident(p)), casas(p).join("+"), q(p.ementa), rotRel(p.relevancia), q(p.posicao), rotPrio(p.prioridade), orgaos(p).join("/"), fmt(ultimaMov(p)), q(p.acao)].join(";"))).join("\n");
+  modal("Exportar CSV", `<p class="muted">${L.length} linha${L.length !== 1 ? "s" : ""}, o recorte da lista. (Protótipo: no sistema o arquivo é baixado direto.)</p><pre>${esc(txt)}</pre>`,
+    [{ rotulo: "Fechar" }, { rotulo: "Copiar conteúdo", cls: "primary", fn: () => navigator.clipboard?.writeText(txt).then(() => toast("CSV copiado."), () => toast("Não foi possível copiar automaticamente.")) }]);
+}
+
+// ---------- Projeto ----------
+const CAMPOS = [["relevancia", "relevância"], ["posicao", "posição"], ["prioridade", "prioridade"], ["acao", "ação"], ["parecer", "parecer"], ["observacoes", "observações"]];
+const nomeCampo = c => CAMPOS.find(([k]) => k === c)[1];
+const rotCampo = (c, v) => c === "prioridade" ? rotPrio(v) : c === "relevancia" ? rotRel(v) : (v || "");
+const snap = p => Object.fromEntries(CAMPOS.map(([c]) => [c, p[c] || ""]));
+function draftDe(p) {
+  const r = rid(p);
+  if (!drafts[r]) drafts[r] = { ...snap(p), base: snap(p), revisaoBase: p.revisao, erro: null, conflito: null, simFeito: false };
+  return drafts[r];
+}
+const meusCampos = dr => CAMPOS.filter(([c]) => (dr[c] || "") !== (dr.base[c] || "")).map(([c]) => c);
+const sujo = r => { const dr = drafts[r]; return !!dr && meusCampos(dr).length > 0; };
+function lerDraft(p) {
+  const dr = drafts[rid(p)]; const g = id => document.getElementById(id);
+  if (!dr || !g("dPos")) return;
+  dr.posicao = g("dPos").value; dr.acao = g("dAcao").value; dr.parecer = g("dParecer").value; dr.observacoes = g("dObs").value;
+}
+function vDecisoesLeitura(p) {
+  return `<dl class="dl">${CAMPOS.map(([c, n]) => `<dt>${n[0].toUpperCase() + n.slice(1)}</dt><dd>${esc(rotCampo(c, p[c])) || '<span class="muted">—</span>'}</dd>`).join("")}</dl>`;
+}
+function vConflito(p, dr) {
+  const mine = meusCampos(dr);
+  const theirs = CAMPOS.map(([c]) => c).filter(c => (p[c] || "") !== (dr.base[c] || ""));
+  const linhas = [...new Set([...mine, ...theirs])];
+  const sobre = mine.filter(c => theirs.includes(c));
+  return `<div class="alert warn" role="alert"><div><b>Outra pessoa salvou esta decisão às ${hora(dr.conflito.quando)} (revisão ${p.revisao} da decisão).</b> Nada foi gravado ainda. Escolha como seguir.</div>
+    <div style="overflow-x:auto"><table class="cmp"><thead><tr><th>Campo</th><th>Quando você abriu</th><th>Salvo pela outra pessoa</th><th>Seu rascunho</th></tr></thead><tbody>
+      ${linhas.map(c => `<tr><td>${nomeCampo(c)}</td><td>${esc(rotCampo(c, dr.base[c])) || "—"}</td><td>${theirs.includes(c) ? `<b>${esc(rotCampo(c, p[c])) || "vazio"}</b>` : "sem mudança"}</td><td>${mine.includes(c) ? `<b>${esc(rotCampo(c, dr[c])) || "vazio"}</b>` : "sem mudança"}</td></tr>`).join("")}
+    </tbody></table></div>
+    ${sobre.length ? `<div><b>Atenção:</b> aplicar as suas alterações substitui o que a outra pessoa salvou em ${sobre.map(nomeCampo).join(", ")}.</div>` : `<div>As alterações não se sobrepõem: aplicar as suas mantém o que a outra pessoa salvou.</div>`}
+    <div class="acts"><button type="button" class="btn sm primary" id="cfAplicar">Aplicar só as minhas alterações sobre a versão atual</button><button type="button" class="btn sm" id="cfDescartar">Descartar as minhas e ver a versão atual</button></div></div>`;
+}
+function vProjeto(r) {
+  const p = porRid(r);
+  if (!p) return `<div class="panel empty">Projeto não encontrado. <a class="lnk" href="#carteira">Voltar para a carteira</a></div>`;
+  const ed = podeEditar();
+  const dr = ed ? draftDe(p) : null;
+  const tram = [...p.tram].sort((a, b) => b.data - a.data);
+  const nc = naoConf(p);
+  const mot = motivos(p);
+  const conf = conferencias().filter(c => c.projetos.includes(p));
+  const estado = naFila(p) ? "Na fila de avaliação" : ativa(p) ? "" : `Histórico: ${motivoHist(p).toLowerCase()}`;
+  const voltar = naFila(p) ? `<a href="#avaliacao" class="muted" style="text-decoration:none">← Avaliação</a>` : `<a href="#carteira" class="muted" style="text-decoration:none">← Carteira</a>`;
+  return `
+  <div class="head"><div>${voltar}
+    <h1 style="margin-top:4px">${esc(ident(p))}</h1>
+    <p>${esc(p.ementa)}</p>
+    <div class="chips" style="margin-top:6px">${chipsAtencaoCurto(p)}${estado ? ` <span class="chip">${esc(estado)}</span>` : ""}</div></div></div>
+  ${mot.length ? `<div class="alert danger"><div><b>Urgente:</b> ${mot.map(esc).join(" e ")}.</div></div>` : ""}
+  ${conf.map(c => `<div class="alert info"><div><b>Em conferência pelo mantenedor.</b> ${c.tipo === "Agrupamento" ? `Este projeto foi ligado a outro com decisão diferente: ${c.projetos.filter(x => x !== p).map(x => linkProj(x, `${esc(ident(x))} (${x.versoes[0].casa === "CD" ? "Câmara" : "Senado"})`)).join(", ")}. Cada um mantém a sua decisão até a conferência.` : "A versão de destino da remessa ainda não foi carregada. O projeto continua ativo até a conferência."}</div></div>`).join("")}
+  <div class="grid-proj">
+    <div class="col">
+      <section class="panel"><h2>${p.versoes.length > 1 ? "Versões" : "Dados"}</h2>
+        <div class="versions">${p.versoes.map(v => `<div class="version"><div>${chipCasa(v.casa)} <b>${esc(v.ident)}</b></div>
+          <div><span class="muted">Situação:</span> ${esc(v.situacao)}</div><div><span class="muted">Órgão:</span> ${esc(v.orgao)}</div>
+          <div><span class="muted">Autoria:</span> <span title="Partido e UF atuais">${esc(v.autor)}</span></div>
+          ${v.casa === "SF" ? `<div class="muted small">Agenda do Senado ainda não coletada.</div>` : ""}
+          <a class="lnk" href="${linkOficial(v)}" target="_blank" rel="noopener">Ver na ${v.casa === "CD" ? "Câmara" : "Senado"} ↗</a></div>`).join("")}</div>
+      </section>
+      ${nc.length ? `<section class="panel"><h2>Movimentações a confirmar</h2>
+        <div class="list">${nc.map(t => `<label class="row" style="cursor:pointer"><input type="checkbox" class="cf" value="${t.id}" ${ed ? "" : "disabled"}>
+          <div class="grow"><b>${esc(t.tipo)}</b> ${chipCasa(t.casa)} <span class="muted num">${fmt(t.data)}</span><div class="ement">${esc(t.desc)}</div></div></label>`).join("")}</div>
+        ${ed ? `<div style="display:flex;gap:8px;flex-wrap:wrap">${nc.length > 1 ? `<button type="button" class="btn sm" id="btnTodos">Selecionar todas</button>` : ""}<button type="button" class="btn primary" id="btnConf" disabled title="Vale para toda a equipe e fica no histórico">Confirmar como vistas (0)</button></div>` : ""}
+      </section>` : ""}
+      ${p.pautas.length ? `<section class="panel"><h2>Pautas</h2>
+        <div class="list">${p.pautas.map(x => `<div class="row"><div class="num mono" style="width:84px">${fmt(x.data)}</div><div class="grow">${esc(x.orgao)} ${chipCasa(x.casa)}<div class="ement">Relator: ${esc(x.relator)}</div></div><span class="chip ${x.status === "Agendada" ? "" : "no"}">${esc(x.status)}</span></div>`).join("")}</div>
+      </section>` : ""}
+      <section class="panel"><h2>Tramitações</h2>
+        <div class="tl">${tram.map(t => `<div class="item ${t.maior ? "" : "rot"}"><div class="num mono">${fmt(t.data)}</div>
+          <div><span class="t">${t.maior ? '<span class="dotmaior" title="Movimentação maior"></span><span class="sr-only">(maior) </span>' : ""}${esc(t.tipo)}</span> ${chipCasa(t.casa)} <span class="muted">${esc(t.orgao)}</span>
+          <div class="ement">${esc(t.desc)}${t.maior && t.confPor ? ` · vista por ${esc(t.confPor)} em ${fmt(t.confEm)}` : ""}</div></div></div>`).join("") || `<div class="muted">Nenhuma tramitação carregada.</div>`}</div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" id="formDec"><div class="panel-h"><h2>Decisões da ABCS</h2>${ed ? `<span class="dirty" id="dirty" aria-live="polite"></span>` : ""}</div>
+        ${!ed ? vDecisoesLeitura(p) : `
+        ${dr.conflito ? vConflito(p, dr) : ""}
+        ${dr.erro ? `<div class="alert danger" role="alert"><div><b>Não foi possível salvar.</b> ${esc(dr.erro)} Seu texto continua aqui.</div><div class="acts"><button type="button" class="btn sm" id="btnRetry">Tentar de novo</button></div></div>` : ""}
+        <div class="field"><span id="lRel">Relevância</span><div class="seg" role="group" aria-labelledby="lRel">${[["pendente", "Pendente"], ["SIM", "SIM"], ["NÃO", "NÃO"]].map(([v, rr]) => `<button type="button" data-f="relevancia" data-v="${v}" aria-pressed="${(dr.relevancia || "pendente") === v}">${rr}</button>`).join("")}</div></div>
+        <label class="field"><span>Posição</span><select id="dPos">${POSICOES.map(v => `<option value="${v}" ${dr.posicao === v ? "selected" : ""}>${v || "Sem posição"}</option>`).join("")}</select></label>
+        <div class="field"><span id="lPrio">Prioridade</span><div class="seg" role="group" aria-labelledby="lPrio">${[["", "Não informada"], ["SIM", "SIM"], ["NÃO", "NÃO"]].map(([v, rr]) => `<button type="button" data-f="prioridade" data-v="${v}" aria-pressed="${dr.prioridade === v}">${rr}</button>`).join("")}</div></div>
+        <label class="field"><span>Ação</span><textarea id="dAcao">${esc(dr.acao)}</textarea></label>
+        <label class="field"><span>Parecer</span><textarea id="dParecer" title="Não vai para o painel público">${esc(dr.parecer)}</textarea></label>
+        <label class="field"><span>Observações internas</span><textarea id="dObs" title="Não vai para o painel público">${esc(dr.observacoes)}</textarea></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn primary" id="btnSalvar" ${dr.conflito ? "disabled" : ""}>Salvar</button><button type="button" class="btn" id="btnCancelar">Desfazer alterações</button></div>`}
+      </section>
+      <details class="panel"><summary style="cursor:pointer"><b>Histórico</b> <span class="muted">(${p.historico.length})</span></summary>
+        <div class="hist" style="margin-top:8px">${[...p.historico].sort((a, b) => b.quando - a.quando).map(h => `<div class="h"><b>${esc(h.quem)}</b> <span class="muted">· ${fmt(h.quando)} ${hora(h.quando)}</span>
+          <div class="diff">${h.mud.map(([c, a, b]) => `${esc(c)}: <del>${esc(a || "vazio")}</del> → <ins>${esc(b || "vazio")}</ins>`).join("<br>")}</div></div>`).join("") || `<div class="muted">Sem alterações.</div>`}</div>
+      </details>
+    </div>
+  </div>`;
+}
+function marcaDirty(p) { const el = document.getElementById("dirty"); if (el) el.textContent = sujo(rid(p)) ? "Alterações não salvas" : ""; }
+function salvar(p, etapa = "inicio") {
+  lerDraft(p);
+  const dr = draftDe(p);
+  const mine = meusCampos(dr);
+  if (!mine.length) { toast("Nada para salvar."); return; }
+  // RN05: a transição pretendida vem primeiro. NÃO numa prioridade = retirar a prioridade.
+  const prioAtual = dr.prioridade === "SIM" || (p.prioridade === "SIM" && !mine.includes("prioridade"));
+  if (etapa === "inicio" && dr.relevancia === "NÃO" && mine.includes("relevancia") && prioAtual) {
+    return modal("Marcar como NÃO e retirar a prioridade?",
+      `<p>${esc(ident(p))} é prioridade. Marcar NÃO retira a prioridade, tira o projeto da carteira ativa e para os alertas por e-mail. A coleta continua, e o histórico guarda a mudança.</p>`,
+      [{ rotulo: "Voltar sem salvar" }, { rotulo: "Marcar NÃO e retirar a prioridade", cls: "primary", fn: () => { dr.prioridade = "NÃO"; salvar(p, "rn05"); } }]);
+  }
+  if (etapa === "inicio" && dr.prioridade === "SIM" && dr.relevancia !== "SIM") {
+    return modal("Prioridade exige relevância SIM",
+      `<p>Marcar ${esc(ident(p))} como prioridade também marca a relevância como SIM.</p>`,
+      [{ rotulo: "Voltar sem salvar" }, { rotulo: "Marcar SIM e prioridade", cls: "primary", fn: () => { dr.relevancia = "SIM"; salvar(p, "rn05"); } }]);
+  }
+  if (sim("simErroSalvar")) { dr.erro = "A conexão com o banco falhou."; render(); return; }
+  if (sim("simConcorrencia") && !dr.simFeito) {
+    dr.simFeito = true;
+    const nova = "Ligar para a assessoria do relator na segunda.";
+    p.historico.push({ quando: new Date(agora().getTime() - 2 * 60e3), quem: "Outra pessoa (simulado)", origem: "sistema", mud: [["ação", p.acao, nova]] });
+    p.acao = nova; p.revisao += 1;
+  }
+  if (dr.revisaoBase !== p.revisao) { dr.conflito = { quando: new Date(agora().getTime() - 2 * 60e3) }; dr.erro = null; render(); return; }
+  const mudFinal = meusCampos(dr);
+  const mud = mudFinal.map(c => [nomeCampo(c), rotCampo(c, p[c]), rotCampo(c, dr[c])]);
+  const virouPrio = p.prioridade !== "SIM" && dr.prioridade === "SIM";
+  const criou = novoUuid(p, "Ana");
+  mudFinal.forEach(c => p[c] = dr[c]);
+  if (virouPrio) { p.prioridadeDesde = agora(); mud.push(["referência de urgência", "", `movimentações a partir de ${fmt(p.prioridadeDesde)} ${hora(p.prioridadeDesde)}`]); }
+  p.revisao += 1;
+  p.historico.push({ quando: agora(), quem: "Ana", origem: "sistema", mud });
+  delete drafts[rid(p)];
+  toast(`Decisões salvas às ${hora(agora())} · revisão ${p.revisao}.`);
+  if (criou) location.hash = "projeto-" + rid(p); else render();
+}
+function confirmar(p) {
+  const ids = [...document.querySelectorAll(".cf:checked")].map(x => Number(x.value));
+  if (!ids.length) return;
+  const quando = agora();
+  p.tram.forEach(t => { if (ids.includes(t.id)) { t.confirmado = true; t.confPor = "Ana"; t.confEm = quando; } });
+  p.historico.push({ quando, quem: "Ana", origem: "confirmação", mud: [["movimentações vistas", "", p.tram.filter(t => ids.includes(t.id)).map(t => `${t.tipo} (${fmtC(t.data)})`).join("; ")]] });
+  let extra = "";
+  if (sim("simMovDurante")) {
+    p.tram.push({ id: Date.now(), data: agora(), casa: p.versoes[0].casa, tipo: "Designação de Relator(a)", maior: true, desc: "Novo relator designado. Chegou durante a confirmação.", confirmado: false, orgao: p.versoes[0].orgao });
+    extra = " Uma movimentação nova chegou enquanto você confirmava e continua pendente.";
+  }
+  render();
+  toast(`${ids.length} confirmada${ids.length > 1 ? "s" : ""}.${extra}${pautaJanela(p) ? " A pauta mantém a urgência." : ""}`);
+}
+
+// ---------- Inclusão ----------
+function vInclusao() {
+  const ed = podeEditar();
+  return `
+  <div class="head"><div><h1>Incluir proposição</h1><p>Para uma proposição da Câmara que as palavras-chave não pegaram. Ela entra como relevante.</p></div></div>
+  ${ed ? `<section class="panel">
+    <form id="formInc" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <label class="field" style="flex:1;min-width:240px"><span>Identificação ou link da Câmara</span><input id="incTxt" autocomplete="off" placeholder="Ex.: PL 1888/2026"></label>
+      <button class="btn primary" type="submit">Incluir</button>
+    </form>
+    <div id="incMsg" aria-live="polite"></div>
+  </section>` : ""}
+  <section class="panel"><h2>Pedidos</h2><div id="incLista"></div></section>`;
+}
+function vIncLista() {
+  const ed = podeEditar();
+  const linha = r => { const p = r.rid ? porRid(r.rid) : null; return `<tr><td><b>${esc(r.ident)}</b>${r.erro ? `<div class="ement" style="color:var(--danger)">${esc(r.erro)}${r.tentativas > 1 ? ` (${r.tentativas} tentativas)` : ""}</div>` : ""}${r.passo ? `<div class="ement">${esc(r.passo)}</div>` : ""}${r.email === "falhou" ? `<div class="ement" style="color:var(--danger)">O e-mail de confirmação falhou. ${ed ? `<button type="button" class="btn sm" data-reemail="${r.id}">Reenviar</button>` : ""}</div>` : ""}</td>
+      <td class="num">${fmt(r.quando)}</td>
+      <td><span class="chip ${r.estado === "concluída" ? "yes" : r.estado === "falhou" ? "urg" : "info"}">${esc(r.estado)}</span></td>
+      <td>${r.estado === "concluída" && p ? `${linkProj(p, "Abrir")}${ativa(p) ? "" : `<div class="ement">no histórico</div>`}` : ""}${r.estado === "falhou" && ed ? `<button type="button" class="btn sm" data-retry="${r.id}" ${r.rodando ? "disabled" : ""}>Tentar agora</button>` : ""}</td></tr>`; };
+  const ordem = [...S.inclusoes].sort((a, b) => b.id - a.id);
+  const antigos = ordem.filter(r => r.estado === "concluída" && r.quando < somaDias(hoje0, -7));
+  const recentes = ordem.filter(r => !antigos.includes(r));
+  const tabela = L => `<div class="tablewrap" style="border:0"><table style="min-width:560px"><thead><tr><th scope="col">Pedido</th><th scope="col">Data</th><th scope="col">Estado</th><th scope="col"><span class="sr-only">Ação</span></th></tr></thead><tbody>${L.map(linha).join("")}</tbody></table></div>`;
+  return (recentes.length ? tabela(recentes) : `<div class="muted">Nenhum pedido recente.</div>`) +
+    (antigos.length ? `<details style="margin-top:8px"><summary class="muted small" style="cursor:pointer">Concluídos há mais de 7 dias (${antigos.length})</summary>${tabela(antigos)}</details>` : "");
+}
+function renderIncLista() { const el = document.getElementById("incLista"); if (el) { el.innerHTML = vIncLista(); ligarIncLista(); } renderNav(rotaNav()); }
+function normaliza(txt) {
+  txt = txt.trim();
+  const m = txt.match(/^(PL|PLP|PDL|PEC|MPV|RIC|INC|REQ)\s*0*(\d{1,5})\s*\/\s*(\d{4})$/i);
+  if (m) return { ident: `${m[1].toUpperCase()} ${Number(m[2])}/${m[3]}` };
+  const l = txt.match(/^https:\/\/www\.camara\.leg\.br\/\S*idProposicao=(\d+)/i);
+  if (l) { const id = Number(l[1]); return RESOLVE_LINK[id] ? { ident: RESOLVE_LINK[id], viaLink: id } : { erro: `O link aponta para a proposição ${id}, que a Câmara não encontrou (simulado).` }; }
+  return { erro: `Não reconheci “${txt}”. Use sigla, número e ano (ex.: PL 1234/2025) ou o link da ficha de tramitação na Câmara.` };
+}
+function incluir(txt) {
+  const msg = document.getElementById("incMsg");
+  const n = normaliza(txt);
+  if (n.erro) { msg.innerHTML = `<div class="alert danger"><div>${esc(n.erro)}</div></div>`; return; }
+  const chave = "CD:" + n.ident;               // identidade canônica: casa + identificação resolvida
+  const via = n.viaLink ? ` O link corresponde a ${esc(n.ident)}.` : "";
+  const ja = S.projetos.find(p => p.versoes.some(v => v.casa === "CD" && v.ident === n.ident));
+  if (ja) {
+    const txtEstado = naFila(ja) ? "está na fila de avaliação. Decida por lá; a inclusão não é necessária."
+      : ja.relevancia === "NÃO" ? "já está na base e foi marcada NÃO, por isso está no histórico e fora dos alertas. Para voltar a acompanhar, abra o projeto e mude a relevância para SIM; a inclusão não muda a decisão sozinha."
+      : ativa(ja) ? "já está na carteira ativa." : `já está na base, no histórico (${motivoHist(ja).toLowerCase()}).`;
+    msg.innerHTML = `<div class="alert info"><div>${esc(n.ident)} ${txtEstado}${via} Nenhum projeto novo foi criado.</div><div class="acts">${linkProj(ja, "Abrir o projeto")}</div></div>`; return;
+  }
+  const existente = S.inclusoes.find(r => r.chave === chave);
+  if (existente) {
+    if (existente.estado === "falhou") {
+      msg.innerHTML = `<div class="alert warn"><div>Já existe um pedido para ${esc(n.ident)} que falhou: ${esc(existente.erro)}${via}</div><div class="acts"><button type="button" class="btn sm primary" id="retomar">Retomar o pedido existente</button></div></div>`;
+      document.getElementById("retomar").onclick = () => { retomar(existente); msg.innerHTML = `<div class="alert ok"><div>Pedido de ${esc(n.ident)} retomado. Nenhum pedido novo foi criado.</div></div>`; };
+    } else msg.innerHTML = `<div class="alert info"><div>Já existe um pedido para ${esc(n.ident)} (${esc(existente.estado)}).${via}</div></div>`;
+    return;
+  }
+  const r = { id: Date.now(), chave, ident: n.ident, casa: "CD", quem: "Ana", quando: agora(), estado: "solicitada", passo: "", tentativas: 0, email: "—", erro: "", rid: null, rodando: false, auto: 0 };
+  S.inclusoes.push(r);
+  document.getElementById("incTxt").value = "";
+  msg.innerHTML = `<div class="alert ok"><div>Pedido de ${esc(n.ident)} registrado.${via} Você pode sair desta página: o pedido continua sendo processado.</div></div>`;
+  processar(r);
+  renderIncLista();
+}
+function retomar(r) { if (!r || r.rodando || r.estado === "concluída") return; r.estado = "solicitada"; r.erro = ""; r.auto = 0; processar(r); renderIncLista(); }
+function processar(r) {
+  if (r.rodando || r.estado === "concluída") return;   // uma execução por pedido, uma conclusão por pedido
+  r.rodando = true; r.erro = "";
+  const passo = (ms, fn) => setTimeout(() => { fn(); atualizaInc(); }, ms);
+  passo(900, () => { r.estado = "em processamento"; r.passo = "Localizando na Câmara"; r.tentativas += 1; });
+  passo(2200, () => {
+    const num = r.ident.split(" ")[1].split("/")[0];
+    if (num === "9999") { r.estado = "falhou"; r.passo = ""; r.rodando = false; r.erro = "Proposição não encontrada na Câmara. Confira o número e o ano."; return; }
+    if (sim("simFalhaInclusao")) {
+      r.estado = "falhou"; r.passo = ""; r.rodando = false;
+      if (r.auto < 2) {
+        r.auto += 1; r.erro = `A Câmara não respondeu (erro 503). Nova tentativa automática em 6 segundos (no sistema, espaçada em minutos). Tentativa automática ${r.auto} de 2.`;
+        setTimeout(() => { if (r.estado === "falhou" && !r.rodando) { processar(r); atualizaInc(); } }, 6000);
+      } else r.erro = "A Câmara não respondeu (erro 503). As tentativas automáticas acabaram; use “Tentar agora” quando quiser.";
+      return;
+    }
+    r.passo = "Carregando dados (modo de inclusão)";
+  });
+  passo(3800, () => {
+    if (r.estado !== "em processamento") return;
+    const ano = Number(r.ident.split("/")[1]);
+    const antiga = ano < 2024;
+    const num = Number(r.ident.split(" ")[1].split("/")[0]);
+    const p = { id: "p" + (++seq), emRadar: false, relevancia: "SIM", acompanhada: true,
+      ementa: antiga ? "(Exemplo carregado da Câmara) Dispõe sobre o registro de granjas de reprodutores suínos." : "(Exemplo carregado da Câmara) Dispõe sobre medidas de apoio à suinocultura independente.",
+      versoes: [{ casa: "CD", ident: r.ident, idCasa: 2690000 + num, situacao: antiga ? "Aguardando Parecer do Relator(a)" : "Aguardando Designação de Relator(a)", orgao: "CAPADR", autor: "Dep. Exemplo (PSD/SC)", encerrada: false, remessa: false }],
+      keywords: [], posicao: "", prioridade: "", prioridadeDesde: null, revisao: 1, acao: "", parecer: "", observacoes: "", pautas: [], grupo: null,
+      tram: [{ id: Date.now(), data: antiga ? d(`${ano + 1}-06-10`) : d("2026-10-01"), casa: "CD", tipo: antiga ? "Designação de Relator(a)" : "Apresentação de Proposição", maior: antiga, desc: antiga ? "Designado relator." : "Apresentação.", confirmado: true, orgao: "CAPADR" }],
+      historico: [{ quando: agora(), quem: r.quem, origem: "inclusão", mud: [["relevância", "", "SIM"], ["acompanhada", "", "sim"]] }] };
+    S.projetos.push(p);
+    r.rid = p.id; r.estado = "concluída"; r.passo = ""; r.rodando = false; r.email = "aguardando";
+    toast(`${esc(r.ident)} incluída. ${ativa(p) ? "Está na carteira ativa." : "Está no histórico porque não movimenta há mais de 12 meses. Marque prioridade para mantê-la na carteira ativa."}`);
+    setTimeout(() => { r.email = sim("simFalhaEmail") ? "falhou" : "enviado"; atualizaInc(); }, 1800);
+  });
+}
+function atualizaInc() { if (rota().v === "inclusao") renderIncLista(); else renderNav(rotaNav()); }
+function ligarIncLista() {
+  document.querySelectorAll("[data-retry]").forEach(b => b.onclick = () => retomar(S.inclusoes.find(x => x.id === Number(b.dataset.retry))));
+  document.querySelectorAll("[data-reemail]").forEach(b => b.onclick = () => { const r = S.inclusoes.find(x => x.id === Number(b.dataset.reemail)); r.email = "aguardando"; renderIncLista(); setTimeout(() => { r.email = sim("simFalhaEmail") ? "falhou" : "enviado"; atualizaInc(); }, 1500); });
+}
+
+// ---------- Conferência ----------
+function vConferencia() {
+  const L = conferencias();
+  const dec = p => `<div class="version"><div>${chipCasa(p.versoes[0].casa)} ${linkProj(p)} <span class="muted mono">${p.id || ""}</span></div>
+    <div><span class="muted">Relevância:</span> ${rotRel(p.relevancia)} · <span class="muted">Posição:</span> ${esc(p.posicao) || "—"} · <span class="muted">Prioridade:</span> ${rotPrio(p.prioridade)}</div>
+    <div class="ement">${esc(p.versoes[0].situacao)}</div></div>`;
+  return `
+  <div class="head"><div><h1>A conferir</h1><p>Lista do mantenedor, fora do menu da Ana. Ela vê só o aviso dentro do projeto afetado.</p></div></div>
+  <div class="col">${L.length ? L.map(c => `<section class="panel"><div class="panel-h"><h2>${esc(c.tipo)}</h2><span class="chip info">${c.projetos.length > 1 ? `${c.projetos.length} projetos, decisões preservadas` : "1 projeto"}</span></div>
+    <div class="ement">${esc(c.motivo)}</div><div class="pair">${c.projetos.map(dec).join("")}</div></section>`).join("") : `<div class="panel empty">Nada a conferir.</div>`}</div>`;
+}
+
+// ---------- Painéis ----------
+let abaPbi = "pautas";
+const PBI = {
+  pautas: ["Pautas", "Reuniões agendadas, total de eventos e itens votados ou cancelados; filtros por proposição, comissão, situação e relator; data e hora, órgão, relator e partido, status e resultado. Hoje só da Câmara."],
+  audiencias: ["Audiências", "Audiências públicas sobre temas do setor, por palavra-chave: data e hora, órgão, assunto, status e link oficial. É uma sugestão temática, sem ligação direta com uma proposição."],
+  autores: ["Autores e partidos", "Distribuição das proposições por ano, tipo, UF e partido; ranking de autores; filtro de prioridade. Conta versões legislativas, e partido e UF são os atuais."],
+};
+function vPaineis() {
+  return `
+  <div class="head"><div><h1>Painéis</h1><p>Decisões salvas aparecem aqui na próxima atualização do painel.</p></div></div>
+  <div class="pbi"><div><b>Painel do Power BI (pautas, audiências, autores e partidos)</b>
+    <span class="muted small">Protótipo: o ambiente bloqueia a incorporação de outros sites. No sistema, o painel público aparece aqui, com as abas e o “Painel atualizado em” do próprio relatório.</span></div></div>`;
+}
+
+// ---------- Sugestões ----------
+const KEY = "legislativo-mockup-sugestoes";
+const lerNotas = () => { try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; } };
+const gravarNotas = n => { try { localStorage.setItem(KEY, JSON.stringify(n)); } catch { /* sem armazenamento */ } };
+let notasMem = lerNotas();
+function nomeTela() { const r = rota(); if (r.v === "projeto") { const p = porRid(r.id); return "Projeto " + (p ? ident(p) : ""); } return VIEWS.find(v => v.id === r.v)?.rotulo || r.v; }
+function abrirSugestoes() {
+  const root = document.getElementById("drawerRoot");
+  const tela = nomeTela();
+  root.innerHTML = `<aside class="drawer" role="dialog" aria-modal="false" aria-labelledby="sugTit">
+    <div class="panel-h"><h2 id="sugTit">Sugestões para o sistema</h2><button type="button" class="btn sm" id="fechaSug">Fechar</button></div>
+    <p class="muted" style="margin:0">Anote o que mudaria. A tela atual (${esc(tela)}) entra junto. Depois copie tudo e cole na conversa com o Claude. Também dá para comentar direto na página do artifact. Esta ferramenta é do protótipo, não do sistema.</p>
+    <label for="sugTxt" class="small muted">Sugestão</label>
+    <textarea id="sugTxt" placeholder="Ex.: na Avaliação, quero ver o órgão onde está a proposição"></textarea>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn primary" id="sugAdd">Anotar</button><button type="button" class="btn" id="sugCopy">Copiar todas (${notasMem.length})</button><button type="button" class="btn danger" id="sugClr">Apagar todas</button></div>
+    <div>${notasMem.map((n, i) => `<div class="note"><span class="muted small">${esc(n.tela)} · ${esc(n.quando)}</span><div>${esc(n.texto)}</div><button type="button" class="btn sm" data-del="${i}" style="margin-top:4px">Apagar</button></div>`).join("") || `<div class="muted">Nenhuma sugestão ainda.</div>`}</div>
+  </aside>`;
+  const fechar = () => { root.innerHTML = ""; document.getElementById("fab").focus(); };
+  root.querySelector("#fechaSug").onclick = fechar;
+  root.querySelector("#sugAdd").onclick = () => {
+    const t = root.querySelector("#sugTxt").value.trim(); if (!t) return;
+    notasMem.push({ tela, texto: t, quando: new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) });
+    gravarNotas(notasMem); abrirSugestoes(); toast("Sugestão anotada.");
+  };
+  root.querySelector("#sugCopy").onclick = () => {
+    const txt = notasMem.map((n, i) => `${i + 1}. [${n.tela}] ${n.texto}`).join("\n");
+    if (!txt) return toast("Nenhuma sugestão para copiar.");
+    navigator.clipboard?.writeText(txt).then(() => toast("Sugestões copiadas."), () => { const ta = root.querySelector("#sugTxt"); ta.value = txt; ta.select(); toast("Selecione e copie o texto."); });
+  };
+  root.querySelector("#sugClr").onclick = () => { notasMem = []; gravarNotas(notasMem); abrirSugestoes(); };
+  root.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { notasMem.splice(Number(b.dataset.del), 1); gravarNotas(notasMem); abrirSugestoes(); });
+  root.querySelector("#sugTxt").focus();
+}
+
+// ---------- roteamento ----------
+function rota(h = location.hash.slice(1)) {
+  h = h || "inicio";
+  if (h.startsWith("projeto-")) return { v: "projeto", id: h.slice(8) };
+  return { v: VIEWS.some(x => x.id === h) || h === "conferencia" ? h : "inicio" };
+}
+const rotaNav = () => { const r = rota(); if (r.v !== "projeto") return r.v; const p = porRid(r.id); return p && naFila(p) ? "avaliacao" : "carteira"; };
+let hashAtual = location.hash.slice(1) || "inicio", ignorarHash = false;
+function render() {
+  const r = rota();
+  renderNav(rotaNav());
+  renderFresh();
+  const view = document.getElementById("view");
+  view.innerHTML = r.v === "inicio" ? vInicio() : r.v === "avaliacao" ? vAvaliacao() : r.v === "carteira" ? vCarteira()
+    : r.v === "projeto" ? vProjeto(r.id) : r.v === "inclusao" ? vInclusao() : r.v === "conferencia" ? vConferencia() : vPaineis();
+  ligar(r);
+}
+function irPara(h) { location.hash = h; }
+function ligar(r) {
+  const $ = s => document.querySelector(s);
+  document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
+    if (b.dataset.go === "carteira") { S.filtros = { ...FILTRO0(), preset: b.dataset.preset || "" }; S.carteiraTab = "ativas"; persistir(); }
+    irPara(b.dataset.go);
+  });
+  if (r.v === "avaliacao") {
+    document.querySelectorAll("[data-av]").forEach(b => b.onclick = e => { e.stopPropagation(); avaliar(b.dataset.r, b.dataset.av); });
+    document.querySelectorAll(".q").forEach(q => q.onclick = e => { if (e.target.closest("a,button")) return; S.selQ = Number(q.dataset.i); render(); });
+  }
+  if (r.v === "carteira") {
+    ligarTabs(t => { S.carteiraTab = t; persistir(); render(); document.getElementById("tab-" + t)?.focus(); });
+    const bind = (id, k) => { const el = document.getElementById(id); if (!el) return; el.oninput = el.onchange = () => { S.filtros[k] = el.value; persistir(); const pos = el.selectionStart; render(); const n = document.getElementById(id); n.focus(); if (n.type === "search" && pos != null) n.setSelectionRange(pos, pos); }; };
+    bind("fQ", "q"); bind("fPrio", "prioridade"); bind("fPos", "posicao"); bind("fSit", "situacao"); bind("fOrg", "orgao"); bind("fKw", "kw"); bind("fCasa", "casa"); bind("fMot", "motivo");
+    if ($("#clrAll")) $("#clrAll").onclick = () => { S.filtros = FILTRO0(); persistir(); render(); };
+    if ($("#clrPreset")) $("#clrPreset").onclick = () => { S.filtros.preset = ""; persistir(); render(); };
+    document.querySelectorAll("[data-tab-go]").forEach(b => b.onclick = () => { S.carteiraTab = b.dataset.tabGo; persistir(); render(); });
+    $("#btnCsv").onclick = csvCarteira;
+  }
+  if (r.v === "projeto") {
+    const p = porRid(r.id); if (!p) return;
+    if (podeEditar()) {
+      const dr = draftDe(p);
+      document.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { lerDraft(p); dr[b.dataset.f] = b.dataset.v; dr.erro = null; render(); });
+      ["dPos", "dAcao", "dParecer", "dObs"].forEach(id => { const el = document.getElementById(id); if (el) el.oninput = el.onchange = () => { lerDraft(p); marcaDirty(p); }; });
+      marcaDirty(p);
+      $("#btnSalvar").onclick = () => salvar(p);
+      if ($("#btnRetry")) $("#btnRetry").onclick = () => { dr.erro = null; salvar(p); };
+      $("#btnCancelar").onclick = () => { delete drafts[rid(p)]; render(); };
+      if ($("#cfAplicar")) $("#cfAplicar").onclick = () => {
+        lerDraft(p);
+        const mine = meusCampos(dr);
+        const novo = { ...snap(p), base: snap(p), revisaoBase: p.revisao, erro: null, conflito: null, simFeito: true };
+        mine.forEach(c => novo[c] = dr[c]);
+        drafts[rid(p)] = novo; render(); toast("Suas alterações foram aplicadas sobre a versão atual. Revise e salve.");
+      };
+      if ($("#cfDescartar")) $("#cfDescartar").onclick = () => { delete drafts[rid(p)]; render(); toast("Você está vendo a versão atual."); };
+      const atualizaConf = () => { const n = document.querySelectorAll(".cf:checked").length; const b = $("#btnConf"); if (b) { b.disabled = !n; b.textContent = `Confirmar como vistas (${n})`; } };
+      document.querySelectorAll(".cf").forEach(c => c.onchange = atualizaConf);
+      if ($("#btnTodos")) $("#btnTodos").onclick = () => { document.querySelectorAll(".cf").forEach(c => c.checked = true); atualizaConf(); };
+      if ($("#btnConf")) $("#btnConf").onclick = () => { lerDraft(p); confirmar(p); };
+    }
+  }
+  if (r.v === "inclusao") {
+    if ($("#formInc")) $("#formInc").onsubmit = e => { e.preventDefault(); if (podeEditar()) incluir($("#incTxt").value); };
+    renderIncLista();
+  }
+}
+window.addEventListener("hashchange", () => {
+  const novo = location.hash.slice(1) || "inicio";
+  if (ignorarHash) { ignorarHash = false; return; }
+  const ant = rota(hashAtual);
+  if (ant.v === "projeto" && novo !== hashAtual) {
+    const p = porRid(ant.id);
+    if (p) lerDraft(p);
+    if (p && sujo(rid(p))) {
+      ignorarHash = true; location.hash = hashAtual;
+      modal("Sair sem salvar?", `<p>Há alterações não salvas nas decisões de ${esc(ident(p))}. Se sair, elas serão descartadas.</p>`,
+        [{ rotulo: "Continuar editando" }, { rotulo: "Descartar e sair", cls: "danger", fn: () => { delete drafts[rid(p)]; irPara(novo); } }]);
+      return;
+    }
+  }
+  hashAtual = novo; window.scrollTo(0, 0); render();
+});
+
+// ---------- teclado, simulador ----------
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { if (document.querySelector(".modal-bg")) fecharModal(); else if (document.querySelector(".drawer")) { document.getElementById("drawerRoot").innerHTML = ""; document.getElementById("fab").focus(); } return; }
+  if (rota().v !== "avaliacao" || e.ctrlKey || e.altKey || e.metaKey || e.target.closest("input,textarea,select,button,a,summary") || document.querySelector(".modal-bg,.drawer")) return;
+  const L = S.projetos.filter(naFila); const n = L.length; if (!n) return;
+  const foco = () => document.getElementById("q" + S.selQ)?.scrollIntoView({ block: "nearest" });
+  if (e.key === "ArrowDown") { S.selQ = Math.min(n - 1, S.selQ + 1); render(); foco(); e.preventDefault(); }
+  else if (e.key === "ArrowUp") { S.selQ = Math.max(0, S.selQ - 1); render(); foco(); e.preventDefault(); }
+  else if (e.key.toLowerCase() === "s") { avaliar(rid(L[S.selQ]), "SIM"); e.preventDefault(); }
+  else if (e.key.toLowerCase() === "n") { avaliar(rid(L[S.selQ]), "NÃO"); e.preventDefault(); }
+  else if (e.key === "Enter") { irPara("projeto-" + rid(L[S.selQ])); e.preventDefault(); }
+});
+document.getElementById("buscaGlobal").addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  S.filtros = { ...FILTRO0(), q: e.target.value }; S.carteiraTab = "ativas"; persistir(); e.target.value = "";
+  if (location.hash === "#carteira") render(); else irPara("carteira");
+});
+document.getElementById("simPerfil").onchange = e => {
+  const ana = e.target.value === "ana";
+  document.getElementById("userName").textContent = ana ? "Ana" : "Pessoa da equipe";
+  document.getElementById("avatar").textContent = ana ? "A" : "E";
+  render();
+};
+document.getElementById("simFalhaCarga").onchange = render;
+document.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => {
+  const p01 = S.projetos.find(p => p.id === "p01"), p02 = S.projetos.find(p => p.id === "p02");
+  const pa = p01.pautas[0];
+  if (b.dataset.ev === "cancelar") { pa.status = "Cancelada"; pa.data = d("2026-11-04"); toast("Pauta de 04/11 do PL 2417/2024 cancelada. A urgência por pauta saiu."); }
+  if (b.dataset.ev === "reagendar") { pa.status = "Agendada"; pa.data = d("2026-11-20"); toast(`Pauta reagendada para 20/11, fora da janela de urgência (até ${fmtC(somaDias(JANELA_FIM, -1))}).`); }
+  if (b.dataset.ev === "restaurar") { pa.status = "Agendada"; pa.data = d("2026-11-04"); toast("Pauta de 04/11 restaurada."); }
+  if (b.dataset.ev === "encerrar") {
+    const sf = p02.versoes.find(v => v.casa === "SF");
+    sf.encerrada = !sf.encerrada; sf.situacao = sf.encerrada ? "Arquivada" : "Aguardando designação do relator";
+    toast(sf.encerrada ? "Versão do Senado do PL 980/2023 arquivada: com as duas versões encerradas, o projeto vai para o histórico." : "Versão do Senado do PL 980/2023 reaberta: o projeto volta para a carteira ativa.");
+  }
+  render();
+});
+document.getElementById("simReset").onclick = () => { try { sessionStorage.removeItem("leg-carteira"); } catch { /* sem armazenamento */ } reset(); render(); toast("Dados fictícios reiniciados."); };
+document.getElementById("fab").onclick = abrirSugestoes;
+render();
+})();
+</script>

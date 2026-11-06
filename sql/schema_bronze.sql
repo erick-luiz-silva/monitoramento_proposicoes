@@ -2,6 +2,10 @@
 -- update/delete), preservando o histórico de payloads como a API os retornou.
 -- A chave primária é um id_bronze surrogate; id_proposicao é indexado, não único.
 
+-- unaccent: usada na gold (keywords do Senado sem acento); a produção já tem, a homologação/teste não.
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA extensions;
+
 CREATE SCHEMA IF NOT EXISTS bronze;
 
 CREATE TABLE IF NOT EXISTS bronze.proposicoes_json (
@@ -77,7 +81,9 @@ CREATE TABLE IF NOT EXISTS bronze.controle_execucao (
 -- Pautas já avisadas por e-mail, por dia de Brasília. O n8n ("Monitoramento de Proposições →
 -- Google Sheets") só manda a pauta que ainda não está aqui no dia e grava depois do envio:
 -- cada pauta sai uma vez por dia e as rodadas de pautas (10h/14h) avisam só as novas.
--- data_hora_inicio entra na chave para reavisar pauta remarcada. Duas execuções do n8n quase
+-- data_hora_inicio entra na chave para reavisar pauta remarcada, e status_alerta para reavisar a
+-- pauta que vira 'Adiada' no mesmo horário em que já tinha sido avisada como 'Agendado' (o fluxo
+-- antigo grava sem status: o padrão 'Agendado' o mantém compatível). Duas execuções do n8n quase
 -- simultâneas podem repetir uma pauta (risco aceito). Linhas com mais de 30 dias são apagadas
 -- pelo próprio n8n.
 CREATE TABLE IF NOT EXISTS bronze.alerta_pauta (
@@ -85,9 +91,24 @@ CREATE TABLE IF NOT EXISTS bronze.alerta_pauta (
     id_evento        BIGINT NOT NULL,
     id_proposicao    BIGINT NOT NULL,
     data_hora_inicio TIMESTAMP NOT NULL,
+    status_alerta    VARCHAR(30) NOT NULL DEFAULT 'Agendado',
     avisado_em       TIMESTAMP NOT NULL DEFAULT (now() AT TIME ZONE 'America/Sao_Paulo'),
-    PRIMARY KEY (dia, id_evento, id_proposicao, data_hora_inicio)
+    PRIMARY KEY (dia, id_evento, id_proposicao, data_hora_inicio, status_alerta)
 );
+-- Migração de bancos criados com a chave sem status (idempotente).
+ALTER TABLE bronze.alerta_pauta ADD COLUMN IF NOT EXISTS status_alerta VARCHAR(30) NOT NULL DEFAULT 'Agendado';
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint c
+        JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey)
+        WHERE c.conrelid = 'bronze.alerta_pauta'::regclass AND c.contype = 'p' AND a.attname = 'status_alerta'
+    ) THEN
+        ALTER TABLE bronze.alerta_pauta DROP CONSTRAINT IF EXISTS alerta_pauta_pkey;
+        ALTER TABLE bronze.alerta_pauta ADD PRIMARY KEY (dia, id_evento, id_proposicao, data_hora_inicio, status_alerta);
+    END IF;
+END
+$$;
 
 -- Senado (docs/superpowers/plans/2026-10-28-senado-fases-3-4.md). id_processo é o id nativo
 -- da API do Senado; a chave deslocada (1e9 + id) só existe da silver em diante.

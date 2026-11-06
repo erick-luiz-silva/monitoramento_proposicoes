@@ -75,9 +75,10 @@ INSERT INTO silver.proposicao_acompanhada (id_proposicao, origem, observacao) VA
 ON CONFLICT (id_proposicao) DO NOTHING;
 
 -- Versões do mesmo projeto que a API não liga (anotadas na planilha antiga):
--- PL 5851/2016 (Câmara) = PLC 10/2018 (Senado); PL 3047/2022 (Câmara) = PLS 302/2018 (Senado).
+-- PL 5851/2016 (Câmara) = PLC 10/2018 (Senado).
+-- PL 3047/2022 (Câmara) x PLS 302/2018 (Senado) NÃO é o mesmo projeto (decisão da Ana, 30/10/2026):
+-- sem vínculo manual entre eles.
 -- Sem FK: o processo do Senado pode ainda não estar na silver.
 INSERT INTO silver.proposicao_vinculo (id_proposicao_cd, id_proposicao_sf, origem) VALUES
-    (2092191, 1007364805, 'manual'),
-    (2344901, 1007403160, 'manual')
+    (2092191, 1007364805, 'manual')
 ON CONFLICT (id_proposicao_cd, id_proposicao_sf) DO NOTHING;
