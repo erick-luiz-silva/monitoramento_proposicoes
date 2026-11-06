@@ -44,7 +44,7 @@ jobs:
   pipeline:
     runs-on: ubuntu-latest
     environment: ${{ inputs.ambiente == 'homologacao' && 'homologacao' || 'DATABASE_URL' }}
-    timeout-minutes: 120
+    timeout-minutes: 180
     env:
       TZ: America/Sao_Paulo
       PYTHONUNBUFFERED: "1"
@@ -71,7 +71,7 @@ jobs:
         if: ${{ inputs.somente_notificar_n8n != true }}
         # Abaixo do timeout do job: estourar o tempo vira falha deste passo (e dispara
         # o aviso), em vez de cancelar o job inteiro em silêncio.
-        timeout-minutes: 110
+        timeout-minutes: 170
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
