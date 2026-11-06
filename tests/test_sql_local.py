@@ -404,6 +404,23 @@ class ContratosTests(_ComDados):
 
 
 @unittest.skipUnless(TEST_DATABASE_URL, "TEST_DATABASE_URL não definida")
+class LinksOficiaisTests(_ComDados):
+    def test_link_oficial_por_versao_nas_views_do_app(self):
+        # O app mostra o número como link para o site oficial em todas as listas (feedback F1).
+        self.cur.execute("""UPDATE silver.proposicao SET link_direto =
+            'https://www.camara.leg.br/propostas-legislativas/' || id_proposicao WHERE casa = 'CD'""")
+        self.atualizar_cache()
+        for view in ("contrato.vw_tramitacao", "contrato.vw_pauta",
+                     "contrato.vw_movimentacao_maior", "contrato.vw_inclusao"):
+            divergentes = self.contar(f"""SELECT count(*) FROM {view} x
+                JOIN contrato.vw_versao v USING (id_proposicao)
+                WHERE x.link_direto IS DISTINCT FROM v.link_direto""")
+            self.assertEqual(divergentes, 0, view)
+        for view in ("contrato.vw_tramitacao", "contrato.vw_movimentacao_maior"):
+            self.assertGreater(self.contar(f"SELECT count(*) FROM {view} WHERE link_direto IS NOT NULL"), 0, view)
+
+
+@unittest.skipUnless(TEST_DATABASE_URL, "TEST_DATABASE_URL não definida")
 class ArquivamentoTests(_ComDados):
     def test_502_encerra_e_640_devolve_a_carteira(self):
         self.decidir(uuid_teste(41), [900041], "SIM", True)

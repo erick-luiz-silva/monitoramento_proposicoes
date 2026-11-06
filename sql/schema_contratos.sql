@@ -156,7 +156,8 @@ SELECT v.chave_agrupamento, v.uuid_projeto, t.id_proposicao, t.sequencia, t.data
        c.id_proposicao IS NOT NULL AS confirmada, c.confirmada_por_nome, c.confirmada_em,
        coalesce(t.data_hora > (greatest(
            (SELECT p.valor::timestamptz FROM gestao.parametro p WHERE p.chave = 'data_implantacao'),
-           d.prioridade_desde) AT TIME ZONE 'America/Sao_Paulo'), false) AS apos_referencia
+           d.prioridade_desde) AT TIME ZONE 'America/Sao_Paulo'), false) AS apos_referencia,
+       v.link_direto, v.casa
 FROM contrato.vw_versao v
 JOIN silver.tramitacao t ON t.id_proposicao = v.id_proposicao
 LEFT JOIN gestao.decisao_projeto d ON d.uuid_projeto = v.uuid_projeto
@@ -433,7 +434,8 @@ SELECT
     t.nome_orgao,
     t.descricao_situacao,
     t.descricao_tramitacao,
-    t.despacho
+    t.despacho,
+    v.link_direto
 FROM api_cache.vw_tramitacoes t
 JOIN contrato.vw_versao v ON v.id_proposicao = t.id_proposicao;
 
@@ -468,7 +470,9 @@ SELECT
         WHEN pm.data_hora_inicio > (now() AT TIME ZONE 'America/Sao_Paulo') THEN 'Agendado'
         WHEN pm.votado THEN 'Votado'
         ELSE 'Encerrado sem votação'
-    END AS status_alerta
+    END AS status_alerta,
+    v.link_direto,
+    v.identificacao_casa
 FROM api_cache.vw_pautas_monitoradas pm
 JOIN contrato.vw_versao v ON v.id_proposicao = pm.id_proposicao;
 
@@ -486,10 +490,12 @@ SELECT id, uuid_projeto, operacao, diferencas, origem, ator_id, ator_nome, em, r
 FROM gestao.historico_alteracao;
 
 CREATE VIEW contrato.vw_inclusao AS
-SELECT id, entrada, chave_entrada, casa, id_proposicao, estado, etapa, tentativas,
-       proxima_tentativa_em, erro, email_estado, solicitante_id, solicitante_nome,
-       criado_em, atualizado_em, ja_monitorada
-FROM gestao.inclusao_manual;
+SELECT i.id, i.entrada, i.chave_entrada, i.casa, i.id_proposicao, i.estado, i.etapa, i.tentativas,
+       i.proxima_tentativa_em, i.erro, i.email_estado, i.solicitante_id, i.solicitante_nome,
+       i.criado_em, i.atualizado_em, i.ja_monitorada,
+       v.link_direto, v.identificacao_casa  -- da versão resolvida, quando já monitorada
+FROM gestao.inclusao_manual i
+LEFT JOIN contrato.vw_versao v ON v.id_proposicao = i.id_proposicao;
 
 CREATE VIEW contrato.vw_frescor AS
 WITH carga AS (

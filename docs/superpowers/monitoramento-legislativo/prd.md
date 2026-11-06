@@ -86,7 +86,7 @@ Usar o login existente da plataforma. Validar identidade, perfil ativo e capacid
 
 ### RF03 — Carteira e filas
 
-Busca por identificação ou ementa. Filtros visíveis: prioridade e posição. Situação, órgão, palavra-chave e casa ficam em "Mais filtros", recolhido. Colunas: identificação (com chips de atenção só quando houver), trecho da ementa, posição, órgão, última movimentação, ação e link oficial.
+Busca por identificação ou ementa. Filtros visíveis: prioridade e posição. Situação, órgão, palavra-chave e casa ficam em "Mais filtros", recolhido. Colunas: identificação (com chips de atenção só quando houver), trecho da ementa, posição, órgão, última movimentação e ação.
 
 **Abas:** Ativas e Histórico. No Histórico, o motivo (encerrado, marcado NÃO, parado há mais de 12 meses, sem data) aparece na própria linha.
 
@@ -101,6 +101,8 @@ Explicações de regra ficam em dica nas abas, não em texto fixo.
 **Sem tramitação carregada:** a última movimentação aparece como "Sem data", nunca como uma data artificial. Prioridade sem data continua na carteira ativa; não prioritária sem data vai para o histórico.
 
 **Identificação:** é um link de verdade, que abre o projeto pelo teclado e em outra aba.
+
+**Link oficial (feedback da Ana, desenho aprovado pelo Erick em 06/11/2026):** em todas as telas, colado a cada versão (Câmara e Senado) há um ↗ que abre a página oficial daquela versão em nova aba. O número continua abrindo a ficha. A coluna separada de link oficial saiu da Carteira; o CSV mantém o link.
 
 **Exportação:** baixa um CSV com o mesmo recorte da lista (aba e filtros), sem parecer nem observações.
 
