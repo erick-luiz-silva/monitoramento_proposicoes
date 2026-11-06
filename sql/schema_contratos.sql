@@ -157,7 +157,7 @@ SELECT v.chave_agrupamento, v.uuid_projeto, t.id_proposicao, t.sequencia, t.data
        coalesce(t.data_hora > (greatest(
            (SELECT p.valor::timestamptz FROM gestao.parametro p WHERE p.chave = 'data_implantacao'),
            d.prioridade_desde) AT TIME ZONE 'America/Sao_Paulo'), false) AS apos_referencia,
-       v.link_direto
+       v.link_direto, v.casa
 FROM contrato.vw_versao v
 JOIN silver.tramitacao t ON t.id_proposicao = v.id_proposicao
 LEFT JOIN gestao.decisao_projeto d ON d.uuid_projeto = v.uuid_projeto
@@ -471,7 +471,8 @@ SELECT
         WHEN pm.votado THEN 'Votado'
         ELSE 'Encerrado sem votação'
     END AS status_alerta,
-    v.link_direto
+    v.link_direto,
+    v.identificacao_casa
 FROM api_cache.vw_pautas_monitoradas pm
 JOIN contrato.vw_versao v ON v.id_proposicao = pm.id_proposicao;
 
@@ -492,7 +493,7 @@ CREATE VIEW contrato.vw_inclusao AS
 SELECT i.id, i.entrada, i.chave_entrada, i.casa, i.id_proposicao, i.estado, i.etapa, i.tentativas,
        i.proxima_tentativa_em, i.erro, i.email_estado, i.solicitante_id, i.solicitante_nome,
        i.criado_em, i.atualizado_em, i.ja_monitorada,
-       v.link_direto  -- link oficial da versão resolvida, quando já monitorada
+       v.link_direto, v.identificacao_casa  -- da versão resolvida, quando já monitorada
 FROM gestao.inclusao_manual i
 LEFT JOIN contrato.vw_versao v ON v.id_proposicao = i.id_proposicao;
 
