@@ -389,6 +389,7 @@ class ContratosTests(_ComDados):
         self.assertEqual((resultado["relevancia"], resultado["revisao"], resultado["criado"]), ("SIM", 1, True))
         self.assertEqual(self.projeto(900031, "pendente_avaliacao", "em_carteira"), (False, True))
 
+
     def test_frescor(self):
         self.cur.execute("INSERT INTO bronze.controle_execucao (tipo_carga, data_inicio_janela, data_fim_janela, executado_em) VALUES ('incremental', current_date, current_date, now() + interval '1 minute'), ('incremental_senado', current_date, current_date, now())")
         self.cur.execute("SELECT falha_diaria, falha_senado, falha_api FROM contrato.vw_frescor")
@@ -400,6 +401,222 @@ class ContratosTests(_ComDados):
         self.assertEqual(self.cur.fetchone(), (False, True))
         self.cur.execute("SELECT ultima_atualizacao_api IS NOT NULL FROM api.vw_ultima_carga")
         self.assertTrue(self.cur.fetchone()[0])
+
+
+@unittest.skipUnless(TEST_DATABASE_URL, "TEST_DATABASE_URL não definida")
+class ArquivamentoTests(_ComDados):
+    def test_502_encerra_e_640_devolve_a_carteira(self):
+        self.decidir(uuid_teste(41), [900041], "SIM", True)
+        self.decidir(uuid_teste(42), [900042], "SIM")
+        self.assertEqual(self.projeto(900041, "encerrado", "em_carteira", "motivo_historico"),
+                         (True, False, "encerrado"))
+        self.assertEqual(self.projeto(900042, "encerrado", "em_carteira"), (False, True))
+        quantidade = self.contar("SELECT count(*) FROM api_cache.vw_monitoramento")
+        self.cur.execute("""INSERT INTO silver.tramitacao
+            (id_proposicao, sequencia, casa, data_hora, cod_tipo_tramitacao, descricao_tramitacao)
+            SELECT 900041, 2, 'CD', data_hora + interval '1 hour', '640', 'Desarquivamento'
+            FROM silver.tramitacao WHERE id_proposicao = 900041 AND sequencia = 1""")
+        self.atualizar_cache()
+        self.assertEqual(self.projeto(900041, "encerrado", "em_carteira"), (False, True))
+        self.assertEqual(self.contar("SELECT count(*) FROM api_cache.vw_monitoramento"), quantidade)
+        # O arquivamento antigo continua registrado como movimento maior não confirmado
+        # (se entra na fila depende da referência do projeto, coberta nos testes de movimentações).
+        self.assertEqual(self.contar("""SELECT count(*) FROM contrato.vw_movimentacao_maior
+            WHERE id_proposicao = 900041 AND sequencia = 1 AND NOT confirmada"""), 1)
+
+    def test_versao_ativa_na_outra_casa_e_remessa_mantem_projeto_ativo(self):
+        self.decidir(uuid_teste(43), [900043, 1990000043], "SIM")
+        self.decidir(uuid_teste(44), [900044], "SIM")
+        for id_prop in (900043, 900044):
+            self.assertEqual(self.projeto(id_prop, "encerrado", "em_carteira"), (False, True), id_prop)
+        self.cur.execute("SELECT tipo_encerramento FROM contrato.vw_versao WHERE id_proposicao = 900044")
+        self.assertEqual(self.cur.fetchone()[0], "remessa")
+
+    def test_senado_usa_texto_da_ultima_tramitacao_sem_falsos_positivos(self):
+        casos = ((1990000041, True), (1990000042, False), (1990000044, False),
+                 (1990000045, True), (1990000046, False))
+        for numero, (id_prop, encerrado) in enumerate(casos, 101):
+            with self.subTest(id_proposicao=id_prop):
+                self.decidir(uuid_teste(numero), [id_prop], "SIM")
+                self.assertEqual(self.projeto(id_prop, "encerrado", "em_carteira"),
+                                 (encerrado, not encerrado))
+        self.cur.execute("""INSERT INTO silver.tramitacao
+            (id_proposicao, sequencia, casa, data_hora, descricao_tramitacao)
+            SELECT 1990000042, 2, 'SF', data_hora + interval '1 hour', 'ARQUÍVADO ao final'
+            FROM silver.tramitacao WHERE id_proposicao = 1990000042 AND sequencia = 1""")
+        self.atualizar_cache()
+        self.assertTrue(self.projeto(1990000042, "encerrado"))
+        self.cur.execute("""INSERT INTO silver.tramitacao
+            (id_proposicao, sequencia, casa, data_hora, descricao_tramitacao)
+            SELECT 1990000042, 3, 'SF', data_hora, 'Desarquivada'
+            FROM silver.tramitacao WHERE id_proposicao = 1990000042 AND sequencia = 2""")
+        self.atualizar_cache()
+        self.assertFalse(self.projeto(1990000042, "encerrado"))
+
+    def test_encerrada_nao_fica_pendente_nem_some_do_cache(self):
+        self.assertEqual(self.projeto(900041, "em_radar", "encerrado", "pendente_avaliacao"),
+                         (True, True, False))
+        self.assertEqual(self.contar("SELECT count(*) FROM api_cache.vw_monitoramento"),
+                         self.contar("SELECT count(*) FROM gold.vw_monitoramento"))
+        self.assertEqual(self.contar("SELECT count(*) FROM api_cache.vw_monitoramento WHERE id_proposicao = 900041"), 1)
+        self.cur.execute("UPDATE silver.proposicao SET cod_situacao = 923 WHERE id_proposicao = 900031")
+        self.atualizar_cache()
+        self.assertEqual(self.projeto(900031, "encerrado", "pendente_avaliacao"), (True, False))
+
+    def test_ultima_tramitacao_ordena_por_data_e_desempata_por_sequencia(self):
+        # Sequência maior com data antiga não supera a 640; NULL também não supera data conhecida.
+        self.cur.execute("""INSERT INTO silver.tramitacao
+            (id_proposicao, sequencia, casa, data_hora, cod_tipo_tramitacao, descricao_tramitacao)
+            SELECT 900042, 3, 'CD', data_hora - interval '1 day', '502', 'Arquivamento antigo'
+            FROM silver.tramitacao WHERE id_proposicao = 900042 AND sequencia = 2""")
+        self.atualizar_cache()
+        self.assertFalse(self.projeto(900042, "encerrado"))
+        self.cur.execute("""INSERT INTO silver.tramitacao
+            (id_proposicao, sequencia, casa, data_hora, cod_tipo_tramitacao, descricao_tramitacao)
+            SELECT 900042, 4, 'CD', data_hora, '502', 'Novo arquivamento'
+            FROM silver.tramitacao WHERE id_proposicao = 900042 AND sequencia = 2""")
+        self.cur.execute("""INSERT INTO silver.tramitacao
+            (id_proposicao, sequencia, casa, cod_tipo_tramitacao)
+            VALUES (900042, 5, 'CD', '640')""")
+        self.atualizar_cache()
+        self.assertTrue(self.projeto(900042, "encerrado"))
+        self.cur.execute("""SELECT u.cod_tipo_tramitacao, u.descricao_tramitacao,
+                   u.data_hora = t.data_hora, u.arquivada
+            FROM api_cache.vw_ultima_tramitacao u JOIN silver.tramitacao t USING (id_proposicao)
+            WHERE u.id_proposicao = 900042 AND t.sequencia = 4""")
+        self.assertEqual(self.cur.fetchall(), [("502", "Novo arquivamento", True, True)])
+        # O código novo foi acrescentado ao final da gold, preservando as colunas existentes.
+        self.cur.execute("SELECT * FROM gold.vw_tramitacoes LIMIT 0")
+        self.assertEqual(self.cur.description[-1].name, "cod_tipo_tramitacao")
+        self.assertIsNone(self.contar("SELECT to_regclass('api.vw_ultima_tramitacao')"))
+
+    def test_projecao_n8n_privada_com_estado_do_projeto(self):
+        import psycopg2
+
+        self.decidir(uuid_teste(43), [900043, 1990000043], "SIM")
+        self.conn.commit()
+        self.cur.execute("SET ROLE legislativo_n8n_leitura")
+        self.cur.execute("""SELECT id_proposicao, chave_agrupamento, uuid_projeto::text,
+                   encerrado, data_ultima_tramitacao IS NOT NULL
+            FROM contrato.vw_encerramento_n8n WHERE id_proposicao IN (900043, 1990000043)
+            ORDER BY id_proposicao""")
+        self.assertEqual(self.cur.fetchall(), [
+            (900043, uuid_teste(43), uuid_teste(43), False, True),
+            (1990000043, uuid_teste(43), uuid_teste(43), False, True)])
+        self.cur.execute("RESET ROLE")
+        for papel in ("anon", "authenticated", "legislativo_app", "legislativo_n8n"):
+            self.assertFalse(self.contar("SELECT has_table_privilege(%s, 'contrato.vw_encerramento_n8n', 'SELECT')", papel))
+            self.cur.execute(f"SET ROLE {papel}")
+            with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+                self.cur.execute("SELECT * FROM contrato.vw_encerramento_n8n")
+            self.conn.rollback()
+
+
+@unittest.skipUnless(TEST_DATABASE_URL, "TEST_DATABASE_URL não definida")
+class SnapshotCarteiraTests(_ComDados):
+    def foto(self):
+        self.cur.execute("""SELECT chave_agrupamento, uuid_projeto::text, em_carteira, motivo_historico
+            FROM contrato.vw_snapshot_carteira
+            WHERE dia = (now() AT TIME ZONE 'America/Sao_Paulo')::date ORDER BY 1""")
+        return self.cur.fetchall()
+
+    def test_dia_e_de_brasilia_independente_do_fuso_da_sessao(self):
+        self.cur.execute("SET TIME ZONE 'Pacific/Kiritimati'")
+        self.chamar("gestao.gravar_snapshot_carteira")
+        self.cur.execute("""SELECT DISTINCT dia, dia = (now() AT TIME ZONE 'America/Sao_Paulo')::date
+            FROM gestao.snapshot_carteira""")
+        linhas = self.cur.fetchall()
+        self.assertEqual(len(linhas), 1)
+        self.assertTrue(linhas[0][1])
+
+    def test_foto_repete_sem_duplicar_e_reflete_o_ultimo_estado(self):
+        self.decidir(uuid_teste(2), [900002], "SIM")
+        self.chamar("gestao.gravar_snapshot_carteira")
+        primeira = self.foto()
+        self.assertIn(("k900032", None, True, None), primeira)  # acompanhada sem UUID
+        self.assertIn((uuid_teste(2), uuid_teste(2), False, "parado há mais de 12 meses"), primeira)
+        self.chamar("gestao.gravar_snapshot_carteira")
+        self.assertEqual(self.foto(), primeira)
+        self.cur.execute("UPDATE gestao.decisao_projeto SET prioridade = true WHERE uuid_projeto = %s", (uuid_teste(2),))
+        self.chamar("gestao.gravar_snapshot_carteira")
+        self.assertEqual(len(self.foto()), len(primeira))
+        self.assertIn((uuid_teste(2), uuid_teste(2), True, None), self.foto())
+        self.cur.execute("""SELECT chave_agrupamento, uuid_projeto::text, em_carteira, motivo_historico
+            FROM contrato.vw_projeto ORDER BY 1""")
+        atual = self.cur.fetchall()
+        self.assertEqual(self.foto(), atual)
+
+    def test_substitui_foto_inteira_apos_reconciliar_e_preserva_dias_anteriores(self):
+        self.decidir(uuid_teste(11), [900011], "SIM")
+        self.decidir(uuid_teste(12), [900012], "SIM")
+        self.cur.execute("""INSERT INTO gestao.snapshot_carteira (dia, chave_agrupamento, em_carteira)
+            VALUES ((now() AT TIME ZONE 'America/Sao_Paulo')::date - 1, 'antigo', false)""")
+        self.chamar("gestao.gravar_snapshot_carteira")
+        self.assertIn(uuid_teste(11), [r[0] for r in self.foto()])
+        self.cur.execute("UPDATE gestao.projeto SET substituido_por = %s WHERE uuid = %s", (uuid_teste(12), uuid_teste(11)))
+        self.chamar("gestao.gravar_snapshot_carteira")
+        self.assertNotIn(uuid_teste(11), [r[0] for r in self.foto()])
+        self.assertEqual([r[0] for r in self.foto()].count(uuid_teste(12)), 1)
+        self.assertEqual(self.contar("SELECT count(*) FROM gestao.snapshot_carteira WHERE chave_agrupamento = 'antigo'"), 1)
+
+    def test_dois_setups_preservam_tabela_foto_e_funcao(self):
+        from setup_db import aplicar_schemas
+
+        self.chamar("gestao.gravar_snapshot_carteira")
+        primeira = self.foto()
+        oid = self.contar("SELECT 'gestao.snapshot_carteira'::regclass::oid")
+        self.conn.commit()
+        for _ in range(2):
+            aplicar_schemas(self.cur)
+            self.atualizar_cache()
+            self.conn.commit()
+            self.assertEqual(self.contar("SELECT 'gestao.snapshot_carteira'::regclass::oid"), oid)
+            self.assertEqual(self.foto(), primeira)
+            self.chamar("gestao.gravar_snapshot_carteira")
+            self.assertEqual(self.foto(), primeira)
+
+    def test_falha_no_insert_reverte_tambem_o_delete(self):
+        import psycopg2
+
+        self.chamar("gestao.gravar_snapshot_carteira")
+        primeira = self.foto()
+        # Simula falha de escrita depois do DELETE, preservando as linhas já existentes.
+        self.cur.execute("""ALTER TABLE gestao.snapshot_carteira ADD CONSTRAINT falha_foto
+            CHECK (chave_agrupamento <> 'k900032') NOT VALID""")
+        self.cur.execute("SAVEPOINT antes_da_foto")
+        with self.assertRaises(psycopg2.errors.CheckViolation):
+            self.chamar("gestao.gravar_snapshot_carteira")
+        self.cur.execute("ROLLBACK TO SAVEPOINT antes_da_foto")
+        self.assertEqual(self.foto(), primeira)
+
+    def test_permissoes_da_foto(self):
+        import psycopg2
+
+        assinatura = "gestao.gravar_snapshot_carteira()"
+        self.assertTrue(self.contar("SELECT has_function_privilege(current_user, %s, 'EXECUTE')", assinatura))
+        self.cur.execute("SET ROLE gestao_dono")
+        self.chamar("gestao.gravar_snapshot_carteira")  # dono tem SELECT/DELETE/INSERT necessários
+        self.cur.execute("RESET ROLE")
+        self.cur.execute("SET ROLE legislativo_app")
+        self.cur.execute("SELECT count(*) FROM contrato.vw_snapshot_carteira")
+        self.assertGreater(self.cur.fetchone()[0], 0)
+        self.cur.execute("RESET ROLE")
+        self.conn.commit()
+        for papel in ("anon", "authenticated", "legislativo_app", "legislativo_n8n", "legislativo_n8n_leitura"):
+            self.assertFalse(self.contar("SELECT has_function_privilege(%s, %s, 'EXECUTE')", papel, assinatura))
+            for privilegio in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+                self.assertFalse(self.contar("SELECT has_table_privilege(%s, 'gestao.snapshot_carteira', %s)", papel, privilegio))
+            self.cur.execute(f"SET ROLE {papel}")
+            with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+                self.chamar("gestao.gravar_snapshot_carteira")
+            self.conn.rollback()
+        # Objetos novos desta fase: nada visível pela chave pública (anon/authenticated).
+        for papel in ("anon", "authenticated"):
+            for objeto in ("contrato.vw_snapshot_carteira", "contrato.vw_encerramento_n8n",
+                           "api_cache.vw_ultima_tramitacao"):
+                self.assertFalse(self.contar("SELECT has_table_privilege(%s, %s, 'SELECT')", papel, objeto),
+                                 (papel, objeto))
+
 
 
 @unittest.skipUnless(TEST_DATABASE_URL, "TEST_DATABASE_URL não definida")
@@ -839,7 +1056,8 @@ class PrivilegiosContratosTests(_ComDados):
             ORDER BY 1""")
         esperado = sorted(
             [f"gold.{v}:SELECT" for v in ("vw_grupo_projeto", "vw_monitoramento", "vw_pautas_monitoradas", "vw_movimentacoes", "vw_audiencias_de_interesse")]
-            + ["api.vw_painel_decisoes:SELECT", "silver.evento:SELECT", "silver.proposicao_acompanhada:SELECT",
+            + ["api.vw_painel_decisoes:SELECT", "contrato.vw_encerramento_n8n:SELECT",
+               "silver.evento:SELECT", "silver.proposicao_acompanhada:SELECT",
                "bronze.alerta_pauta:SELECT", "bronze.alerta_pauta:INSERT", "bronze.alerta_pauta:DELETE"])
         self.assertEqual([r[0] for r in self.cur.fetchall()], esperado)
         self.cur.execute("""SELECT table_schema || '.' || table_name || ':' || column_name

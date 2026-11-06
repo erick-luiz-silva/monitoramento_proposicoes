@@ -20,6 +20,7 @@ import load_bronze
 import load_dim_deputado
 import load_eventos
 import load_silver
+import load_snapshot
 import pipeline_inclusao
 import pipeline_pautas
 import setup_db
@@ -63,6 +64,21 @@ class FakeConnection:
 
 
 class LoaderTests(unittest.TestCase):
+    def test_foto_confirma_em_transacao_propria_e_nao_confirma_apos_falha(self):
+        conn = MagicMock()
+        db = conn.__enter__.return_value
+        cur = db.cursor.return_value.__enter__.return_value
+        with patch.object(load_snapshot, "get_connection", return_value=conn):
+            load_snapshot.gravar_snapshot_carteira()
+        cur.execute.assert_called_once_with("SELECT gestao.gravar_snapshot_carteira();")
+        db.commit.assert_called_once()
+        db.commit.reset_mock()
+        cur.execute.side_effect = RuntimeError("foto indisponível")
+        with patch.object(load_snapshot, "get_connection", return_value=conn):
+            with self.assertRaisesRegex(RuntimeError, "foto indisponível"):
+                load_snapshot.gravar_snapshot_carteira()
+        db.commit.assert_not_called()
+
     def test_bronze_recovers_after_sql_failure_and_preserves_other_endpoints(self):
         conn = FakeConnection("bronze.autores_json")
         with ExitStack() as stack:
@@ -161,6 +177,9 @@ class IncrementalTests(unittest.TestCase):
         self.api = self.stack.enter_context(patch.object(
             extract_incremental, "atualizar_api", side_effect=lambda: self.events.append("api")
         ))
+        self.snapshot = self.stack.enter_context(patch.object(
+            extract_incremental, "gravar_snapshot_carteira", side_effect=lambda: self.events.append("snapshot")
+        ))
         self.senado = self.stack.enter_context(patch.object(
             extract_incremental, "executar_carga_senado", side_effect=lambda: self.events.append("senado")
         ))
@@ -192,7 +211,7 @@ class IncrementalTests(unittest.TestCase):
         extract_incremental.executar_carga_incremental()
         self.assertEqual(self.events, [
             "executar_carga_eventos", "executar_transformacao_silver", "carregar_dim_deputado",
-            "carregar_dim_orgao", "checkpoint", "checkpoint", "checkpoint", "senado", "api"
+            "carregar_dim_orgao", "checkpoint", "checkpoint", "checkpoint", "senado", "api", "snapshot"
         ])
         self.aviso.assert_not_called()
         self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
@@ -202,7 +221,7 @@ class IncrementalTests(unittest.TestCase):
         self.senado.side_effect = RuntimeError("HTTP 503")
         extract_incremental.executar_carga_incremental()           # não levanta
         self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
-        self.assertEqual(self.events[-1], "api")
+        self.assertEqual(self.events[-1], "snapshot")
         self.api.assert_called_once()
         self.assertIn("HTTP 503", self.aviso.call_args.args[0])
 
@@ -224,6 +243,27 @@ class IncrementalTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "schema api falhou: lock timeout"):
             extract_incremental.executar_carga_incremental()
         self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
+        self.snapshot.assert_not_called()
+
+    def test_foto_falha_no_fim_sem_desfazer_janelas(self):
+        self.snapshot.side_effect = RuntimeError("foto indisponível")
+        with self.assertRaisesRegex(RuntimeError, "foto diária da carteira falhou: foto indisponível"):
+            extract_incremental.executar_carga_incremental()
+        self.api.assert_called_once()
+        self.snapshot.assert_called_once()
+        self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
+
+    def test_foto_roda_apos_cache_mesmo_com_reconciliacao_incompleta(self):
+        self.reconciliacao.side_effect = RuntimeError("reconciliação incompleta")
+        with self.assertRaisesRegex(RuntimeError, "conciliação"):
+            extract_incremental.executar_carga_incremental()
+        self.assertEqual(self.events[-2:], ["api", "snapshot"])
+
+    def test_foto_nao_roda_quando_carga_bloqueia_janela(self):
+        self.bronze.return_value = {"proposicoes_json": "erro: timeout"}
+        with self.assertRaises(RuntimeError):
+            extract_incremental.executar_carga_incremental()
+        self.snapshot.assert_not_called()
 
     def test_schema_api_atualiza_mesmo_com_reconciliacao_falhando(self):
         self.reconciliacao.side_effect = RuntimeError("API fora do ar")
@@ -539,7 +579,9 @@ class PautaTests(unittest.TestCase):
         self.stack.enter_context(patch.object(pipeline_pautas, "limpar_aviso_senado"))
 
     def test_refreshes_events_and_relatores_without_advancing_propositions(self):
-        pipeline_pautas.executar_pipeline_pautas()
+        with patch.object(load_snapshot, "get_connection") as conexao_foto:
+            pipeline_pautas.executar_pipeline_pautas()
+        conexao_foto.assert_not_called()
         self.stages["executar_carga_eventos"].assert_called_once_with(date(2026, 9, 29), date(2026, 10, 20))
         self.stages["carregar_dim_deputado"].assert_called_once_with(somente_relatores=True, seletivo=True)
         register = self.stages["registrar_execucao"]
@@ -607,8 +649,9 @@ class InclusaoTests(unittest.TestCase):
             pipeline_inclusao, "carregar_dim_deputado"
         ) as dep, patch.object(pipeline_inclusao, "carregar_dim_orgao") as orgao, patch.object(
             pipeline_inclusao, "atualizar_api"
-        ) as api:
+        ) as api, patch.object(load_snapshot, "get_connection") as conexao_foto:
             pipeline_inclusao.executar_pipeline_inclusao()
+        conexao_foto.assert_not_called()
         api.assert_called_once()
         carregar.assert_called_once_with([2], levantar_erro=False)
         silver.assert_called_once()
@@ -706,7 +749,8 @@ class GoldSqlTests(unittest.TestCase):
         cache = re.findall(r"CREATE MATERIALIZED VIEW api_cache\.(\w+)", sql)
         self.assertEqual(sorted(cache), sorted(load_api.MATERIALIZADAS))
         # vw_ultima_carga é a única sem cache: lê bronze.controle_execucao direto
-        self.assertEqual(sorted(re.findall(r"CREATE VIEW api\.(\w+)", sql)), sorted(cache + ["vw_ultima_carga"]))
+        publicas = [v for v in cache if v != "vw_ultima_tramitacao"]
+        self.assertEqual(sorted(re.findall(r"CREATE VIEW api\.(\w+)", sql)), sorted(publicas + ["vw_ultima_carga"]))
         # índice único em todas: exigido pelo REFRESH ... CONCURRENTLY
         self.assertEqual(sorted(re.findall(r"CREATE UNIQUE INDEX ON api_cache\.(\w+)", sql)), sorted(cache))
         # nada que dependa do relógio congelado no cache
@@ -719,6 +763,7 @@ class GoldSqlTests(unittest.TestCase):
         self.assertRegex(sql, r"ALTER DEFAULT PRIVILEGES[^;]*IN SCHEMA gold\s+REVOKE INSERT[^;]*FROM anon")
         # tramitações filtradas pelo cache, atualizado antes na mesma transação
         self.assertLess(load_api.MATERIALIZADAS.index("vw_monitoramento"), load_api.MATERIALIZADAS.index("vw_tramitacoes"))
+        self.assertLess(load_api.MATERIALIZADAS.index("vw_tramitacoes"), load_api.MATERIALIZADAS.index("vw_ultima_tramitacao"))
 
     def test_relogio_em_horario_de_brasilia(self):
         # sessão UTC × horários da Câmara sem fuso: now()/CURRENT_DATE puros erram 3 h
@@ -782,7 +827,8 @@ class GoldSqlTests(unittest.TestCase):
         self.assertIn("GRANT SELECT ON api.vw_painel_decisoes TO anon", sql)
         # api = views finas do cache + vw_ultima_carga + a projeção, e nada mais
         api = re.findall(r"CREATE VIEW api\.(\w+)", self.sql_sem_comentarios("schema_api.sql") + sql)
-        self.assertEqual(sorted(api), sorted(list(load_api.MATERIALIZADAS) + ["vw_ultima_carga", "vw_painel_decisoes"]))
+        publicas = [v for v in load_api.MATERIALIZADAS if v != "vw_ultima_tramitacao"]
+        self.assertEqual(sorted(api), sorted(publicas + ["vw_ultima_carga", "vw_painel_decisoes"]))
 
     def test_so_a_projecao_le_gestao(self):
         # nada em api/api_cache/gold lê gestao, exceto a projeção do painel

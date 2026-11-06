@@ -152,7 +152,8 @@ SELECT
     t.descricao_tramitacao,
     t.despacho,
     orgao.nome AS nome_orgao,
-    t.casa
+    t.casa,
+    t.cod_tipo_tramitacao
 FROM silver.tramitacao t
 JOIN silver.proposicao p ON p.id_proposicao = t.id_proposicao
 LEFT JOIN silver.dim_orgao orgao ON orgao.id_orgao = t.id_orgao

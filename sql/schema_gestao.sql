@@ -1,9 +1,20 @@
 -- Schema gestao: decisões humanas persistentes do sistema /legislativo (PRD RN02, RN03, RN09).
 -- NUNCA é derrubado: só CREATE ... IF NOT EXISTS e, na evolução, ALTER TABLE ... ADD COLUMN IF NOT EXISTS.
--- O pipeline não lê nem grava aqui. Views de contrato e funções de negócio vêm em outra etapa.
+-- O pipeline grava só a foto diária por função. Views de contrato e funções vêm em outra etapa.
 -- Sem acesso para anon/authenticated (Data API do Supabase); o acesso da aplicação é concedido depois.
 
 CREATE SCHEMA IF NOT EXISTS gestao;
+
+-- Foto histórica: a chave admite acompanhadas sem UUID e não depende de schemas recriados.
+CREATE TABLE IF NOT EXISTS gestao.snapshot_carteira (
+    dia                 DATE NOT NULL,
+    chave_agrupamento   TEXT NOT NULL,
+    uuid_projeto        UUID,
+    em_carteira         BOOLEAN NOT NULL,
+    motivo_historico    TEXT,
+    gravado_em          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (dia, chave_agrupamento)
+);
 
 -- Identidade estável da unidade de decisão. Nasce só com decisão, inclusão ou acompanhamento.
 CREATE TABLE IF NOT EXISTS gestao.projeto (
