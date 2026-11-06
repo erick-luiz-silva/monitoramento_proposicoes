@@ -141,3 +141,25 @@ Num worktree fora do clone principal, o filtro `segredos-pbi` não encontra `BI/
 **Secret `DATABASE_URL`:** a troca é manual pelo Erick (Settings → Environments → `DATABASE_URL`); a URL antiga fica guardada fora do repositório para a volta. Tempo medido no ensaio pelo Erick no environment `homologacao`: _a preencher_.
 
 **E-mails de teste:** todo e-mail disparado em teste ou na carga de verificação vai só para abcsdata@abcsagro.com.br (decisão do Erick, 06/11). No B6 o `DyzR…` é publicado com destinatários = Erick; os destinatários da Ana entram no B9, depois do B8 verde.
+
+## Roteiro final da janela (Fase B, 06/11/2026, sem Power BI)
+
+Fonte: plano de execução de 06/11 (Tarefa 4 do plano mestre com as correções da revisão alethe). Nenhum passo roda sem o "pode" do Erick naquele momento; todo comando de escrita confere `postgres.<ref>` antes.
+
+**Achado da Fase A (06/11):** as cargas diárias de 05/11 e 06/11 na produção atual **falharam no `dim_deputado`** (10 deputados com `Read timed out` na API da Câmara, após ~1h40 de job; bronze, eventos e silver concluíram, janela não avançou). Às 12h os mesmos ids respondiam em < 1 s. Risco direto no B8: a carga de verificação pode falhar pelo mesmo motivo. Como o B8 é o ponto a partir do qual se corrige para frente, uma falha **só no `dim_deputado`** (bronze/silver ok) não justifica reverter: repetir `modo=completo` (a janela não avançou) ou rodar `load_dim_deputado` à parte e então `modo=pautas`. API do Senado em timeout desde 30/10: carga segue com o aviso de "Senado não atualizado".
+
+| # | Passo | Conferência |
+|---|---|---|
+| B0 | `importar_decisoes.py` (relatório) contra o banco novo | 0 conflito; 360/372/360 (Fase A, 06/11 às 12h: igual) |
+| B1 | Despublicar Agendador `0sieqPDvsqoZcs31` e `23CyodhPlORNJ4xS`, anotar `versionId`; `gh run list` sem `in_progress`/`queued` (duas leituras); planilha protegida (Erick/Ana) | nenhum job pendente |
+| B2 | Sequência 1–7 acima (paridade, contagens, dump, `TRUNCATE`+restore, vínculo, `dim_keyword`); `gestao`: confirmações pendentes vazias | contagens destino = origem |
+| B3 | `setup_db.py` no banco novo; sondagem; HTTP anônimo em `gestao`/`contrato` negado | 0 divergência |
+| B3b | `gh pr merge 13 --merge`; `git tag legislativo-entrega-1-prod` + push só da tag; `ambiente` padrão `producao` | CI da `main` verde |
+| B4 | importador: relatório, `--aplicar`, `--aplicar` | 0 conflito; 2º não grava; totais = `gestao.decisao_projeto` |
+| B5 | `UPDATE gestao.parametro SET valor = clock_timestamp()::text WHERE chave = 'data_implantacao' AND valor IS NULL` | 1 linha; anotar instante |
+| B6 | `DyzR…`: 7 credenciais Postgres → "Legislativo produção (legislativo_n8n_leitura)"; **destinatários continuam = abcsdata@abcsagro.com.br** (e-mails de teste só para o Erick); despublicar `4F6…`, publicar `DyzR…`. `s5Ve…`: desativar "A Cada 15 Minutos", publicar. `get_workflow_details` (connections) | ambos publicados |
+| B7 | Erick troca `DATABASE_URL` (environment `DATABASE_URL`) pela Session pooler do banco novo; guarda a antiga fora do repo | — |
+| B8 | `gh workflow run pipeline.yml -f modo=completo -f ambiente=producao`; medir duração | job verde, janelas registradas, `api.vw_ultima_carga` de hoje, e-mail chega **ao Erick** |
+| B9 | `DyzR…`: destinatários de volta (alerta: anapaula@implantaragro.com.br; falha: anapaula@implantaragro.com.br e abcsdata@abcsagro.com.br) e republicar; republicar Agendador; reativar cron do `s5Ve…`; arquivar `23Cy…` | `search_workflow_executions` sem Google Sheets; rodada seguinte ok |
+
+Reversão: seção "Reversão (ensaio de 06/11/2026)" acima, válida até o B8.
