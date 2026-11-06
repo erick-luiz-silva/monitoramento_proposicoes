@@ -9,6 +9,7 @@ from extract_bronze import carregar_ids, executar_reconciliacao
 from extract_senado import SenadoComPendencias, executar_carga_senado
 from load_bronze import carregar_proposicao_bronze
 from load_api import atualizar_api
+from load_snapshot import gravar_snapshot_carteira
 from load_dim_deputado import carregar_dim_deputado
 from load_dim_orgao import carregar_dim_orgao
 from load_eventos import executar_carga_eventos
@@ -179,11 +180,11 @@ def executar_carga_camara():
 
 
 def executar_carga_incremental():
-    """Câmara, depois Senado, depois o schema api.
+    """Câmara, depois Senado, depois o schema api e a foto diária da carteira.
 
     Falha da Câmara que bloqueia a janela: levanta na hora, o Senado nem roda.
     Falha do Senado: vira aviso (e-mail com aviso no topo), nunca falha o job nem
-    toca as janelas da Câmara. Erros não bloqueantes da Câmara e do schema api fazem
+    toca as janelas da Câmara. Erros não bloqueantes da Câmara, do schema api e da foto fazem
     o job falhar no fim, como antes.
     """
     limpar_aviso_senado()
@@ -205,6 +206,14 @@ def executar_carga_incremental():
         atualizar_api()
     except Exception as exc:
         erros.append(f"atualização do schema api falhou: {exc}")
+    else:
+        # A foto precisa do cache atualizado. Falha só afeta o resultado final do job;
+        # as janelas e o refresh já confirmados permanecem gravados.
+        print("\nGravando foto diária da carteira...")
+        try:
+            gravar_snapshot_carteira()
+        except Exception as exc:
+            erros.append(f"foto diária da carteira falhou: {exc}")
 
     if erros:
         raise RuntimeError("; ".join(erros) + " (janela incremental registrada; reconciliação só se completa).")

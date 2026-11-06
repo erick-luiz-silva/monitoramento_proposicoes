@@ -159,7 +159,7 @@ class GoldSenadoSqlTests(unittest.TestCase):
         # (pego no container: a MV de pautas lia votado, que a gold não expunha).
         api = sem_comentarios(ler("schema_api.sql"))
         for nome, colunas, origem in re.findall(
-                r"CREATE MATERIALIZED VIEW api_cache\.(\w+) AS\s+SELECT (.*?)\s+FROM gold\.(\w+)", api, re.S):
+                r"CREATE MATERIALIZED VIEW api_cache\.(\w+) AS\s+SELECT ([^;]*?)\s+FROM gold\.(\w+)", api, re.S):
             select_gold = gold_view(origem).split("\nFROM ")[0]
             colunas = re.sub(r"row_number\(\) OVER \(.*?\) AS _id,", "", colunas, flags=re.S)
             for coluna in re.split(r",\s*", re.sub(r"\b\w+\.", "", colunas)):
@@ -468,7 +468,8 @@ class OrquestradorPendenciasTests(unittest.TestCase):
             extract_incremental, "executar_carga_camara", return_value=[]), patch.object(
             extract_incremental, "executar_carga_senado",
             side_effect=extract_senado.SenadoComPendencias("acompanhadas: 1 com erro")), patch.object(
-            extract_incremental, "atualizar_api"), patch.object(extract_incremental, "gravar_aviso_senado") as aviso:
+            extract_incremental, "atualizar_api"), patch.object(
+            extract_incremental, "gravar_snapshot_carteira"), patch.object(extract_incremental, "gravar_aviso_senado") as aviso:
             extract_incremental.executar_carga_incremental()
         self.assertTrue(aviso.call_args.args[0].startswith("Senado atualizado com pendências: "))
 

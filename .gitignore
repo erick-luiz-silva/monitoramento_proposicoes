@@ -33,3 +33,7 @@ divulgacao/
 
 # Aviso de falha do Senado gravado pela carga para o n8n (logs/aviso_senado.txt).
 logs/
+
+# Worktrees e pacotes de revisão locais
+.worktrees/
+.superpowers/

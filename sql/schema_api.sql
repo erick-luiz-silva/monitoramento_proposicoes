@@ -40,10 +40,25 @@ CREATE UNIQUE INDEX ON api_cache.vw_proposicoes_sem_keyword (id_proposicao);
 -- load_api atualiza antes deste na mesma transação.
 CREATE MATERIALIZED VIEW api_cache.vw_tramitacoes AS
 SELECT t.id_proposicao, t.identificacao, t.sequencia, t.data_hora, t.sigla_orgao,
-       t.descricao_situacao, t.descricao_tramitacao, t.despacho, t.nome_orgao, t.casa
+       t.descricao_situacao, t.descricao_tramitacao, t.despacho, t.nome_orgao, t.casa,
+       t.cod_tipo_tramitacao
 FROM gold.vw_tramitacoes t
 WHERE t.id_proposicao IN (SELECT id_proposicao FROM api_cache.vw_monitoramento);
 CREATE UNIQUE INDEX ON api_cache.vw_tramitacoes (id_proposicao, sequencia);
+
+-- Estado da última tramitação por versão, privado aos contratos. Uma 640 posterior à
+-- 502 passa a ser a última e reabre a versão. Datas ausentes ficam depois das conhecidas;
+-- sequencia desempata informes no mesmo instante. Não filtra linhas do monitoramento.
+CREATE MATERIALIZED VIEW api_cache.vw_ultima_tramitacao AS
+SELECT DISTINCT ON (id_proposicao)
+       id_proposicao, cod_tipo_tramitacao, descricao_tramitacao, data_hora,
+       coalesce(CASE casa
+           WHEN 'CD' THEN cod_tipo_tramitacao = '502'
+           WHEN 'SF' THEN lower(extensions.unaccent(descricao_tramitacao)) ~ '\marquivad[ao]'
+       END, false) AS arquivada
+FROM api_cache.vw_tramitacoes
+ORDER BY id_proposicao, data_hora DESC NULLS LAST, sequencia DESC;
+CREATE UNIQUE INDEX ON api_cache.vw_ultima_tramitacao (id_proposicao);
 
 -- Item de pauta não tem chave estável (silver.evento_pauta é apagada e reinserida):
 -- _id posicional, só para o índice único do REFRESH CONCURRENTLY e ordem de paginação.

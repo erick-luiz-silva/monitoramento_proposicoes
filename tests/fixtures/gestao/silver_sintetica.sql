@@ -39,7 +39,18 @@ CROSS JOIN LATERAL (VALUES
     -- fila de avaliação: radar (apresentada depois de 2026-09-01)
     (900031, 'CD', 31, 'Aguardando Parecer', 1000, h.agora - interval '3 days', h.agora - interval '5 days'),
     (900032, 'CD', 32, 'Aguardando Parecer', 1000, h.agora - interval '3 days', h.agora - interval '5 days'),  -- acompanhada
-    (900033, 'CD', 33, 'Aguardando Parecer', 1000, h.agora - interval '3 days', NULL)              -- antiga, fora do radar
+    (900033, 'CD', 33, 'Aguardando Parecer', 1000, h.agora - interval '3 days', NULL),             -- antiga, fora do radar
+    -- arquivo pela última tramitação, mesmo com situação ainda ativa
+    (900041, 'CD', 41, 'Aguardando Parecer', 1000, h.agora - interval '1 day', h.agora - interval '5 days'),
+    (900042, 'CD', 42, 'Aguardando Parecer', 1000, h.agora - interval '1 day', NULL),
+    (900043, 'CD', 43, 'Aguardando Parecer', 1000, h.agora - interval '1 day', NULL),
+    (1990000043, 'SF', 43, 'EM TRAMITAÇÃO', NULL, h.agora - interval '1 day', NULL),
+    (900044, 'CD', 44, 'Aguardando Apreciação pelo Senado Federal', 926, h.agora - interval '1 day', NULL),
+    (1990000041, 'SF', 41, 'EM TRAMITAÇÃO', NULL, h.agora - interval '1 day', NULL),
+    (1990000042, 'SF', 42, 'EM TRAMITAÇÃO', NULL, h.agora - interval '1 day', NULL),
+    (1990000044, 'SF', 44, 'EM TRAMITAÇÃO', NULL, h.agora - interval '1 day', NULL),
+    (1990000045, 'SF', 45, 'EM TRAMITAÇÃO', NULL, h.agora - interval '1 day', NULL),
+    (1990000046, 'SF', 46, 'EM TRAMITAÇÃO', NULL, h.agora - interval '1 day', NULL)
 ) AS x (id, casa, numero, situacao, cod, mov, apresentacao);
 
 INSERT INTO silver.proposicao_vinculo (id_proposicao_cd, id_proposicao_sf, origem) VALUES
@@ -47,7 +58,26 @@ INSERT INTO silver.proposicao_vinculo (id_proposicao_cd, id_proposicao_sf, orige
     (900008, 1990000008, 'manual'),
     (900011, 1990000011, 'manual'),
     (900012, 1990000012, 'manual'),
-    (900021, 1990000021, 'manual');
+    (900021, 1990000021, 'manual'),
+    (900043, 1990000043, 'manual');
+
+INSERT INTO silver.tramitacao
+    (id_proposicao, sequencia, casa, data_hora, cod_tipo_tramitacao, descricao_tramitacao)
+SELECT x.id, x.seq, x.casa, (now() AT TIME ZONE 'America/Sao_Paulo') - x.atraso,
+       x.codigo, x.descricao
+FROM (VALUES
+    (900041, 1, 'CD', interval '1 day', '502', 'Arquivamento'),
+    (900042, 1, 'CD', interval '2 days', '502', 'Arquivamento'),
+    (900042, 2, 'CD', interval '1 day', '640', 'Desarquivamento'),
+    (900043, 1, 'CD', interval '1 day', '502', 'Arquivamento'),
+    (1990000043, 1, 'SF', interval '1 day', NULL, 'Em análise'),
+    (900044, 1, 'CD', interval '1 day', '502', 'Arquivamento'),
+    (1990000041, 1, 'SF', interval '1 day', NULL, 'Arquivada'),
+    (1990000042, 1, 'SF', interval '1 day', NULL, 'Desarquivada'),
+    (1990000044, 1, 'SF', interval '1 day', NULL, 'Requerimento de arquivamento'),
+    (1990000045, 1, 'SF', interval '1 day', NULL, 'Arquivada ao final da legislatura'),
+    (1990000046, 1, 'SF', interval '1 day', NULL, 'Remessa ao arquivo')
+) AS x(id, seq, casa, atraso, codigo, descricao);
 
 INSERT INTO silver.proposicao_acompanhada (id_proposicao, origem) VALUES (900032, 'inclusao_manual');
 

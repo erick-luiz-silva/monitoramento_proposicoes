@@ -3,7 +3,7 @@
 -- mesma transação. Três partes:
 --   contrato: views privadas (nunca expostas na Data API) que cruzam api_cache, gestao e
 --             silver.proposicao (só cod_situacao, que o cache não tem). É o que a aplicação lê.
---   gestao.*: funções de negócio SECURITY DEFINER, as únicas escritas da aplicação e do n8n.
+--   gestao.*: funções SECURITY DEFINER, escritas da aplicação, do n8n e da foto do pipeline.
 --             As TABELAS de gestao ficam em schema_gestao.sql e nunca são derrubadas.
 --   api.vw_painel_decisoes: a única view de api que lê gestao (painel público, colunas fixas).
 -- Relógio: sempre now() AT TIME ZONE 'America/Sao_Paulo' (sessão UTC; horários da Câmara são
@@ -62,7 +62,8 @@ JOIN cadeia c ON c.uuid_origem = pp.uuid_projeto AND c.substituido_por IS NULL;
 -- quando ainda não há UUID. A chave 'k…' MUDA quando entra um vínculo novo (chave_projeto é o
 -- menor id do grupo); só o UUID é estável — links e marcadores usam o UUID ou o id_proposicao.
 -- tipo_encerramento: 'arquivada' | 'norma' | 'remessa' | NULL, por gestao.situacao_encerramento
--- (com cod_situacao: compara o código; sem ele: o texto, sem caixa nem acento — Senado).
+-- (com cod_situacao: compara o código; sem ele: o texto, sem caixa nem acento — Senado),
+-- ou pelo estado de api_cache.vw_ultima_tramitacao. Remessa e norma têm precedência.
 -- sem_situacao: a versão não tem dado de situação (nem texto nem código).
 -- grupo_com_projetos_diferentes / projeto_em_grupos_diferentes: casos da conferência (RN03.6).
 -- ---------------------------------------------------------------------------------------------
@@ -128,9 +129,11 @@ SELECT
     r.acompanhada,
     r.em_radar,
     r.ids_vinculados,
-    enc.tipo AS tipo_encerramento,
+    CASE WHEN enc.tipo IS NOT NULL THEN enc.tipo
+         WHEN ut.arquivada THEN 'arquivada' END AS tipo_encerramento,
     (r.situacao_atual IS NULL AND r.cod_situacao IS NULL) AS sem_situacao
 FROM resolvida r
+LEFT JOIN api_cache.vw_ultima_tramitacao ut ON ut.id_proposicao = r.id_proposicao
 LEFT JOIN LATERAL (
     SELECT CASE
                WHEN bool_or(s.tipo = 'remessa') THEN 'remessa'
@@ -187,7 +190,7 @@ GROUP BY t.cod_tipo_tramitacao;
 --                elegíveis não aplica o corte). Sem data, sem prioridade e sem pauta: histórico ('sem data').
 --   motivo_historico: 'encerrado' | 'marcado NÃO' | 'parado há mais de 12 meses' | 'sem data';
 --                NULL na carteira, na fila de avaliação e no que nunca foi elegível.
---   pendente_avaliacao: em_radar AND relevancia IS NULL AND NOT acompanhada (é a fila; não entra
+--   pendente_avaliacao: em_radar AND relevancia IS NULL AND NOT acompanhada AND NOT encerrado (fila;
 --                na carteira). Abrir pelo id_proposicao_recente (o UUID nasce na 1ª decisão).
 --   Pauta agendada (RF09, "status agendado obrigatório"): item de pauta cujo evento tem situação
 --                informada e que NÃO é 'Cancelada', 'Adiada', nem começa por 'Encerrad' ou 'Realizad'
@@ -336,7 +339,7 @@ SELECT
         WHEN c.data_ultima_mov_grupo IS NULL THEN 'sem data'
         ELSE 'parado há mais de 12 meses'
     END AS motivo_historico,
-    (c.em_radar AND c.relevancia IS NULL AND NOT c.acompanhada) AS pendente_avaliacao,
+    (c.em_radar AND c.relevancia IS NULL AND NOT c.acompanhada AND NOT c.encerrado) AS pendente_avaliacao,
     (c.elegivel AND c.prioridade IS TRUE AND c.pauta_na_janela AND cardinality(c.motivos_conferencia) = 0) AS urgente_pauta,
     c.proxima_pauta_em,
     c.proxima_pauta_orgao,
@@ -359,6 +362,38 @@ LEFT JOIN LATERAL (
     WHERE c.prioridade IS TRUE AND c.elegivel AND cardinality(c.motivos_conferencia) = 0
       AND mm.chave_agrupamento = c.chave_agrupamento AND mm.apos_referencia AND NOT mm.confirmada
 ) m ON true;
+
+-- Projeção privada do estado do projeto por versão para os e-mails do n8n.
+CREATE VIEW contrato.vw_encerramento_n8n AS
+SELECT v.id_proposicao, v.chave_agrupamento, v.uuid_projeto, p.encerrado,
+       ut.data_hora AS data_ultima_tramitacao
+FROM contrato.vw_versao v
+JOIN contrato.vw_projeto p ON p.chave_agrupamento = v.chave_agrupamento
+LEFT JOIN api_cache.vw_ultima_tramitacao ut ON ut.id_proposicao = v.id_proposicao;
+
+CREATE VIEW contrato.vw_snapshot_carteira AS
+SELECT dia, chave_agrupamento, uuid_projeto, em_carteira, motivo_historico, gravado_em
+FROM gestao.snapshot_carteira;
+
+-- Substitui a foto inteira do dia em uma transação: projetos que sumiram ou mudaram
+-- de agrupamento não deixam linhas antigas. Inclui acompanhadas sem UUID e o histórico.
+CREATE FUNCTION gestao.gravar_snapshot_carteira() RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+    v_dia date := (now() AT TIME ZONE 'America/Sao_Paulo')::date;
+BEGIN
+    -- Serializa duas execuções do diário no mesmo dia, sem bloquear a leitura das fotos.
+    PERFORM pg_advisory_xact_lock(hashtextextended('gestao.snapshot_carteira:' || v_dia::text, 0));
+    DELETE FROM gestao.snapshot_carteira WHERE dia = v_dia;
+    INSERT INTO gestao.snapshot_carteira
+        (dia, chave_agrupamento, uuid_projeto, em_carteira, motivo_historico)
+    SELECT v_dia, chave_agrupamento, uuid_projeto, em_carteira, motivo_historico
+    FROM contrato.vw_projeto;
+END
+$$;
 
 -- ---------------------------------------------------------------------------------------------
 -- contrato.vw_conferencia — lista do mantenedor: uma linha por (projeto, motivo). Dois UUIDs
@@ -1301,6 +1336,7 @@ GRANT USAGE ON SEQUENCE bronze.controle_execucao_id_execucao_seq TO gestao_dono;
 GRANT SELECT, INSERT ON gestao.projeto, gestao.projeto_proposicao, gestao.historico_alteracao TO gestao_dono;
 GRANT SELECT, INSERT, UPDATE ON gestao.decisao_projeto, gestao.inclusao_manual TO gestao_dono;
 GRANT SELECT, INSERT ON gestao.confirmacao_movimentacao TO gestao_dono;
+GRANT SELECT, INSERT, DELETE ON gestao.snapshot_carteira TO gestao_dono;
 GRANT SELECT ON gestao.tipo_movimentacao, gestao.regra_movimentacao_senado, gestao.parametro TO gestao_dono;
 GRANT SELECT ON contrato.vw_projeto, contrato.vw_movimentacao_maior TO gestao_dono;
 GRANT USAGE ON SEQUENCE gestao.historico_alteracao_id_seq, gestao.inclusao_manual_id_seq TO gestao_dono;
@@ -1343,6 +1379,8 @@ REVOKE ALL ON ALL TABLES IN SCHEMA contrato FROM PUBLIC, anon, authenticated;
 -- nem gravar_decisao); nada em gestao (tabelas), silver ou api_cache direto.
 GRANT USAGE ON SCHEMA contrato, gestao TO legislativo_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA contrato TO legislativo_app;
+-- A projeção do fluxo principal é exclusiva do seu papel de leitura.
+REVOKE SELECT ON contrato.vw_encerramento_n8n FROM legislativo_app;
 GRANT EXECUTE ON FUNCTION
     gestao.salvar_decisao(uuid, bigint, int, jsonb, uuid, text),
     gestao.avaliar(bigint, text, int, uuid, text),
@@ -1367,9 +1405,11 @@ TO legislativo_n8n;
 -- tabela), silver.evento e silver.proposicao_acompanhada (confirmada_em é a única coluna escrita),
 -- bronze.alerta_pauta (lê, grava e apaga o aviso diário de pautas). Relevância das decisões só pela
 -- projeção pública api.vw_painel_decisoes (a mesma do painel, sem ação, parecer nem observações):
--- nunca gestao/contrato por tabela ou view. O controle_execucao só é escrito pela função de
+-- gestao não é lido diretamente; contrato expõe só vw_encerramento_n8n para este papel.
+-- O controle_execucao só é escrito pela função de
 -- checkpoint, nunca por INSERT direto.
-GRANT USAGE ON SCHEMA gestao, gold, silver, bronze, api TO legislativo_n8n_leitura;
+GRANT USAGE ON SCHEMA gestao, contrato, gold, silver, bronze, api TO legislativo_n8n_leitura;
+GRANT SELECT ON contrato.vw_encerramento_n8n TO legislativo_n8n_leitura;
 GRANT SELECT ON api.vw_painel_decisoes TO legislativo_n8n_leitura;
 GRANT SELECT ON gold.vw_grupo_projeto, gold.vw_monitoramento, gold.vw_pautas_monitoradas,
     gold.vw_movimentacoes, gold.vw_audiencias_de_interesse TO legislativo_n8n_leitura;
@@ -1377,5 +1417,13 @@ GRANT SELECT ON silver.evento, silver.proposicao_acompanhada TO legislativo_n8n_
 GRANT UPDATE (confirmada_em) ON silver.proposicao_acompanhada TO legislativo_n8n_leitura;
 GRANT SELECT, INSERT, DELETE ON bronze.alerta_pauta TO legislativo_n8n_leitura;
 GRANT EXECUTE ON FUNCTION gestao.registrar_alerta_movimentacoes(text, int, timestamp) TO legislativo_n8n_leitura;
+
+-- Setup e pipeline usam a mesma configuração de conexão. Concede explicitamente ao
+-- papel que aplica o setup, sem fixar um nome de login nem abrir EXECUTE aos leitores.
+DO $$
+BEGIN
+    EXECUTE format('GRANT EXECUTE ON FUNCTION gestao.gravar_snapshot_carteira() TO %I', current_user);
+END
+$$;
 
 NOTIFY pgrst, 'reload schema';

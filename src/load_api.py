@@ -8,12 +8,13 @@ a carga incremental o chama depois de registrar as janelas, e só soma o erro no
 from db import get_connection
 
 # Ordem importa: vw_tramitacoes filtra por api_cache.vw_monitoramento, que precisa
-# estar atualizada antes, na mesma transação.
+# estar atualizada antes, na mesma transação. vw_ultima_tramitacao depende das tramitações.
 MATERIALIZADAS = (
     "vw_proposicao_keywords",
     "vw_monitoramento",
     "vw_proposicoes_sem_keyword",
     "vw_tramitacoes",
+    "vw_ultima_tramitacao",
     "vw_pautas_monitoradas",
     "vw_audiencias_de_interesse",
 )

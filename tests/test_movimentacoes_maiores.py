@@ -38,7 +38,8 @@ class MovimentacoesTests(banco._ComDados):
         self.movimento(seq=3, dias=11)
         self.assertEqual(self.projeto(900001, "movimentacoes_a_confirmar", "urgente_movimentacao", "urgente", "motivos_urgencia"),
                          (1, True, True, ["movimentação"]))
-        self.cur.execute("SELECT sequencia, apos_referencia FROM contrato.vw_movimentacao_maior ORDER BY sequencia")
+        self.cur.execute("""SELECT sequencia, apos_referencia FROM contrato.vw_movimentacao_maior
+            WHERE id_proposicao = 900001 ORDER BY sequencia""")
         self.assertEqual(self.cur.fetchall(), [(1, True), (3, False)])
 
     def test_confirmacao_parcial_nova_ocorrencia_e_idempotencia(self):
