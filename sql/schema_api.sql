@@ -47,7 +47,8 @@ WHERE t.id_proposicao IN (SELECT id_proposicao FROM api_cache.vw_monitoramento);
 CREATE UNIQUE INDEX ON api_cache.vw_tramitacoes (id_proposicao, sequencia);
 
 -- Estado da última tramitação por versão, privado aos contratos. Uma 640 posterior à
--- 502 passa a ser a última e reabre a versão. Datas ausentes ficam depois das conhecidas;
+-- 502 passa a ser a última e reabre a versão. Tramitação sem data nunca é a última
+-- (decisão de 06/11: sem data não se sabe a ordem; a sequência só desempata o mesmo instante);
 -- sequencia desempata informes no mesmo instante. Não filtra linhas do monitoramento.
 CREATE MATERIALIZED VIEW api_cache.vw_ultima_tramitacao AS
 SELECT DISTINCT ON (id_proposicao)

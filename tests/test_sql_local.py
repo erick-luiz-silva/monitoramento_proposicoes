@@ -419,7 +419,8 @@ class ArquivamentoTests(_ComDados):
         self.atualizar_cache()
         self.assertEqual(self.projeto(900041, "encerrado", "em_carteira"), (False, True))
         self.assertEqual(self.contar("SELECT count(*) FROM api_cache.vw_monitoramento"), quantidade)
-        # O arquivamento antigo continua sendo movimento maior, disponível para confirmação.
+        # O arquivamento antigo continua registrado como movimento maior não confirmado
+        # (se entra na fila depende da referência do projeto, coberta nos testes de movimentações).
         self.assertEqual(self.contar("""SELECT count(*) FROM contrato.vw_movimentacao_maior
             WHERE id_proposicao = 900041 AND sequencia = 1 AND NOT confirmada"""), 1)
 
@@ -609,6 +610,12 @@ class SnapshotCarteiraTests(_ComDados):
             with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
                 self.chamar("gestao.gravar_snapshot_carteira")
             self.conn.rollback()
+        # Objetos novos desta fase: nada visível pela chave pública (anon/authenticated).
+        for papel in ("anon", "authenticated"):
+            for objeto in ("contrato.vw_snapshot_carteira", "contrato.vw_encerramento_n8n",
+                           "api_cache.vw_ultima_tramitacao"):
+                self.assertFalse(self.contar("SELECT has_table_privilege(%s, %s, 'SELECT')", papel, objeto),
+                                 (papel, objeto))
 
 
 
