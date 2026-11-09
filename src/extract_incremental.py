@@ -1,13 +1,10 @@
 from datetime import date, timedelta
 
-from tqdm import tqdm
-
 import api_client as api
 from config import SENADO_OFFSET, TEMAS
 from db import get_connection
-from extract_bronze import carregar_ids, executar_reconciliacao
+from extract_bronze import CargaBronzeIncompleta, carregar_ids, executar_reconciliacao
 from extract_senado import SenadoComPendencias, executar_carga_senado
-from load_bronze import carregar_proposicao_bronze
 from load_api import atualizar_api
 from load_snapshot import gravar_snapshot_carteira
 from load_dim_deputado import carregar_dim_deputado
@@ -79,7 +76,7 @@ def carregar_ids_acompanhadas(conn, casa="CD"):
         return [linha[0] for linha in cur.fetchall()]
 
 
-def executar_reconciliacao_diaria(ids_ja_carregados):
+def executar_reconciliacao_diaria(ids_ja_carregados, ids_autores_gravados=None):
     """Roda a reconciliação de 90 dias sem levantar erro.
 
     Devolve (registro a gravar ou None, ids carregados, descrição do erro ou None).
@@ -87,7 +84,8 @@ def executar_reconciliacao_diaria(ids_ja_carregados):
     print(f"\nReconciliação dos últimos {RECONCILIACAO_DIAS} dias (ausentes da bronze)...")
     try:
         desde, ate, ids, erros = executar_reconciliacao(
-            RECONCILIACAO_DIAS, levantar_erro=False, ignorar=ids_ja_carregados
+            RECONCILIACAO_DIAS, levantar_erro=False, ignorar=ids_ja_carregados,
+            ids_autores_gravados=ids_autores_gravados,
         )
     except Exception as exc:
         print(f"  ! reconciliação falhou: {exc}")
@@ -125,21 +123,12 @@ def executar_carga_camara():
     ids = coletar_ids_unicos(data_inicio, data_fim)
     print(f"Total de IDs únicos na janela: {len(ids)}")
 
-    ok_count = 0
-    erro_count = 0
-    with get_connection() as conn:
-        for id_prop in tqdm(ids, desc="Carga incremental", unit="proposição"):
-            resultado = carregar_proposicao_bronze(conn, id_prop)
-            for tabela, status in resultado.items():
-                if status == "ok":
-                    ok_count += 1
-                else:
-                    erro_count += 1
-                    tqdm.write(f"  ! proposição {id_prop} / {tabela}: {status}")
-
-    print(f"\nCarga incremental (bronze) concluída. Endpoints ok: {ok_count} | com erro: {erro_count}")
-    if erro_count:
-        raise RuntimeError(f"Carga incremental incompleta: {erro_count} endpoints com erro.")
+    ids_autores_gravados = []
+    print("\nCarga incremental (bronze):")
+    try:
+        carregar_ids(ids, seletivo=True, levantar_erro=True, ids_autores_gravados=ids_autores_gravados)
+    except CargaBronzeIncompleta as exc:
+        raise RuntimeError(f"Carga incremental incompleta: {exc.erro_count} endpoints com erro.") from exc
 
     # Acompanhadas fora da janela: carregadas à parte e sem levantar erro, como a
     # reconciliação — um id ruim (ex.: inclusão manual inválida) não pode travar a janela.
@@ -147,12 +136,16 @@ def executar_carga_camara():
     extras = [id_prop for id_prop in acompanhadas if id_prop not in na_janela]
     print(f"\nRecarregando {len(extras)} proposições acompanhadas fora da janela...")
     try:
-        ids_extras, erros_extras = carregar_ids(extras, levantar_erro=False)
+        ids_extras, erros_extras = carregar_ids(
+            extras, levantar_erro=False, seletivo=True, ids_autores_gravados=ids_autores_gravados
+        )
         erro_acompanhadas = f"acompanhadas: {erros_extras} endpoints com erro" if erros_extras else None
     except Exception as exc:
         ids_extras, erro_acompanhadas = [], f"acompanhadas falharam: {exc}"
 
-    reconciliacao, ids_reconciliados, erro_reconciliacao = executar_reconciliacao_diaria(ids + ids_extras)
+    reconciliacao, ids_reconciliados, erro_reconciliacao = executar_reconciliacao_diaria(
+        ids + ids_extras, ids_autores_gravados=ids_autores_gravados
+    )
 
     print("\nCarregando eventos/pautas...")
     hoje = date.today()
@@ -163,7 +156,7 @@ def executar_carga_camara():
     executar_transformacao_silver()
 
     print("\nAtualizando dim_deputado...")
-    carregar_dim_deputado(seletivo=True, ids_proposicao=list(ids) + list(ids_extras) + list(ids_reconciliados))
+    carregar_dim_deputado(seletivo=True, ids_proposicao=list(dict.fromkeys(ids_autores_gravados)))
 
     print("\nAtualizando dim_orgao...")
     carregar_dim_orgao()

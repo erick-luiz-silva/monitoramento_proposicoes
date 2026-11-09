@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import sys
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, call, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -64,6 +64,11 @@ class FakeConnection:
 
 
 class LoaderTests(unittest.TestCase):
+    def setUp(self):
+        sleep = patch.object(load_bronze.time, "sleep")
+        self.sleep = sleep.start()
+        self.addCleanup(sleep.stop)
+
     def test_foto_confirma_em_transacao_propria_e_nao_confirma_apos_falha(self):
         conn = MagicMock()
         db = conn.__enter__.return_value
@@ -125,6 +130,49 @@ class LoaderTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "incompleta"):
                 load_eventos.executar_carga_eventos(date(2026, 10, 1), date(2026, 10, 6))
 
+    def test_pauta_recuperada_repete_so_evento_falho_e_preserva_retorno(self):
+        eventos = [{"id": 123}, {"id": 456}]
+        with patch.object(load_eventos, "get_connection"), patch.object(
+            load_eventos.api, "listar_eventos", return_value=eventos
+        ), patch.object(load_eventos, "carregar_evento_bronze", side_effect=[
+            {"evento": "ok", "pauta": "erro: timeout"},
+            {"evento": "ok", "pauta": "ok"},
+            {"evento": "ok", "pauta": "ok"},
+        ]) as carregar:
+            self.assertEqual(load_eventos.executar_carga_eventos(date(2026, 10, 1), date(2026, 10, 6)), 2)
+        self.assertEqual([c.args[1] for c in carregar.call_args_list], [eventos[0], eventos[1], eventos[0]])
+        self.sleep.assert_called_once_with(config.PAUSA_SEGUNDA_PASSAGEM_SEG)
+
+    def test_pauta_persistente_conta_so_erros_finais(self):
+        with patch.object(load_eventos, "get_connection"), patch.object(
+            load_eventos.api, "listar_eventos", return_value=[{"id": 123}]
+        ), patch.object(load_eventos, "carregar_evento_bronze", side_effect=[
+            {"evento": "erro: SQL", "pauta": "erro: timeout"},
+            {"evento": "ok", "pauta": "erro: timeout"},
+        ]) as carregar:
+            with self.assertRaisesRegex(RuntimeError, "incompleta: 1 endpoints com erro"):
+                load_eventos.executar_carga_eventos(date(2026, 10, 1), date(2026, 10, 6))
+        self.assertEqual(carregar.call_count, 2)
+        self.sleep.assert_called_once_with(60)
+
+    def test_segunda_passagem_de_eventos_preserva_rollback_por_endpoint(self):
+        conn = FakeConnection("tabela-inexistente")
+        with patch.object(load_eventos, "get_connection") as conectar, patch.object(
+            load_eventos.api, "listar_eventos", return_value=[{"id": 123}]
+        ), patch.object(load_eventos.api, "buscar_pauta_evento", side_effect=[RuntimeError("timeout"), []]):
+            conectar.return_value.__enter__.return_value = conn
+            self.assertEqual(load_eventos.executar_carga_eventos(date(2026, 10, 1), date(2026, 10, 6)), 1)
+        self.assertEqual(conn.rollbacks, 1)
+        self.assertEqual(len(conn.persisted), 3)
+
+    def test_eventos_sem_falha_nao_fazem_pausa_de_segunda_passagem(self):
+        with patch.object(load_eventos, "get_connection"), patch.object(
+            load_eventos.api, "listar_eventos", return_value=[{"id": 123}, {"id": 456}]
+        ), patch.object(load_eventos, "carregar_evento_bronze", return_value={"evento": "ok", "pauta": "ok"}) as carregar:
+            self.assertEqual(load_eventos.executar_carga_eventos(date(2026, 10, 1), date(2026, 10, 6), limit=1), 1)
+        carregar.assert_called_once()
+        self.sleep.assert_not_called()
+
     def test_deputado_batch_rolls_back_and_signals_failure(self):
         conn = MagicMock()
         db = conn.__enter__.return_value
@@ -140,27 +188,140 @@ class LoaderTests(unittest.TestCase):
         db.commit.assert_called_once()
 
 
+class BronzeSeletivoTests(unittest.TestCase):
+    def setUp(self):
+        self.stack = ExitStack()
+        self.addCleanup(self.stack.close)
+        self.sleep = self.stack.enter_context(patch.object(load_bronze.time, "sleep"))
+        self.conn = MagicMock(closed=0)
+        self.cur = self.conn.cursor.return_value.__enter__.return_value
+        self.detalhes = {"id": 123, "ementa": "Teste"}
+        self.endpoints = {}
+        for nome, payload in (
+            ("buscar_detalhes", self.detalhes), ("buscar_autores", [{"nome": "Autora"}]),
+            ("buscar_temas", [{"codTema": 64}]), ("buscar_tramitacoes", [{"sequencia": 1}]),
+        ):
+            self.endpoints[nome] = self.stack.enter_context(patch.object(load_bronze.api, nome, return_value=payload))
+
+    def verificar_carga_completa(self, estado):
+        resultado = load_bronze.carregar_proposicao_bronze(self.conn, 123, estado=estado)
+        self.assertEqual(list(resultado), list(load_bronze._INSERT_SQL))
+        self.assertFalse(load_bronze.houve_erro(resultado))
+        self.assertEqual(list(resultado.values()), ["ok"] * 4)
+        self.assertEqual(self.cur.execute.call_count, 4)
+        self.assertEqual(self.conn.commit.call_count, 4)
+        for endpoint in self.endpoints.values():
+            endpoint.assert_called_once_with(123)
+
+    def test_estado_igual_pula_autores_e_temas_sem_api_insert_ou_pausa(self):
+        resultado = load_bronze.carregar_proposicao_bronze(
+            self.conn, 123, estado={123: ({"ementa": "Teste", "id": 123}, False)}
+        )
+        self.assertEqual(resultado, {
+            "proposicoes_json": "ok", "autores_json": "pulado",
+            "temas_json": "pulado", "tramitacoes_json": "ok",
+        })
+        self.assertEqual(list(resultado), list(load_bronze._INSERT_SQL))
+        self.endpoints["buscar_autores"].assert_not_called()
+        self.endpoints["buscar_temas"].assert_not_called()
+        self.endpoints["buscar_detalhes"].assert_called_once_with(123)
+        self.endpoints["buscar_tramitacoes"].assert_called_once_with(123)
+        self.assertEqual([c.args[0] for c in self.cur.execute.call_args_list], [
+            load_bronze._INSERT_SQL["proposicoes_json"], load_bronze._INSERT_SQL["tramitacoes_json"],
+        ])
+        self.assertEqual(self.conn.commit.call_count, 2)
+        self.assertEqual(self.sleep.call_count, 2)
+        self.conn.rollback.assert_not_called()
+
+    def test_sem_estado_preserva_quatro_endpoints(self):
+        self.verificar_carga_completa(None)
+
+    def test_id_ausente_do_estado_recarrega_autores_e_temas(self):
+        self.verificar_carga_completa({456: ({"id": 456}, False)})
+
+    def test_detalhes_mudados_recarregam_autores_e_temas(self):
+        self.verificar_carga_completa({123: ({"id": 123, "ementa": "Anterior"}, False)})
+
+    def test_estado_pendente_recarrega_autores_e_temas_mesmo_com_detalhes_iguais(self):
+        self.verificar_carga_completa({123: (self.detalhes, True)})
+
+    def test_falha_dos_detalhes_forca_autores_e_temas_e_preserva_tramitacoes(self):
+        self.endpoints["buscar_detalhes"].side_effect = RuntimeError("timeout")
+        resultado = load_bronze.carregar_proposicao_bronze(self.conn, 123, estado={123: (self.detalhes, False)})
+        self.assertEqual(resultado["proposicoes_json"], "erro: timeout")
+        self.assertEqual(list(resultado.values())[1:], ["ok"] * 3)
+        self.assertTrue(load_bronze.houve_erro(resultado))
+        self.conn.rollback.assert_called_once()
+        self.assertEqual(self.conn.commit.call_count, 3)
+        for endpoint in self.endpoints.values():
+            endpoint.assert_called_once_with(123)
+
+    def test_erro_ao_gravar_detalhes_tambem_forca_autores_e_temas(self):
+        self.cur.execute.side_effect = [RuntimeError("SQL"), None, None, None]
+        resultado = load_bronze.carregar_proposicao_bronze(self.conn, 123, estado={123: (self.detalhes, False)})
+        self.assertEqual(list(resultado.values()), ["erro: SQL", "ok", "ok", "ok"])
+        self.conn.rollback.assert_called_once()
+        self.assertEqual(self.conn.commit.call_count, 3)
+
+    def test_estado_bronze_consulta_ids_uma_vez_e_converte_retorno(self):
+        self.cur.fetchall.return_value = [(123, self.detalhes, False), (456, {"id": 456}, True)]
+        self.assertEqual(load_bronze.carregar_estado_bronze(self.conn, [123, 456, 789]), {
+            123: (self.detalhes, False), 456: ({"id": 456}, True),
+        })
+        self.cur.execute.assert_called_once()
+        self.assertEqual(self.cur.execute.call_args.args[1], ([123, 456, 789],))
+        self.assertIn("unnest(%s::int[])", self.cur.execute.call_args.args[0])
+        self.conn.commit.assert_not_called()
+
+    def test_estado_bronze_sem_ids_devolve_vazio(self):
+        self.cur.fetchall.return_value = []
+        self.assertEqual(load_bronze.carregar_estado_bronze(self.conn, []), {})
+        self.assertEqual(self.cur.execute.call_args.args[1], ([],))
+
+    def test_status_pulado_e_ok_sao_sucesso_outros_status_sao_erro(self):
+        self.assertEqual(load_bronze.STATUS_SUCESSO, ("ok", "pulado"))
+        self.assertFalse(load_bronze.houve_erro({"autores_json": "pulado", "proposicoes_json": "ok"}))
+        for status in ("erro: timeout", "desconhecido", None):
+            with self.subTest(status=status):
+                self.assertTrue(load_bronze.houve_erro({"autores_json": "pulado", "temas_json": status}))
+
+
 class IncrementalTests(unittest.TestCase):
     def setUp(self):
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
+        self.sleep = self.stack.enter_context(patch.object(extract_bronze.time, "sleep"))
         self.stack.enter_context(patch.object(extract_incremental, "get_connection", return_value=MagicMock()))
+        self.stack.enter_context(patch.object(extract_bronze, "get_connection", return_value=MagicMock()))
+        self.estado = self.stack.enter_context(patch.object(extract_bronze, "carregar_estado_bronze", return_value={}))
         self.stack.enter_context(patch.object(extract_incremental, "calcular_janela", return_value=(
             date(2026, 10, 3), date(2026, 10, 6)
         )))
         self.acompanhadas = self.stack.enter_context(patch.object(
             extract_incremental, "carregar_ids_acompanhadas", return_value=[]
         ))
-        self.carregar_extras = self.stack.enter_context(patch.object(
-            extract_incremental, "carregar_ids", side_effect=lambda ids, levantar_erro: (list(ids), 0)
-        ))
+        def carregar_extras(ids, levantar_erro, *, seletivo, ids_autores_gravados):
+            ids_autores_gravados.extend(ids)
+            return list(ids), 0
+        self.carregar_extras = MagicMock(side_effect=carregar_extras)
+
+        def carregar(ids, *, levantar_erro, **kwargs):
+            if levantar_erro:
+                return extract_bronze.carregar_ids(ids, levantar_erro=True, **kwargs)
+            return self.carregar_extras(ids, levantar_erro=False, **kwargs)
+        self.stack.enter_context(patch.object(extract_incremental, "carregar_ids", side_effect=carregar))
         self.stack.enter_context(patch.object(extract_incremental, "coletar_ids_unicos", return_value=[123]))
         self.reconciliacao = self.stack.enter_context(patch.object(
             extract_incremental, "executar_reconciliacao",
             return_value=(date(2026, 7, 8), date(2026, 10, 6), [456], 0),
         ))
+        def reconciliar(*args, ids_autores_gravados, **kwargs):
+            resultado = self.reconciliacao.return_value
+            ids_autores_gravados.extend(resultado[2])
+            return resultado
+        self.reconciliacao.side_effect = reconciliar
         self.bronze = self.stack.enter_context(patch.object(
-            extract_incremental, "carregar_proposicao_bronze", return_value={"proposicoes_json": "ok"}
+            extract_bronze, "carregar_proposicao_bronze", return_value={"proposicoes_json": "ok", "autores_json": "ok"}
         ))
         self.events = []
         self.stages = {}
@@ -196,6 +357,88 @@ class IncrementalTests(unittest.TestCase):
         self.register.assert_not_called()
         self.reconciliacao.assert_not_called()
         self.stages["executar_carga_eventos"].assert_not_called()
+        self.assertEqual(self.bronze.call_count, 2)
+        self.assertIsNone(self.bronze.call_args.kwargs["estado"])
+        self.sleep.assert_called_once_with(60)
+
+    def test_pulado_na_janela_nao_falha_nem_recarrega_autores_para_dim(self):
+        self.bronze.return_value = {
+            "proposicoes_json": "ok", "autores_json": "pulado",
+            "temas_json": "pulado", "tramitacoes_json": "ok",
+        }
+        extract_incremental.executar_carga_incremental()
+        self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
+        self.bronze.assert_called_once()
+        self.assertIs(self.bronze.call_args.kwargs["estado"], self.estado.return_value)
+        self.estado.assert_called_once()
+        self.stages["carregar_dim_deputado"].assert_called_once_with(seletivo=True, ids_proposicao=[456])
+        self.sleep.assert_not_called()
+
+    def test_janela_recuperada_forca_carga_completa_e_registra_depois(self):
+        self.bronze.side_effect = [
+            {"proposicoes_json": "ok", "autores_json": "erro: timeout"},
+            {"proposicoes_json": "ok", "autores_json": "ok", "temas_json": "ok", "tramitacoes_json": "ok"},
+        ]
+        extract_incremental.executar_carga_incremental()
+        self.assertEqual([c.args[1] for c in self.bronze.call_args_list], [123, 123])
+        self.assertIs(self.bronze.call_args_list[0].kwargs["estado"], self.estado.return_value)
+        self.assertIsNone(self.bronze.call_args_list[1].kwargs["estado"])
+        self.sleep.assert_called_once_with(60)
+        self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
+        self.stages["carregar_dim_deputado"].assert_called_once_with(seletivo=True, ids_proposicao=[123, 456])
+
+    def test_log_da_janela_conta_endpoints_ok_pulados_e_erros_finais(self):
+        self.bronze.return_value = {
+            "proposicoes_json": "ok", "autores_json": "pulado",
+            "temas_json": "pulado", "tramitacoes_json": "ok",
+        }
+        with patch("builtins.print") as imprimir:
+            extract_incremental.executar_carga_incremental()
+        log = "\n".join(str(c.args[0]) for c in imprimir.call_args_list if c.args)
+        self.assertIn("Carga incremental (bronze)", log)
+        self.assertIn("Endpoints ok: 2 | pulado: 2 | Endpoints com erro: 0", log)
+
+    def test_dim_recebe_so_uniao_dos_autores_gravados_das_tres_cargas(self):
+        with patch.object(extract_incremental, "coletar_ids_unicos", return_value=[123, 124, 125]):
+            self.acompanhadas.return_value = [123, 789, 790]
+            self.carregar_extras.side_effect = extract_bronze.carregar_ids
+
+            def carregar(conn, id_prop, *, estado):
+                if id_prop == 789:
+                    return {"autores_json": "erro: timeout"}
+                return {
+                    "proposicoes_json": "ok", "tramitacoes_json": "ok",
+                    "autores_json": "ok" if id_prop in (124, 790) else "pulado",
+                    "temas_json": "pulado",
+                }
+
+            def reconciliar(*args, ids_autores_gravados, **kwargs):
+                ids_autores_gravados.append(456)
+                return date(2026, 7, 8), date(2026, 10, 6), [456, 457], 1
+
+            self.bronze.side_effect = carregar
+            self.reconciliacao.side_effect = reconciliar
+            with self.assertRaisesRegex(RuntimeError, "acompanhadas.*reconciliação"):
+                extract_incremental.executar_carga_incremental()
+        self.stages["carregar_dim_deputado"].assert_called_once_with(
+            seletivo=True, ids_proposicao=[124, 790, 456]
+        )
+        self.assertEqual(self.tipos_registrados(), ["incremental", "eventos"])
+        self.assertEqual([c.args[1] for c in self.bronze.call_args_list], [123, 124, 125, 789, 790, 789])
+
+    def test_pauta_persistente_nao_registra_janela_incremental_nem_eventos(self):
+        self.stages["executar_carga_eventos"].side_effect = load_eventos.executar_carga_eventos
+        with patch.object(load_eventos, "get_connection"), patch.object(
+            load_eventos.api, "listar_eventos", return_value=[{"id": 123}]
+        ), patch.object(load_eventos, "carregar_evento_bronze", return_value={
+            "evento": "ok", "pauta": "erro: timeout"
+        }) as carregar:
+            with self.assertRaisesRegex(RuntimeError, "Carga de eventos incompleta"):
+                extract_incremental.executar_carga_incremental()
+        self.assertEqual(carregar.call_count, 2)
+        self.register.assert_not_called()
+        self.stages["executar_transformacao_silver"].assert_not_called()
+        self.senado.assert_not_called()
 
     def test_failure_in_any_downstream_stage_does_not_advance_window(self):
         for name, mock in self.stages.items():
@@ -274,7 +517,9 @@ class IncrementalTests(unittest.TestCase):
 
     def test_reconciliacao_roda_apos_d14_sem_repetir_seus_ids(self):
         extract_incremental.executar_carga_incremental()
-        self.reconciliacao.assert_called_once_with(90, levantar_erro=False, ignorar=[123])
+        self.reconciliacao.assert_called_once_with(
+            90, levantar_erro=False, ignorar=[123], ids_autores_gravados=ANY
+        )
 
     def test_dim_deputado_recebe_ids_da_janela_e_da_reconciliacao(self):
         extract_incremental.executar_carga_incremental()
@@ -284,15 +529,19 @@ class IncrementalTests(unittest.TestCase):
         self.acompanhadas.return_value = [123, 789]
         extract_incremental.executar_carga_incremental()
         self.assertEqual([c.args[1] for c in self.bronze.call_args_list], [123])
-        self.carregar_extras.assert_called_once_with([789], levantar_erro=False)
-        self.reconciliacao.assert_called_once_with(90, levantar_erro=False, ignorar=[123, 789])
+        self.carregar_extras.assert_called_once_with(
+            [789], levantar_erro=False, seletivo=True, ids_autores_gravados=ANY
+        )
+        self.reconciliacao.assert_called_once_with(
+            90, levantar_erro=False, ignorar=[123, 789], ids_autores_gravados=ANY
+        )
         self.stages["carregar_dim_deputado"].assert_called_once_with(seletivo=True, ids_proposicao=[123, 789, 456])
         # qtd do incremental conta só a janela D-14
         self.assertEqual(self.register.call_args_list[0].args[1:], ("incremental", date(2026, 10, 3), date(2026, 10, 6), 1))
 
     def test_acompanhada_com_erro_nao_trava_a_janela(self):
         self.acompanhadas.return_value = [789]
-        for efeito in [{"side_effect": lambda ids, levantar_erro: (list(ids), 1)},
+        for efeito in [{"side_effect": lambda ids, levantar_erro, **kwargs: (list(ids), 1)},
                        {"side_effect": RuntimeError("Conexão com o banco perdida")}]:
             with self.subTest(efeito=efeito):
                 self.register.reset_mock()
@@ -381,6 +630,11 @@ class EnvironmentTests(unittest.TestCase):
 
 
 class BackfillTests(unittest.TestCase):
+    def setUp(self):
+        sleep = patch.object(extract_bronze.time, "sleep")
+        self.sleep = sleep.start()
+        self.addCleanup(sleep.stop)
+
     def test_janelas_sao_contiguas_limitadas_e_ate_hoje(self):
         janelas = extract_bronze.gerar_janelas(date(2023, 2, 1), date(2026, 10, 13))
         self.assertEqual(janelas[0][0], date(2023, 2, 1))
@@ -431,7 +685,7 @@ class BackfillTests(unittest.TestCase):
         conn1, conn2 = MagicMock(), MagicMock()
         chamadas = []
 
-        def carregar(conn, id_prop):
+        def carregar(conn, id_prop, *, estado=None):
             chamadas.append((conn, id_prop))
             if id_prop == 2 and len(chamadas) == 2:
                 raise extract_bronze.ConexaoPerdida("server closed the connection unexpectedly")
@@ -451,11 +705,15 @@ class BackfillTests(unittest.TestCase):
         falha = extract_bronze.psycopg2.OperationalError("connection refused")
         with patch.object(
             extract_bronze, "get_connection", side_effect=[conn] + [falha] * len(extract_bronze.RECONEXAO_ESPERAS)
-        ), patch.object(
+        ) as conectar, patch.object(
             extract_bronze, "carregar_proposicao_bronze", side_effect=extract_bronze.ConexaoPerdida("caiu")
-        ), patch.object(extract_bronze.time, "sleep"):
-            with self.assertRaisesRegex(RuntimeError, "--pular-existentes"):
-                extract_bronze.carregar_ids([1])
+        ) as carregar, patch.object(extract_bronze.time, "sleep"):
+            with self.assertRaisesRegex(RuntimeError, "não recuperada"):
+                extract_bronze.carregar_ids([1, 2, 3])
+        # Banco fora do ar: um único ciclo de backoff e erro na hora, sem repetir por id
+        # nem ir para a 2ª passagem.
+        self.assertEqual(conectar.call_count, 1 + len(extract_bronze.RECONEXAO_ESPERAS))
+        self.assertEqual(carregar.call_count, 1)
         executed = [c.args[0] for c in conn.__enter__.return_value.cursor.return_value.__enter__.return_value.execute.call_args_list]
         self.assertFalse(any("controle_execucao" in sql for sql in executed))
 
@@ -471,7 +729,7 @@ class BackfillTests(unittest.TestCase):
         janelas = coletar.call_args.args[0]
         self.assertEqual(janelas[0][0], date(2026, 10, 13) - timedelta(days=60))
         self.assertEqual(janelas[-1][1], date(2026, 10, 13))
-        carregar.assert_called_once_with([3], levantar_erro=False)
+        carregar.assert_called_once_with([3], levantar_erro=False, ids_autores_gravados=None)
         self.assertEqual(resultado, (date(2026, 10, 13) - timedelta(days=60), date(2026, 10, 13), [3], 0))
 
     def test_carregar_ids_sem_levantar_devolve_erros(self):
@@ -479,6 +737,98 @@ class BackfillTests(unittest.TestCase):
             extract_bronze, "carregar_proposicao_bronze", return_value={"autores_json": "erro: 500"}
         ):
             self.assertEqual(extract_bronze.carregar_ids([5], levantar_erro=False), ([5], 1))
+
+    def test_seletivo_carrega_estado_uma_vez_e_pulado_nao_conta_como_erro(self):
+        conn = MagicMock()
+        estado = {1: ({"id": 1}, False)}
+        autores_gravados = []
+        with patch.object(extract_bronze, "get_connection", return_value=conn), patch.object(
+            extract_bronze, "carregar_estado_bronze", return_value=estado
+        ) as carregar_estado, patch.object(extract_bronze, "carregar_proposicao_bronze", side_effect=[
+            {"proposicoes_json": "ok", "autores_json": "pulado", "temas_json": "pulado", "tramitacoes_json": "ok"},
+            {"proposicoes_json": "ok", "autores_json": "ok", "temas_json": "ok", "tramitacoes_json": "ok"},
+        ]) as carregar:
+            self.assertEqual(extract_bronze.carregar_ids(
+                [1, 2], seletivo=True, ids_autores_gravados=autores_gravados
+            ), ([1, 2], 0))
+        carregar_estado.assert_called_once_with(conn.__enter__.return_value, [1, 2])
+        self.assertEqual(carregar.call_args_list, [
+            call(conn.__enter__.return_value, 1, estado=estado),
+            call(conn.__enter__.return_value, 2, estado=estado),
+        ])
+        self.assertEqual(autores_gravados, [2])
+        self.sleep.assert_not_called()
+
+    def test_segunda_passagem_so_falhos_com_estado_none_e_erros_finais(self):
+        estado = {1: ({"id": 1}, False)}
+        autores_gravados = []
+        with patch.object(extract_bronze, "get_connection"), patch.object(
+            extract_bronze, "carregar_estado_bronze", return_value=estado
+        ), patch.object(extract_bronze, "carregar_proposicao_bronze", side_effect=[
+            {"autores_json": "erro: timeout", "temas_json": "erro: timeout"},
+            {"autores_json": "pulado", "temas_json": "pulado"},
+            {"autores_json": "ok", "temas_json": "ok"},
+        ]) as carregar:
+            self.assertEqual(extract_bronze.carregar_ids(
+                [1, 2], seletivo=True, ids_autores_gravados=autores_gravados
+            ), ([1, 2], 0))
+        self.assertEqual([c.args[1] for c in carregar.call_args_list], [1, 2, 1])
+        self.assertEqual([c.kwargs["estado"] for c in carregar.call_args_list], [estado, estado, None])
+        self.assertEqual(autores_gravados, [1])
+        self.sleep.assert_called_once_with(60)
+
+    def test_autores_gravados_valem_em_qualquer_passagem(self):
+        autores_gravados = []
+        with patch.object(extract_bronze, "get_connection"), patch.object(
+            extract_bronze, "carregar_proposicao_bronze", side_effect=[
+                {"autores_json": "ok", "temas_json": "erro: timeout"},
+                {"autores_json": "erro: timeout", "temas_json": "erro: timeout"},
+                {"autores_json": "erro: timeout", "temas_json": "ok"},
+                {"autores_json": "ok", "temas_json": "erro: timeout"},
+            ]
+        ):
+            self.assertEqual(extract_bronze.carregar_ids(
+                [1, 2], levantar_erro=False, ids_autores_gravados=autores_gravados
+            ), ([1, 2], 2))
+        # 1 gravou autores na 1ª passagem (a 2ª falhou): continua valendo para o dim_deputado.
+        self.assertEqual(autores_gravados, [1, 2])
+        self.sleep.assert_called_once_with(60)
+
+    def test_reconexao_repassa_estado_e_segunda_passagem_forca_carga_completa(self):
+        conexoes = [MagicMock(), MagicMock(), MagicMock()]
+        estado = {1: ({"id": 1}, False)}
+        with patch.object(extract_bronze, "get_connection", side_effect=conexoes), patch.object(
+            extract_bronze, "carregar_estado_bronze", return_value=estado
+        ) as carregar_estado, patch.object(extract_bronze, "carregar_proposicao_bronze", side_effect=[
+            extract_bronze.ConexaoPerdida("caiu"), extract_bronze.psycopg2.InterfaceError("fechada"),
+            {"autores_json": "ok"},
+        ]) as carregar:
+            self.assertEqual(extract_bronze.carregar_ids([1], seletivo=True), ([1], 0))
+        carregar_estado.assert_called_once_with(conexoes[0].__enter__.return_value, [1])
+        self.assertEqual(carregar.call_args_list, [
+            call(conexoes[0].__enter__.return_value, 1, estado=estado),
+            call(conexoes[1].__enter__.return_value, 1, estado=estado),
+            call(conexoes[2].__enter__.return_value, 1, estado=None),
+        ])
+        self.assertEqual(self.sleep.call_args_list, [call(5), call(60), call(5)])
+
+    def test_reconciliacao_continua_completa_e_repassa_coletor_de_autores(self):
+        autores_gravados = []
+
+        def carregar(conn, id_prop, *, estado):
+            self.assertIsNone(estado)
+            return {"autores_json": "ok"}
+
+        with patch.object(extract_bronze, "coletar_ids_janelas", return_value=[1, 2]), patch.object(
+            extract_bronze, "get_connection"
+        ), patch.object(extract_bronze, "carregar_ids_existentes", return_value={1}), patch.object(
+            extract_bronze, "carregar_estado_bronze"
+        ) as carregar_estado, patch.object(extract_bronze, "carregar_proposicao_bronze", side_effect=carregar) as carga:
+            resultado = extract_bronze.executar_reconciliacao(90, ids_autores_gravados=autores_gravados)
+        self.assertEqual(resultado[2:], ([2], 0))
+        self.assertEqual(autores_gravados, [2])
+        carregar_estado.assert_not_called()
+        carga.assert_called_once()
 
 
 class CliBackfillTests(unittest.TestCase):
@@ -614,6 +964,35 @@ class PautaTests(unittest.TestCase):
                 self.stages["registrar_execucao"].assert_not_called()
                 self.stages["atualizar_api"].assert_not_called()
                 self.stages[name].side_effect = None
+
+    def test_pauta_persistente_apos_segunda_passagem_nao_registra_eventos(self):
+        self.stages["executar_carga_eventos"].side_effect = load_eventos.executar_carga_eventos
+        with patch.object(load_eventos.time, "sleep") as sleep, patch.object(
+            load_eventos, "get_connection"
+        ), patch.object(load_eventos.api, "listar_eventos", return_value=[{"id": 123}]), patch.object(
+            load_eventos, "carregar_evento_bronze", return_value={"evento": "ok", "pauta": "erro: timeout"}
+        ) as carregar:
+            with self.assertRaisesRegex(RuntimeError, "Carga de eventos incompleta"):
+                pipeline_pautas.executar_pipeline_pautas()
+        self.assertEqual(carregar.call_count, 2)
+        sleep.assert_called_once_with(60)
+        self.stages["registrar_execucao"].assert_not_called()
+        self.stages["atualizar_api"].assert_not_called()
+
+    def test_pauta_recuperada_na_segunda_passagem_registra_so_eventos(self):
+        self.stages["executar_carga_eventos"].side_effect = load_eventos.executar_carga_eventos
+        with patch.object(load_eventos.time, "sleep") as sleep, patch.object(
+            load_eventos, "get_connection"
+        ), patch.object(load_eventos.api, "listar_eventos", return_value=[{"id": 123}]), patch.object(
+            load_eventos, "carregar_evento_bronze", side_effect=[
+                {"evento": "ok", "pauta": "erro: timeout"}, {"evento": "ok", "pauta": "ok"},
+            ]
+        ) as carregar:
+            pipeline_pautas.executar_pipeline_pautas()
+        self.assertEqual(carregar.call_count, 2)
+        sleep.assert_called_once_with(60)
+        self.assertEqual([c.args[1] for c in self.stages["registrar_execucao"].call_args_list], ["eventos"])
+        self.stages["atualizar_api"].assert_called_once()
 
     def test_event_transformation_does_not_write_propositions(self):
         conn = MagicMock()

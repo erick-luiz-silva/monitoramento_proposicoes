@@ -28,6 +28,9 @@ SENADO_API_BASE = "https://legis.senado.leg.br/dadosabertos"
 # Desenvolvimento Sustentável; 66 Indústria, Comércio e Serviços.
 TEMAS = [64, 48, 66]
 
+# Pausa antes de repetir as proposições e pautas com falha transitória.
+PAUSA_SEGUNDA_PASSAGEM_SEG = 60
+
 # Filtro grosso do Senado por classe (os filhos são expandidos em tempo de execução, porque
 # o filtro codigoClasse da API não inclui a subárvore): Agropecuária e Abastecimento, Meio
 # Ambiente, Indústria/Comércio/Serviços e Saúde > Defesa e Vigilância Sanitária. Todas as
