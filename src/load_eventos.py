@@ -2,7 +2,9 @@ import json
 import time
 
 import api_client as api
+from config import PAUSA_SEGUNDA_PASSAGEM_SEG
 from db import get_connection
+from load_bronze import STATUS_SUCESSO, houve_erro
 
 COMISSOES = {"CAPADR": 2001, "CCJC": 2003, "CMADS": 6174, "PLEN": 180}
 # 110/112/125/204/210 = eventos deliberativos (têm pauta, cruzam por proposição).
@@ -54,17 +56,35 @@ def executar_carga_eventos(data_inicio, data_fim, limit=None):
     if limit is not None:
         eventos = eventos[:limit]
 
-    ok, erro = 0, 0
+    resultados = {}
     with get_connection() as conn:
-        for evento in eventos:
-            resultado = carregar_evento_bronze(conn, evento)
+        def registrar_resultado(evento, resultado):
+            resultados[evento["id"]] = resultado
             for parte, status in resultado.items():
-                if status == "ok":
-                    ok += 1
-                else:
-                    erro += 1
+                if status not in STATUS_SUCESSO:
                     print(f"  ! evento {evento['id']} / {parte}: {status}")
 
+        falhos = []
+        for evento in eventos:
+            resultado = carregar_evento_bronze(conn, evento)
+            registrar_resultado(evento, resultado)
+            if houve_erro(resultado):
+                falhos.append(evento)
+
+        if falhos:
+            print(f"{len(falhos)} eventos falharam na 1ª passagem; repetindo após "
+                  f"{PAUSA_SEGUNDA_PASSAGEM_SEG}s...")
+            time.sleep(PAUSA_SEGUNDA_PASSAGEM_SEG)
+            recuperados = 0
+            for evento in falhos:
+                resultado = carregar_evento_bronze(conn, evento)
+                registrar_resultado(evento, resultado)
+                recuperados += not houve_erro(resultado)
+            print(f"2ª passagem: {recuperados} de {len(falhos)} eventos recuperados")
+
+    status_finais = [status for resultado in resultados.values() for status in resultado.values()]
+    ok = status_finais.count("ok")
+    erro = sum(status not in STATUS_SUCESSO for status in status_finais)
     print(f"Carga de eventos concluída. ok: {ok} | erro: {erro}")
     if erro:
         raise RuntimeError(f"Carga de eventos incompleta: {erro} endpoints com erro.")

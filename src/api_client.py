@@ -4,6 +4,8 @@ import requests
 
 from config import API_BASE_URL
 
+SESSAO = requests.Session()
+
 REQUEST_TIMEOUT = 15
 SLEEP_BETWEEN_CALLS = 0.5
 MAX_RETRIES = 3
@@ -14,7 +16,7 @@ def _get(url, params=None):
     last_error = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            response = requests.get(url, params=params, timeout=REQUEST_TIMEOUT)
+            response = SESSAO.get(url, params=params, timeout=REQUEST_TIMEOUT)
             if response.status_code == 200:
                 return response.json()
             if response.status_code == 429 or response.status_code >= 500:

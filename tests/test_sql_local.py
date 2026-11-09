@@ -56,6 +56,68 @@ class BancoLimpoTests(unittest.TestCase):
     def tearDown(self):
         self.conn.close()
 
+    def test_estado_bronze_identifica_faltas_validade_e_primeira_aparicao_da_versao(self):
+        from psycopg2.extras import Json
+        from load_bronze import carregar_estado_bronze
+
+        def inserir(tabela, id_prop, payload, dias):
+            self.cur.execute(
+                f"INSERT INTO bronze.{tabela} (id_proposicao, payload, data_extracao) "
+                "VALUES (%s, %s, now() - %s * interval '1 day')",
+                (id_prop, Json(payload), dias),
+            )
+
+        # (idade dos detalhes, idade dos autores, idade dos temas, precisa atualizar).
+        casos = {
+            1: (3, 2, 2, False),   # Repetir detalhes iguais hoje não invalida autores recentes.
+            2: (1, 2, 2, True),    # Falha anterior: ambos anteriores à versão atual.
+            3: (1, 2, 0.5, True),  # Só autores anteriores à versão atual.
+            4: (1, 0.5, 2, True),  # Só temas anteriores à versão atual.
+            5: (9, 8, 1, True),    # Autores vencidos há mais de 7 dias.
+            6: (9, 1, 8, True),    # Temas vencidos há mais de 7 dias.
+            7: (2, None, 1, True), # Autores ausentes.
+            8: (2, 1, None, True), # Temas ausentes.
+            9: (2, None, None, True),
+            10: (8, 7, 7, False),  # Exatamente 7 dias ainda está dentro do prazo.
+            11: (2, 1, 1, False),  # Snapshots antigos não vencem as últimas cargas.
+            12: (1, 1, 1, False),  # Igual à primeira aparição é suficiente.
+        }
+        for id_prop, (detalhes, autores, temas, _) in casos.items():
+            if id_prop == 2:
+                inserir("proposicoes_json", id_prop, {"id": id_prop, "versao": "anterior"}, 4)
+            inserir("proposicoes_json", id_prop, {"id": id_prop}, detalhes)
+            for tabela, dias in (("autores_json", autores), ("temas_json", temas)):
+                if dias is not None:
+                    if id_prop == 11:
+                        inserir(tabela, id_prop, [], 10)
+                    inserir(tabela, id_prop, [], dias)
+        inserir("proposicoes_json", 1, {"id": 1}, 0)
+        inserir("autores_json", 13, [], 1)  # Sem detalhes, não entra no estado.
+        inserir("temas_json", 13, [], 1)
+        # Empate de timestamp: o último insert é o snapshot atual.
+        inserir("proposicoes_json", 14, {"id": 14, "versao": "anterior"}, 1)
+        inserir("proposicoes_json", 14, {"id": 14}, 1)
+        inserir("autores_json", 14, [], 0)
+        inserir("temas_json", 14, [], 0)
+
+        # A→B→A: autores/temas gravados durante B não valem para o A que voltou (15);
+        # gravados depois da volta de A, valem (16).
+        for id_prop, dias_cargas in ((15, 2), (16, 0.5)):
+            inserir("proposicoes_json", id_prop, {"id": id_prop}, 5)
+            inserir("proposicoes_json", id_prop, {"id": id_prop, "versao": "B"}, 3)
+            inserir("proposicoes_json", id_prop, {"id": id_prop}, 1)
+            inserir("proposicoes_json", id_prop, {"id": id_prop}, 0)
+            inserir("autores_json", id_prop, [], dias_cargas)
+            inserir("temas_json", id_prop, [], dias_cargas)
+
+        estado = carregar_estado_bronze(self.conn, list(range(1, 17)))
+        self.assertEqual(estado, {
+            **{id_prop: ({"id": id_prop}, precisa) for id_prop, (_, _, _, precisa) in casos.items()},
+            14: ({"id": 14}, False),
+            15: ({"id": 15}, True),
+            16: ({"id": 16}, False),
+        })
+
     def test_schemas_existem(self):
         self.cur.execute("SELECT nspname FROM pg_namespace WHERE nspname = ANY(%s)", (["bronze", "silver", "gold", "api", "api_cache"],))
         self.assertEqual({l[0] for l in self.cur.fetchall()}, {"bronze", "silver", "gold", "api", "api_cache"})

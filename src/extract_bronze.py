@@ -7,14 +7,28 @@ import psycopg2
 from tqdm import tqdm
 
 import api_client as api
-from config import TEMAS
+from config import PAUSA_SEGUNDA_PASSAGEM_SEG, TEMAS
 from db import get_connection
-from load_bronze import ConexaoPerdida, carregar_proposicao_bronze
+from load_bronze import (
+    STATUS_SUCESSO, ConexaoPerdida, carregar_estado_bronze,
+    carregar_proposicao_bronze, houve_erro,
+)
 
 DESDE_PADRAO = date(2023, 2, 1)
 MAX_DIAS_JANELA = 90  # a API só aceita dataInicio/dataFim com até 3 meses de intervalo
 RECONEXAO_ESPERAS = (5, 15, 30, 60, 120)  # segundos antes de cada tentativa de reconectar ao banco
 TQDM_MININTERVAL = 30  # segundos entre atualizações da barra; mantém o log do backfill legível
+
+
+class CargaBronzeIncompleta(RuntimeError):
+    """Preserva a contagem final para o chamador informar qual janela falhou."""
+
+    def __init__(self, erro_count):
+        self.erro_count = erro_count
+        super().__init__(
+            f"Carga bronze incompleta: {erro_count} endpoints com erro. "
+            "Rode de novo com --pular-existentes para recarregar só o que falhou."
+        )
 
 
 def gerar_janelas(desde, ate, max_dias=MAX_DIAS_JANELA):
@@ -79,10 +93,15 @@ def _reconectar(conexao):
     )
 
 
-def carregar_ids(ids, pular_existentes=False, limit=None, levantar_erro=True):
+def carregar_ids(
+    ids, pular_existentes=False, limit=None, levantar_erro=True, *,
+    seletivo=False, ids_autores_gravados=None,
+):
     """Grava a bronze das proposições dadas e devolve (ids processados, endpoints com erro).
 
-    Com levantar_erro=True (padrão), levanta erro ao final se algum endpoint falhar.
+    Repete os ids com erro uma vez, com carga completa, antes de levantar erro.
+    Com seletivo=True, lê o estado anterior uma vez e condiciona autores/temas.
+    ids_autores_gravados recebe os ids que gravaram autores em alguma passagem.
     Não registra nada em bronze.controle_execucao: essas cargas não avançam a janela incremental.
     """
     if pular_existentes:
@@ -96,38 +115,70 @@ def carregar_ids(ids, pular_existentes=False, limit=None, levantar_erro=True):
         ids = ids[:limit]
         print(f"Modo de teste: limitando a {len(ids)} proposições")
 
-    ok_count = 0
-    erro_count = 0
-
+    resultados = {}
     with ExitStack() as conexao:
         conn = conexao.enter_context(get_connection())
-        for id_prop in tqdm(ids, desc="Carga bronze", unit="proposição", mininterval=TQDM_MININTERVAL):
+        estado = carregar_estado_bronze(conn, ids) if seletivo else None
+
+        def carregar(id_prop, estado_atual):
+            nonlocal conn
+            if conn is None:
+                # Falha ao reconectar levanta: banco fora do ar derruba a carga na hora,
+                # em vez de repetir o backoff inteiro em cada id restante.
+                conn = _reconectar(conexao)
             try:
-                resultado = carregar_proposicao_bronze(conn, id_prop)
+                return carregar_proposicao_bronze(conn, id_prop, estado=estado_atual)
             except (ConexaoPerdida, psycopg2.OperationalError, psycopg2.InterfaceError) as exc:
                 tqdm.write(f"  ! conexão perdida na proposição {id_prop}: {exc}")
                 conexao.close()
                 conn = _reconectar(conexao)
                 try:
-                    resultado = carregar_proposicao_bronze(conn, id_prop)
+                    return carregar_proposicao_bronze(conn, id_prop, estado=estado_atual)
                 except (ConexaoPerdida, psycopg2.OperationalError, psycopg2.InterfaceError) as exc_retry:
-                    # Conta como erro e segue; a próxima proposição já usa uma conexão nova.
-                    resultado = {"conexao": f"erro: {exc_retry}"}
                     conexao.close()
-                    conn = _reconectar(conexao)
+                    conn = None
+                    return {"conexao": f"erro: {exc_retry}"}
+
+        autores_gravados = set()
+
+        def registrar_resultado(id_prop, resultado):
+            resultados[id_prop] = resultado
+            # Acumula já na hora e em qualquer passagem: autores gravados na 1ª continuam
+            # valendo para o dim_deputado, mesmo se a 2ª falhar ou a carga levantar depois.
+            if (ids_autores_gravados is not None and resultado.get("autores_json") == "ok"
+                    and id_prop not in autores_gravados):
+                autores_gravados.add(id_prop)
+                ids_autores_gravados.append(id_prop)
             for tabela, status in resultado.items():
-                if status == "ok":
-                    ok_count += 1
-                else:
-                    erro_count += 1
+                if status not in STATUS_SUCESSO:
                     tqdm.write(f"  ! proposição {id_prop} / {tabela}: {status}")
 
-    print(f"\nCarga bronze concluída. Endpoints ok: {ok_count} | Endpoints com erro: {erro_count}")
+        falhos = []
+        for id_prop in tqdm(ids, desc="Carga bronze", unit="proposição", mininterval=TQDM_MININTERVAL):
+            resultado = carregar(id_prop, estado)
+            registrar_resultado(id_prop, resultado)
+            if houve_erro(resultado):
+                falhos.append(id_prop)
+
+        if falhos:
+            print(f"{len(falhos)} proposições falharam na 1ª passagem; repetindo após "
+                  f"{PAUSA_SEGUNDA_PASSAGEM_SEG}s...")
+            time.sleep(PAUSA_SEGUNDA_PASSAGEM_SEG)
+            recuperados = 0
+            for id_prop in falhos:
+                resultado = carregar(id_prop, None)
+                registrar_resultado(id_prop, resultado)
+                recuperados += not houve_erro(resultado)
+            print(f"2ª passagem: {recuperados} de {len(falhos)} proposições recuperadas")
+
+    status_finais = [status for resultado in resultados.values() for status in resultado.values()]
+    ok_count = status_finais.count("ok")
+    pulado_count = status_finais.count("pulado")
+    erro_count = sum(status not in STATUS_SUCESSO for status in status_finais)
+    print(f"\nCarga bronze concluída. Endpoints ok: {ok_count} | pulado: {pulado_count} | "
+          f"Endpoints com erro: {erro_count}")
     if erro_count and levantar_erro:
-        raise RuntimeError(
-            f"Carga bronze incompleta: {erro_count} endpoints com erro. "
-            "Rode de novo com --pular-existentes para recarregar só o que falhou."
-        )
+        raise CargaBronzeIncompleta(erro_count)
     return ids, erro_count
 
 
@@ -152,7 +203,7 @@ def executar_carga_bronze(desde=DESDE_PADRAO, ate=None, pular_existentes=False, 
     carregar_ids(ids, pular_existentes=pular_existentes, limit=limit)
 
 
-def executar_reconciliacao(dias, levantar_erro=True, ignorar=()):
+def executar_reconciliacao(dias, levantar_erro=True, ignorar=(), *, ids_autores_gravados=None):
     """Carrega os ids listados nos últimos `dias` dias que ainda não estão na bronze.
 
     Cobre a indexação tardia de tema: a Câmara atribui o tema de 1 a 2 semanas
@@ -170,7 +221,9 @@ def executar_reconciliacao(dias, levantar_erro=True, ignorar=()):
         existentes = carregar_ids_existentes(conn)
     ausentes = [id_prop for id_prop in ids if id_prop not in existentes]
     print(f"Reconciliação de {dias} dias: {len(ids)} ids listados, {len(ausentes)} ausentes da bronze")
-    carregados, erros = carregar_ids(ausentes, levantar_erro=levantar_erro)
+    carregados, erros = carregar_ids(
+        ausentes, levantar_erro=levantar_erro, ids_autores_gravados=ids_autores_gravados
+    )
     return desde, ate, carregados, erros
 
 
