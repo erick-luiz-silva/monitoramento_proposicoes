@@ -178,14 +178,63 @@ class LoaderTests(unittest.TestCase):
         db = conn.__enter__.return_value
         cur = db.cursor.return_value.__enter__.return_value
         cur.fetchall.return_value = [(1,), (2,)]
-        cur.execute.side_effect = [None, RuntimeError("SQL failure"), None]
+        # SELECT dos ids; id 1 falha, id 2 ok; id 1 falha de novo na 2ª passagem
+        cur.execute.side_effect = [None, RuntimeError("SQL failure"), None, RuntimeError("SQL failure")]
         with patch.object(load_dim_deputado, "get_connection", return_value=conn), patch.object(
             load_dim_deputado.api, "buscar_deputado", return_value={"ultimoStatus": {}}
         ), patch.object(load_dim_deputado.time, "sleep"):
             with self.assertRaisesRegex(RuntimeError, "incompleta"):
                 load_dim_deputado.carregar_dim_deputado()
-        db.rollback.assert_called_once()
+        self.assertEqual(db.rollback.call_count, 2)  # 1ª e 2ª passagem do id 1
         db.commit.assert_called_once()
+
+    def rodar_dim_deputado(self, buscar_side_effect, ids=(1, 2)):
+        conn = MagicMock()
+        db = conn.__enter__.return_value
+        db.cursor.return_value.__enter__.return_value.fetchall.return_value = [(i,) for i in ids]
+        with patch.object(load_dim_deputado, "get_connection", return_value=conn), patch.object(
+            load_dim_deputado.api, "buscar_deputado", side_effect=buscar_side_effect
+        ) as buscar, patch.object(load_dim_deputado.time, "sleep") as sleep:
+            try:
+                load_dim_deputado.carregar_dim_deputado(seletivo=True)
+                erro = None
+            except load_dim_deputado.DimDeputadoIncompleta as exc:
+                erro = exc
+        return buscar, sleep, db, erro
+
+    def test_deputado_recuperado_na_segunda_passagem_nao_levanta(self):
+        buscar, sleep, db, erro = self.rodar_dim_deputado(
+            [{"ultimoStatus": {}}, TimeoutError("read timeout"), {"ultimoStatus": {}}]
+        )
+        self.assertIsNone(erro)
+        self.assertEqual([c.args[0] for c in buscar.call_args_list], [1, 2, 2])
+        sleep.assert_any_call(load_dim_deputado.PAUSA_SEGUNDA_PASSAGEM_SEG)
+        self.assertEqual(db.commit.call_count, 2)
+
+    def test_deputado_persistente_levanta_dim_incompleta(self):
+        buscar, sleep, db, erro = self.rodar_dim_deputado(
+            [{"ultimoStatus": {}}, TimeoutError("t1"), TimeoutError("t2")]
+        )
+        self.assertIsInstance(erro, RuntimeError)
+        self.assertIn("1 deputados com erro", str(erro))
+        self.assertEqual(buscar.call_count, 3)
+
+    def test_dim_deputado_sem_falha_nao_pausa(self):
+        _, sleep, _, erro = self.rodar_dim_deputado([{"ultimoStatus": {}}, {"ultimoStatus": {}}])
+        self.assertIsNone(erro)
+        self.assertNotIn(call(load_dim_deputado.PAUSA_SEGUNDA_PASSAGEM_SEG), sleep.call_args_list)
+
+    def test_conexao_perdida_no_dim_deputado_levanta_na_hora(self):
+        conn = MagicMock()
+        db = conn.__enter__.return_value
+        db.cursor.return_value.__enter__.return_value.fetchall.return_value = [(1,), (2,)]
+        db.rollback.side_effect = ConnectionError("conexão perdida")
+        with patch.object(load_dim_deputado, "get_connection", return_value=conn), patch.object(
+            load_dim_deputado.api, "buscar_deputado", side_effect=TimeoutError("t")
+        ) as buscar, patch.object(load_dim_deputado.time, "sleep"):
+            with self.assertRaises(ConnectionError):
+                load_dim_deputado.carregar_dim_deputado()
+        buscar.assert_called_once()
 
 
 class BronzeSeletivoTests(unittest.TestCase):
@@ -459,6 +508,18 @@ class IncrementalTests(unittest.TestCase):
         self.aviso.assert_not_called()
         self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
         self.assertEqual(self.register.call_args_list[2].args[2:], (date(2026, 7, 8), date(2026, 10, 6), 1))
+
+    def test_dim_deputado_incompleta_registra_janelas_e_falha_no_fim(self):
+        self.stages["carregar_dim_deputado"].side_effect = load_dim_deputado.DimDeputadoIncompleta(
+            "Carga de deputados incompleta: 6 deputados com erro."
+        )
+        with self.assertRaisesRegex(RuntimeError, "6 deputados com erro"):
+            extract_incremental.executar_carga_incremental()
+        self.assertEqual(self.tipos_registrados(), ["incremental", "eventos", "reconciliacao"])
+        self.stages["carregar_dim_orgao"].assert_called_once()
+        self.senado.assert_called_once()
+        self.api.assert_called_once()
+        self.snapshot.assert_called_once()
 
     def test_falha_do_senado_vira_aviso_sem_falhar_nem_travar_a_camara(self):
         self.senado.side_effect = RuntimeError("HTTP 503")
@@ -949,6 +1010,16 @@ class PautaTests(unittest.TestCase):
         self.stages["atualizar_api"].assert_called_once()
         self.assertIn("HTTP 503", self.aviso.call_args.args[0])
 
+    def test_relator_incompleto_registra_eventos_atualiza_api_e_falha_no_fim(self):
+        self.stages["carregar_dim_deputado"].side_effect = load_dim_deputado.DimDeputadoIncompleta(
+            "Carga de deputados incompleta: 1 deputados com erro."
+        )
+        with self.assertRaisesRegex(RuntimeError, "1 deputados com erro"):
+            pipeline_pautas.executar_pipeline_pautas()
+        self.assertEqual([c.args[1] for c in self.stages["registrar_execucao"].call_args_list], ["eventos"])
+        self.stages["carregar_dim_orgao"].assert_called_once()
+        self.stages["atualizar_api"].assert_called_once()
+
     def test_falha_no_schema_api_nao_registra_incremental(self):
         self.stages["atualizar_api"].side_effect = RuntimeError("lock timeout")
         with self.assertRaisesRegex(RuntimeError, "lock timeout"):
@@ -1054,6 +1125,24 @@ class InclusaoTests(unittest.TestCase):
     def test_id_invalido_nao_bloqueia_as_demais(self):
         # 2 proposições, 4 endpoints com erro (uma inteira falhou): segue para a silver
         self.rodar([2, 3], 4, existentes_depois={3}).assert_called_once()
+
+    def test_deputado_incompleto_nao_segura_a_inclusao(self):
+        with patch.object(pipeline_inclusao, "get_connection"), patch.object(
+            pipeline_inclusao, "carregar_ids_acompanhadas", return_value=[2]
+        ), patch.object(
+            pipeline_inclusao, "carregar_ids_existentes", side_effect=[set(), {2}]
+        ), patch.object(pipeline_inclusao, "carregar_ids", return_value=([2], 0)), patch.object(
+            pipeline_inclusao, "executar_transformacao_silver"
+        ), patch.object(
+            pipeline_inclusao, "carregar_dim_deputado",
+            side_effect=load_dim_deputado.DimDeputadoIncompleta("Carga de deputados incompleta: 1 deputados com erro."),
+        ), patch.object(pipeline_inclusao, "carregar_dim_orgao") as orgao, patch.object(
+            pipeline_inclusao, "atualizar_api"
+        ) as api:
+            with self.assertRaisesRegex(RuntimeError, "1 deputados com erro"):
+                pipeline_inclusao.executar_pipeline_inclusao()
+        orgao.assert_called_once()
+        api.assert_called_once()
 
     def test_falha_total_interrompe_antes_da_silver(self):
         with self.assertRaisesRegex(RuntimeError, "Nenhuma proposição"):

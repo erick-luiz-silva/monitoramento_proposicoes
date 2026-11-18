@@ -7,7 +7,7 @@ from extract_bronze import CargaBronzeIncompleta, carregar_ids, executar_reconci
 from extract_senado import SenadoComPendencias, executar_carga_senado
 from load_api import atualizar_api
 from load_snapshot import gravar_snapshot_carteira
-from load_dim_deputado import carregar_dim_deputado
+from load_dim_deputado import DimDeputadoIncompleta, carregar_dim_deputado
 from load_dim_orgao import carregar_dim_orgao
 from load_eventos import executar_carga_eventos
 from load_silver import executar_transformacao_silver
@@ -111,6 +111,8 @@ def executar_carga_camara():
     """Bronze D-14 + acompanhadas, reconciliação, eventos, silver e dims; depois registra as janelas.
 
     Falha na D-14, nos eventos, na silver ou nas dims: levanta erro sem registrar nada.
+    Exceção: deputados que falham também na 2ª passagem (DimDeputadoIncompleta) não
+    bloqueiam, como as acompanhadas e a reconciliação.
     Falha nas acompanhadas ou na reconciliação: o resto segue e `incremental`/`eventos`
     são registrados (um id com erro crônico não pode travar a janela), `reconciliacao`
     só é registrada se ela completou, e esses erros voltam na lista (o orquestrador
@@ -156,7 +158,11 @@ def executar_carga_camara():
     executar_transformacao_silver()
 
     print("\nAtualizando dim_deputado...")
-    carregar_dim_deputado(seletivo=True, ids_proposicao=list(dict.fromkeys(ids_autores_gravados)))
+    try:
+        carregar_dim_deputado(seletivo=True, ids_proposicao=list(dict.fromkeys(ids_autores_gravados)))
+        erro_deputados = None
+    except DimDeputadoIncompleta as exc:
+        erro_deputados = str(exc)
 
     print("\nAtualizando dim_orgao...")
     carregar_dim_orgao()
@@ -169,7 +175,7 @@ def executar_carga_camara():
         if reconciliacao:
             registrar_execucao(conn, *reconciliacao)
 
-    return [erro for erro in (erro_acompanhadas, erro_reconciliacao) if erro]
+    return [erro for erro in (erro_acompanhadas, erro_reconciliacao, erro_deputados) if erro]
 
 
 def executar_carga_incremental():

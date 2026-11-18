@@ -11,7 +11,7 @@ from db import get_connection
 from extract_bronze import carregar_ids, carregar_ids_existentes
 from extract_incremental import carregar_ids_acompanhadas
 from load_api import atualizar_api
-from load_dim_deputado import carregar_dim_deputado
+from load_dim_deputado import DimDeputadoIncompleta, carregar_dim_deputado
 from load_dim_orgao import carregar_dim_orgao
 from load_silver import executar_transformacao_silver
 
@@ -34,10 +34,16 @@ def executar_pipeline_inclusao():
         if not any(id_prop in existentes for id_prop in ausentes):
             raise RuntimeError("Nenhuma proposição incluída pôde ser carregada.")
     executar_transformacao_silver()
-    carregar_dim_deputado(seletivo=True, ids_proposicao=carregados)
+    try:
+        carregar_dim_deputado(seletivo=True, ids_proposicao=carregados)
+        erro_deputados = None
+    except DimDeputadoIncompleta as exc:
+        erro_deputados = exc  # partido/UF de um autor não pode segurar a inclusão
     carregar_dim_orgao()
     atualizar_api()
     print(f"Inclusão concluída: {len(carregados)} proposições processadas, {erros} endpoints com erro.")
+    if erro_deputados:
+        raise erro_deputados
 
 
 if __name__ == "__main__":
