@@ -3,7 +3,14 @@ import time
 from tqdm import tqdm
 
 import api_client as api
+from config import PAUSA_SEGUNDA_PASSAGEM_SEG
 from db import get_connection
+
+
+class DimDeputadoIncompleta(RuntimeError):
+    """Deputados que falharam também na 2ª passagem. Não bloqueia janelas nem o api:
+    a dim só dá partido/UF dos autores, os ausentes voltam na seleção do próximo run
+    e os defasados no refresh rolante. O orquestrador faz o job falhar no fim."""
 
 # Só autores da Câmara com uri numérica: os do Senado têm uri NULL e código de outro
 # sistema (e o Postgres não garante a ordem do WHERE, então o cast fica protegido).
@@ -108,33 +115,41 @@ def carregar_dim_deputado(limit=None, somente_relatores=False, seletivo=False, i
 
         print(f"{len(ids)} deputados distintos a processar")
 
-        ok, erro = 0, 0
-        with conn.cursor() as cur:
-            for id_deputado in tqdm(ids, desc="dim_deputado", unit="deputado"):
-                try:
-                    dep = api.buscar_deputado(id_deputado)
-                    status = dep.get("ultimoStatus", {})
-                    cur.execute(
-                        _SQL_UPSERT,
-                        (
-                            id_deputado,
-                            status.get("nome"),
-                            status.get("siglaPartido"),
-                            status.get("siglaUf"),
-                            status.get("situacao"),
-                        ),
-                    )
-                    conn.commit()
-                    ok += 1
-                except Exception as exc:
-                    conn.rollback()
-                    erro += 1
-                    tqdm.write(f"  ! deputado {id_deputado}: {exc}")
+        def carregar(cur, id_deputado):
+            try:
+                dep = api.buscar_deputado(id_deputado)
+                status = dep.get("ultimoStatus", {})
+                cur.execute(
+                    _SQL_UPSERT,
+                    (
+                        id_deputado,
+                        status.get("nome"),
+                        status.get("siglaPartido"),
+                        status.get("siglaUf"),
+                        status.get("situacao"),
+                    ),
+                )
+                conn.commit()
+                return True
+            except Exception as exc:
+                conn.rollback()  # conexão perdida levanta aqui (não vira DimDeputadoIncompleta)
+                tqdm.write(f"  ! deputado {id_deputado}: {exc}")
+                return False
+            finally:
                 time.sleep(api.SLEEP_BETWEEN_CALLS)
 
-        print(f"dim_deputado: {ok} ok, {erro} com erro")
+        with conn.cursor() as cur:
+            falhos = [d for d in tqdm(ids, desc="dim_deputado", unit="deputado") if not carregar(cur, d)]
+            if falhos:
+                print(f"{len(falhos)} deputados falharam na 1ª passagem; repetindo após "
+                      f"{PAUSA_SEGUNDA_PASSAGEM_SEG}s...")
+                time.sleep(PAUSA_SEGUNDA_PASSAGEM_SEG)
+                falhos = [d for d in falhos if not carregar(cur, d)]
+
+        erro = len(falhos)
+        print(f"dim_deputado: {len(ids) - erro} ok, {erro} com erro")
         if erro:
-            raise RuntimeError(f"Carga de deputados incompleta: {erro} deputados com erro.")
+            raise DimDeputadoIncompleta(f"Carga de deputados incompleta: {erro} deputados com erro.")
 
 
 if __name__ == "__main__":

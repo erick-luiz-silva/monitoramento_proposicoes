@@ -10,7 +10,7 @@ from extract_incremental import (
     registrar_execucao,
 )
 from load_api import atualizar_api
-from load_dim_deputado import carregar_dim_deputado
+from load_dim_deputado import DimDeputadoIncompleta, carregar_dim_deputado
 from load_dim_orgao import carregar_dim_orgao
 from load_eventos import executar_carga_eventos
 from load_silver import executar_transformacao_eventos
@@ -24,7 +24,13 @@ def executar_pipeline_pautas():
     fim = hoje + timedelta(days=EVENTOS_DIAS_FUTURO)
     qtd = executar_carga_eventos(inicio, fim)
     executar_transformacao_eventos()
-    carregar_dim_deputado(somente_relatores=True, seletivo=True)
+    # Relator que falha também na 2ª passagem não trava a janela de eventos nem o api;
+    # o job falha no fim.
+    try:
+        carregar_dim_deputado(somente_relatores=True, seletivo=True)
+        erro_deputados = None
+    except DimDeputadoIncompleta as exc:
+        erro_deputados = exc
     carregar_dim_orgao()
     # O controle das proposições fica reservado à carga completa diária.
     with get_connection() as conn:
@@ -37,6 +43,8 @@ def executar_pipeline_pautas():
     # Tudo, não só pautas: dim_deputado/dim_orgao também aparecem em vw_monitoramento.
     atualizar_api()
     print(f"Atualização de pautas concluída: {qtd} eventos entre {inicio} e {fim}.")
+    if erro_deputados:
+        raise erro_deputados
 
 
 if __name__ == "__main__":
