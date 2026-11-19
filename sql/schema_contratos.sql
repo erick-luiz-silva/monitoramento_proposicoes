@@ -477,6 +477,54 @@ FROM api_cache.vw_pautas_monitoradas pm
 JOIN contrato.vw_versao v ON v.id_proposicao = pm.id_proposicao;
 
 -- ---------------------------------------------------------------------------------------------
+-- contrato.vw_audiencia — audiências públicas de interesse (keyword na descrição do evento), com
+-- o status na leitura (mesma regra de api.vw_audiencias_de_interesse.status_alerta: Cancelada/
+-- Adiada primeiro, depois o relógio de Brasília). Tela Agenda do /legislativo.
+-- ---------------------------------------------------------------------------------------------
+CREATE VIEW contrato.vw_audiencia AS
+SELECT
+    a.id_evento,
+    a.data_hora_inicio,
+    a.sigla_orgao,
+    a.nome_orgao,
+    a.assunto,
+    a.keywords_encontradas,
+    a.url_registro,
+    a.casa,
+    CASE
+        WHEN a.situacao_evento = 'Cancelada' THEN 'Cancelada'
+        WHEN a.situacao_evento = 'Adiada' THEN 'Adiada'
+        WHEN a.data_hora_inicio > (now() AT TIME ZONE 'America/Sao_Paulo') THEN 'Agendada'
+        ELSE 'Realizada'
+    END AS status
+FROM api_cache.vw_audiencias_de_interesse a;
+
+-- ---------------------------------------------------------------------------------------------
+-- contrato.vw_avaliacao — uma linha por evento do histórico que deixou a relevância em SIM ou NAO
+-- (Indicadores do /legislativo). Não entram: o próprio 'desfazer_avaliacao' nem o 'avaliar' que
+-- ele desfez (mesmo projeto, revisão seguinte). uuid_projeto já resolve a substituição (um nível).
+-- pre_lancamento = veio da planilha (origem 'migracao'): sem data, dia NULL. Senão, dia é o de
+-- Brasília do evento.
+-- ---------------------------------------------------------------------------------------------
+CREATE VIEW contrato.vw_avaliacao AS
+SELECT
+    h.id,
+    coalesce(p.substituido_por, h.uuid_projeto) AS uuid_projeto,
+    h.diferencas -> 'relevancia' ->> 'para' AS relevancia,
+    CASE WHEN h.origem <> 'migracao' THEN (h.em AT TIME ZONE 'America/Sao_Paulo')::date END AS dia,
+    h.origem = 'migracao' AS pre_lancamento
+FROM gestao.historico_alteracao h
+JOIN gestao.projeto p ON p.uuid = h.uuid_projeto
+WHERE h.diferencas ? 'relevancia'
+  AND h.diferencas -> 'relevancia' ->> 'para' IN ('SIM', 'NAO')
+  AND h.operacao <> 'desfazer_avaliacao'
+  AND NOT (h.operacao = 'avaliar' AND EXISTS (
+        SELECT 1 FROM gestao.historico_alteracao d
+        WHERE d.uuid_projeto = h.uuid_projeto
+          AND d.operacao = 'desfazer_avaliacao'
+          AND d.revisao = h.revisao + 1));
+
+-- ---------------------------------------------------------------------------------------------
 -- contrato.vw_frescor — uma linha: últimas cargas bem-sucedidas (horário de Brasília) e falhas
 -- (RF10). executado_em é gravado em UTC (sessão UTC).
 --   falha_diaria / falha_senado: sem 'incremental' / 'incremental_senado' hoje depois das 09:00
