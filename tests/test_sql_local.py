@@ -1144,8 +1144,6 @@ class PrivilegiosContratosTests(_ComDados):
         self.assertEqual([r[0] for r in self.cur.fetchall()], ["silver.proposicao_acompanhada:confirmada_em"])
         self.conn.rollback()
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 @unittest.skipUnless(TEST_DATABASE_URL, "TEST_DATABASE_URL não definida")
@@ -1219,8 +1217,24 @@ class IndicadoresContratoTests(_ComDados):
         self.assertEqual(self.avaliacoes(uuid_teste(11)), [])
         self.assertEqual([r[0] for r in self.avaliacoes(uuid_teste(12))], ["SIM"])
 
+    def test_substituicao_encadeada_resolve_ate_o_uuid_final(self):
+        for n, ident in ((11, 900011), (12, 900012), (13, 900013)):
+            self.decidir(uuid_teste(n), [ident])
+        for n, rel in ((11, "SIM"), (12, "NAO")):
+            self.cur.execute("""INSERT INTO gestao.historico_alteracao (uuid_projeto, operacao, diferencas, origem, ator_nome)
+                VALUES (%s, 'avaliar', %s, 'aplicacao', 'Ana')""",
+                             (uuid_teste(n), '{"relevancia": {"de": null, "para": "%s"}}' % rel))
+        self.cur.execute("UPDATE gestao.projeto SET substituido_por = %s WHERE uuid = %s", (uuid_teste(12), uuid_teste(11)))
+        self.cur.execute("UPDATE gestao.projeto SET substituido_por = %s WHERE uuid = %s", (uuid_teste(13), uuid_teste(12)))
+        self.assertEqual(self.avaliacoes(uuid_teste(12)), [])
+        self.assertEqual(sorted(r[0] for r in self.avaliacoes(uuid_teste(13))), ["NAO", "SIM"])
+
     def test_app_le_e_anon_nao_le(self):
         for visao in ("contrato.vw_avaliacao", "contrato.vw_audiencia"):
             self.assertTrue(self.contar("SELECT has_table_privilege('legislativo_app', %s, 'SELECT')", visao), visao)
             for papel in ("anon", "authenticated"):
                 self.assertFalse(self.contar("SELECT has_table_privilege(%s, %s, 'SELECT')", papel, visao), (papel, visao))
+
+
+if __name__ == "__main__":
+    unittest.main()

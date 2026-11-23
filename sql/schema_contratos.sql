@@ -502,19 +502,29 @@ FROM api_cache.vw_audiencias_de_interesse a;
 -- ---------------------------------------------------------------------------------------------
 -- contrato.vw_avaliacao — uma linha por evento do histórico que deixou a relevância em SIM ou NAO
 -- (Indicadores do /legislativo). Não entram: o próprio 'desfazer_avaliacao' nem o 'avaliar' que
--- ele desfez (mesmo projeto, revisão seguinte). uuid_projeto já resolve a substituição (um nível).
+-- ele desfez (mesmo projeto, revisão seguinte). uuid_projeto segue substituido_por até o fim, como
+-- vw_associacao (até 20 saltos; um ciclo deixa o evento de fora).
 -- pre_lancamento = veio da planilha (origem 'migracao'): sem data, dia NULL. Senão, dia é o de
 -- Brasília do evento.
 -- ---------------------------------------------------------------------------------------------
 CREATE VIEW contrato.vw_avaliacao AS
+WITH RECURSIVE cadeia AS (
+    SELECT uuid AS uuid_origem, uuid AS uuid_atual, substituido_por, 0 AS saltos
+    FROM gestao.projeto
+    UNION ALL
+    SELECT c.uuid_origem, p.uuid, p.substituido_por, c.saltos + 1
+    FROM cadeia c
+    JOIN gestao.projeto p ON p.uuid = c.substituido_por
+    WHERE c.saltos < 20
+)
 SELECT
     h.id,
-    coalesce(p.substituido_por, h.uuid_projeto) AS uuid_projeto,
+    c.uuid_atual AS uuid_projeto,
     h.diferencas -> 'relevancia' ->> 'para' AS relevancia,
     CASE WHEN h.origem <> 'migracao' THEN (h.em AT TIME ZONE 'America/Sao_Paulo')::date END AS dia,
     h.origem = 'migracao' AS pre_lancamento
 FROM gestao.historico_alteracao h
-JOIN gestao.projeto p ON p.uuid = h.uuid_projeto
+JOIN cadeia c ON c.uuid_origem = h.uuid_projeto AND c.substituido_por IS NULL
 WHERE h.diferencas ? 'relevancia'
   AND h.diferencas -> 'relevancia' ->> 'para' IN ('SIM', 'NAO')
   AND h.operacao <> 'desfazer_avaliacao'
