@@ -1144,5 +1144,97 @@ class PrivilegiosContratosTests(_ComDados):
         self.assertEqual([r[0] for r in self.cur.fetchall()], ["silver.proposicao_acompanhada:confirmada_em"])
         self.conn.rollback()
 
+
+
+@unittest.skipUnless(TEST_DATABASE_URL, "TEST_DATABASE_URL não definida")
+class IndicadoresContratoTests(_ComDados):
+    """Entrega 2: contrato.vw_audiencia (Agenda) e contrato.vw_avaliacao (Indicadores)."""
+
+    def avaliacoes(self, uuid):
+        self.cur.execute("""SELECT relevancia, dia, pre_lancamento FROM contrato.vw_avaliacao
+            WHERE uuid_projeto = %s ORDER BY id""", (uuid,))
+        return self.cur.fetchall()
+
+    def hoje_brasilia(self):
+        return self.contar("SELECT (now() AT TIME ZONE 'America/Sao_Paulo')::date")
+
+    def test_audiencia_status_igual_ao_da_api(self):
+        self.cur.execute("""
+            INSERT INTO silver.evento (id_evento, data_hora_inicio, descricao_tipo, situacao, descricao, sigla_orgao, nome_orgao, url_registro)
+            SELECT x.id, (now() AT TIME ZONE 'America/Sao_Paulo') + x.desloc, 'Audiência Pública', x.situacao,
+                   'Debate sobre a produção de suínos', 'CAPADR', 'Comissão de Agricultura', 'https://exemplo.invalid/' || x.id
+            FROM (VALUES (9200001, interval '2 days', 'Convocada'),
+                         (9200002, interval '-2 days', 'Encerrada'),
+                         (9200003, interval '1 day', 'Adiada'),
+                         (9200004, interval '-1 day', 'Cancelada')) AS x(id, desloc, situacao)""")
+        self.atualizar_cache()
+        self.cur.execute("SELECT id_evento, status FROM contrato.vw_audiencia ORDER BY 1")
+        contrato = self.cur.fetchall()
+        self.cur.execute("SELECT id_evento, status_alerta FROM api.vw_audiencias_de_interesse ORDER BY 1")
+        self.assertEqual(contrato, self.cur.fetchall())
+        self.assertEqual({s for _, s in contrato}, {"Agendada", "Realizada", "Adiada", "Cancelada"})
+        self.cur.execute("SELECT keywords_encontradas, casa FROM contrato.vw_audiencia WHERE id_evento = 9200001")
+        self.assertEqual(self.cur.fetchone()[0], "suínos")
+
+    def test_avaliacao_registra_sim_e_nao_com_dia_de_brasilia(self):
+        a = self.chamar("gestao.avaliar", 900021, "SIM", 0, ATOR, "Ana")
+        self.chamar("gestao.salvar_decisao", a["uuid_projeto"], None, 1, {"relevancia": "NAO"}, ATOR, "Ana")
+        hoje = self.hoje_brasilia()
+        esperado = [("SIM", hoje, False), ("NAO", hoje, False)]
+        self.assertEqual(self.avaliacoes(a["uuid_projeto"]), esperado)
+        self.cur.execute("SET LOCAL TIME ZONE 'UTC'")
+        self.assertEqual(self.avaliacoes(a["uuid_projeto"]), esperado)
+
+    def test_avaliacao_desfeita_nao_conta(self):
+        a = self.chamar("gestao.avaliar", 900031, "SIM", 0, ATOR, "Ana")
+        self.chamar("gestao.desfazer_avaliacao", a["historico_id"], ATOR, "Ana")
+        self.assertEqual(self.avaliacoes(a["uuid_projeto"]), [])
+        # nova avaliação depois do desfazer conta normalmente
+        self.chamar("gestao.avaliar", 900031, "NAO", 2, ATOR, "Ana")
+        self.assertEqual([r[0] for r in self.avaliacoes(a["uuid_projeto"])], ["NAO"])
+
+    def test_relevancia_da_planilha_e_pre_lancamento_sem_dia(self):
+        self.decidir(uuid_teste(21), [900021], "NAO")
+        self.cur.execute("""INSERT INTO gestao.historico_alteracao (uuid_projeto, operacao, diferencas, origem, ator_nome, revisao)
+            VALUES (%s, 'importacao_planilha', '{"relevancia": {"de": null, "para": "NAO"}}', 'migracao', 'Migração', 1)""",
+                         (uuid_teste(21),))
+        self.assertEqual(self.avaliacoes(uuid_teste(21)), [("NAO", None, True)])
+
+    def test_mudanca_sem_relevancia_e_relevancia_para_nulo_nao_entram(self):
+        r = self.chamar("gestao.salvar_decisao", None, 900021, 0, {"posicao": "A favor"}, ATOR, "Ana")
+        self.cur.execute("""INSERT INTO gestao.historico_alteracao (uuid_projeto, operacao, diferencas, origem, ator_nome)
+            VALUES (%s, 'salvar_decisao', '{"relevancia": {"de": "SIM", "para": null}}', 'aplicacao', 'Ana')""",
+                         (r["uuid_projeto"],))
+        self.assertEqual(self.avaliacoes(r["uuid_projeto"]), [])
+
+    def test_projeto_substituido_aparece_pelo_novo_uuid(self):
+        self.decidir(uuid_teste(11), [900011])
+        self.decidir(uuid_teste(12), [900012])
+        self.cur.execute("""INSERT INTO gestao.historico_alteracao (uuid_projeto, operacao, diferencas, origem, ator_nome)
+            VALUES (%s, 'avaliar', '{"relevancia": {"de": null, "para": "SIM"}}', 'aplicacao', 'Ana')""",
+                         (uuid_teste(11),))
+        self.cur.execute("UPDATE gestao.projeto SET substituido_por = %s WHERE uuid = %s", (uuid_teste(12), uuid_teste(11)))
+        self.assertEqual(self.avaliacoes(uuid_teste(11)), [])
+        self.assertEqual([r[0] for r in self.avaliacoes(uuid_teste(12))], ["SIM"])
+
+    def test_substituicao_encadeada_resolve_ate_o_uuid_final(self):
+        for n, ident in ((11, 900011), (12, 900012), (13, 900013)):
+            self.decidir(uuid_teste(n), [ident])
+        for n, rel in ((11, "SIM"), (12, "NAO")):
+            self.cur.execute("""INSERT INTO gestao.historico_alteracao (uuid_projeto, operacao, diferencas, origem, ator_nome)
+                VALUES (%s, 'avaliar', %s, 'aplicacao', 'Ana')""",
+                             (uuid_teste(n), '{"relevancia": {"de": null, "para": "%s"}}' % rel))
+        self.cur.execute("UPDATE gestao.projeto SET substituido_por = %s WHERE uuid = %s", (uuid_teste(12), uuid_teste(11)))
+        self.cur.execute("UPDATE gestao.projeto SET substituido_por = %s WHERE uuid = %s", (uuid_teste(13), uuid_teste(12)))
+        self.assertEqual(self.avaliacoes(uuid_teste(12)), [])
+        self.assertEqual(sorted(r[0] for r in self.avaliacoes(uuid_teste(13))), ["NAO", "SIM"])
+
+    def test_app_le_e_anon_nao_le(self):
+        for visao in ("contrato.vw_avaliacao", "contrato.vw_audiencia"):
+            self.assertTrue(self.contar("SELECT has_table_privilege('legislativo_app', %s, 'SELECT')", visao), visao)
+            for papel in ("anon", "authenticated"):
+                self.assertFalse(self.contar("SELECT has_table_privilege(%s, %s, 'SELECT')", papel, visao), (papel, visao))
+
+
 if __name__ == "__main__":
     unittest.main()

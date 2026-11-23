@@ -32,7 +32,7 @@ Capacidades podem ser concedidas explicitamente a outros usuários sem alterar a
 ### Sucesso e limites
 
 - **Entrega 1, que substitui a planilha:** Ana avalia, posiciona, prioriza e inclui proposições no sistema, sem Sheets. As consultas de agenda, audiências e autoria continuam no Power BI, pelo link público "Publicar na Web" inserido no site. Decisão de 28/10/2026: não há licença Pro, os riscos foram aceitos e o painel não mostra dados sensíveis.
-- **Entrega 2, que substitui o Power BI:** as seis áreas passam a ser telas nativas e o Power BI é desligado.
+- **Entrega 2, que substitui o Power BI:** as seis áreas passam a ser telas nativas e o Power BI é desligado. Construída em 19–23/11/2026 como as abas Agenda (pautas e audiências), Indicadores e Autores e partidos; a aba Painéis sai e seu endereço leva a Indicadores. O Power BI só é desligado depois do aceite da Ana.
 - Toda decisão salva fica disponível imediatamente nas telas nativas e tem autoria e histórico. Enquanto o Power BI existir, ele mostra as decisões com o atraso da sua atualização agendada. A página dele diz isso numa frase, e o próprio relatório mostra "Painel atualizado em".
 - Migração preserva campos, vazios e conflitos; as automações deixam de depender da planilha na Entrega 1.
 - Não podem ser obtidos anonimamente: as tabelas de `gestao`, o histórico de alterações, a autoria das decisões, o parecer e as observações. O que o painel público já mostra (carteira, relevância consolidada, posição e prioridade) continua público por decisão do Erick, por meio de uma projeção com campos fixos (seção 5).
@@ -74,7 +74,7 @@ Usar o login existente da plataforma. Validar identidade, perfil ativo e capacid
 - **Últimas movimentações em 30 dias** (hoje e os 29 dias anteriores, em Brasília): a mais recente de cada projeto da carteira ativa, até 10 itens, com "ver todas", que abre a Carteira ordenada por data.
 - **Fora do Início:** agenda, prioridades e casos a conferir. A agenda está no menu Painéis.
 - Regras de contagem (RN08) ficam em dica, não em texto fixo.
-- **Entrega 2:** reuniões e audiências agendadas, com o rótulo "até dd/mm". É a mesma janela da urgência por pauta (RF09).
+- **Entrega 2:** reuniões e audiências agendadas, com o rótulo "até dd/mm". É a mesma janela da urgência por pauta (RF09). Entregue como bloco de agenda na Visão geral: os próximos itens até essa data, com "ver todos" que abre a aba Agenda.
 
 **Fila de avaliação:**
 - SIM/NÃO na própria linha, em sequência, com atalhos de teclado (setas, S, N e Enter para abrir o detalhe), lembrados numa dica pequena;
@@ -155,6 +155,8 @@ Mostrar total e agendadas, filtro por palavra-chave e tabela com data/hora, casa
 ### RF07 — Autores e partidos (Entrega 2)
 
 Manter gráficos por ano de apresentação, tipo, UF e partido, ranking de autores e filtro de prioridade. Mostrar autores, partidos e UFs distintos disponíveis e quantidade de versões de origem Senado, identificada por `casa = SF`.
+
+Entrega 2 (19/11/2026): volta como tela nativa "Autores e partidos", revendo o D4 de 06/11, que a deixava só no Power BI. A tela mostra os 10 primeiros autores e a exportação traz todos; o clique leva à Carteira com os filtros de autor, partido, UF, ano ou tipo.
 
 O universo é de versões legislativas da carteira filtrada, claramente rotulado; valores ausentes são indicados sem inventar autoria. Contagens distintas de partidos/UFs excluem ausências. Partido e UF são atuais, não históricos da apresentação. Clique em categoria leva à carteira com o filtro correspondente, mostrando a distinção entre versões e projetos.
 
@@ -293,6 +295,8 @@ As versões conhecidas são as do grupo em `silver.proposicao_vinculo`, já em p
 ### RN08 — Unidades dos indicadores
 
 Cards operacionais contam projetos distintos por UUID. Prioridades inclui urgentes; fila não duplica o projeto. Análises de autoria/distribuição contam versões legislativas com denominador explícito. Reuniões são eventos distintos; itens de pauta têm unidade própria. Lista e gráfico compartilham filtros e explicam quando várias versões representam um projeto.
+
+**Pré-lançamento (Entrega 2):** as avaliações importadas da planilha (`origem = 'migracao'`) não têm data confiável. Em Indicadores, elas só entram no período "Desde o início", como pré-lançamento, e nunca num dia ou semana. O lançamento é 06/11/2026 (`contrato.vw_avaliacao`).
 
 ### RN09 — Persistência mínima
 
@@ -437,6 +441,7 @@ Uso só em computador (decisão de 28/10/2026). Celular fica fora do escopo. Pag
 6. **Entrega 2:**
    - Pautas, Audiências, Autores e partidos e o Início completo como telas nativas;
    - depois do aceite, desligar o Power BI e sua credencial.
+   - Construção concluída em 23/11/2026 (plano `docs/superpowers/plans/2026-11-19-legislativo-entrega2.md`); homologação, virada e aceite seguem o passo a passo do plano, com produção só por autorização do Erick.
 
 Este documento não autoriza deploy ou alteração de produção por si só.
 
